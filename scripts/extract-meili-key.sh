@@ -9,13 +9,23 @@ else
   COMPOSE_CMD="docker compose"
 fi
 
+# Step 1: Get logs and find the line with "We generated a new secure master key" and the next line
+# Step 2: Get only the second line (which contains the key)
+# Step 3: Remove container name prefix (e.g., "meilisearch-1  | ")
+# Step 4: Remove leading ">> " if present
+# Step 5: Extract the key value after "--master-key"
+# Step 6: Remove trailing " <<" and anything after it
+# Step 7: Trim any remaining whitespace
 KEY=$($COMPOSE_CMD -f docker-compose.dev.yml logs meilisearch 2>/dev/null | \
   grep -A 1 "We generated a new secure master key" | \
-  tail -1 | \
+  tail -n 1 | \
   sed 's/^[^|]*| *//' | \
-  sed -E 's/.*--master-key ([^ ]+).*/\1/' | \
-  tr -d '><' | \
-  head -1 || true)
+  sed 's/^>> *//' | \
+  sed 's/.*--master-key *//' | \
+  sed 's/ *<<.*$//' | \
+  sed 's/^[[:space:]]*//' | \
+  sed 's/[[:space:]]*$//' | \
+  head -n 1 || true)
 
 if [ -n "$KEY" ]; then
   echo "$KEY"
