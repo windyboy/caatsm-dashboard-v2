@@ -12,8 +12,7 @@ fi
 KEY=$($COMPOSE_CMD -f docker-compose.dev.yml logs meilisearch 2>/dev/null | \
   grep -A 1 "We generated a new secure master key" | \
   tail -1 | \
-  grep -oE '--master-key [^ ]+' | \
-  sed 's/--master-key //' | \
+  sed -E 's/.*--master-key ([^ ]+).*/\1/' | \
   tr -d '><' | \
   head -1 || true)
 
