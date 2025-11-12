@@ -67,3 +67,33 @@ tasks:
     cmds:
       - docker compose down --remove-orphans
 
+  dev:up:
+    desc: "Start development dependencies (Docker/Podman compatible)"
+    cmds:
+      - |
+        if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
+          podman compose -f docker-compose.dev.yml up -d
+        else
+          docker compose -f docker-compose.dev.yml up -d
+        fi
+
+  dev:down:
+    desc: "Stop development dependencies"
+    cmds:
+      - |
+        if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
+          podman compose -f docker-compose.dev.yml down --remove-orphans
+        else
+          docker compose -f docker-compose.dev.yml down --remove-orphans
+        fi
+
+  dev:logs:
+    desc: "Show logs from development dependencies"
+    cmds:
+      - |
+        if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
+          podman compose -f docker-compose.dev.yml logs -f
+        else
+          docker compose -f docker-compose.dev.yml logs -f
+        fi
+

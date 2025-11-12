@@ -115,8 +115,15 @@ goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?s
 ### Run Locally
 
 ```bash
-# Start dependencies (PostgreSQL, Meilisearch, NATS, Redis)
-docker compose up -d postgres meilisearch nats redis
+# Start development dependencies (PostgreSQL, Meilisearch, NATS, Redis)
+# Using Docker:
+docker compose -f docker-compose.dev.yml up -d
+
+# Or using Podman:
+podman compose -f docker-compose.dev.yml up -d
+
+# Or using Task:
+task dev:up
 
 # Generate templ components
 make generate
@@ -130,6 +137,8 @@ make dev
 # Or run directly
 make run
 ```
+
+**Note**: The development compose file (`docker-compose.dev.yml`) only includes dependencies and is compatible with both Docker and Podman. The application runs locally for better development experience with hot reload.
 
 ### Docker Compose
 
@@ -211,7 +220,11 @@ task build          # Build server binary
 task test           # Run tests
 task lint           # Run linter
 task tailwind       # Build Tailwind CSS (watch)
-task docker:up      # Start Docker Compose stack
+task dev:up         # Start development dependencies (Docker/Podman)
+task dev:down       # Stop development dependencies
+task dev:logs       # Show logs from development dependencies
+task docker:up      # Start full Docker Compose stack
+task docker:down    # Stop Docker Compose stack
 ```
 
 ## API Endpoints

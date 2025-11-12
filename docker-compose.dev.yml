@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: timescale/timescaledb:2.23.0-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: caatsm
+      POSTGRES_USER: caatsm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caatsm}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caatsm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    shm_size: 256mb
+    networks:
+      - backend
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: ${MEILI_ENV:-development}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey}
+      MEILI_LOG_LEVEL: ${MEILI_LOG_LEVEL:-DEBUG}
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data_dev:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data_dev:/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - backend
+
+volumes:
+  pg_data_dev:
+  meili_data_dev:
+  nats_data_dev:
+  redis_data_dev:
+
+networks:
+  backend:
+    driver: bridge
+
