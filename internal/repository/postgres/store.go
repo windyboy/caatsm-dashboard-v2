@@ -93,6 +93,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 	}
 
 	results := tx.SendBatch(ctx, batch)
+	// Note: We'll close results explicitly before commit, defer is just a safety net
 	defer results.Close()
 
 	for i := 0; i < len(telegrams); i++ {
@@ -100,6 +101,11 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 		if err != nil {
 			return fmt.Errorf("bulk save telegram %d: %w", i, err)
 		}
+	}
+
+	// Close batch results BEFORE committing - this is required by pgx
+	if err := results.Close(); err != nil {
+		return fmt.Errorf("close batch results: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

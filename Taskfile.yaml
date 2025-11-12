@@ -14,9 +14,17 @@ tasks:
       - go mod tidy
 
   install-deps:
-    desc: "Install npm dependencies"
+    desc: "Install npm dependencies and Go tool dependencies (goose)"
     cmds:
       - npm install
+      - |
+        # Install goose if not already available
+        if ! command -v goose > /dev/null 2>&1; then
+          echo "Installing goose migration tool..."
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+        else
+          echo "goose is already installed"
+        fi
 
   generate:
     desc: "Generate templ components"
@@ -140,8 +148,68 @@ tasks:
           docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
         fi
 
+  migrate:
+    desc: "Run database migrations (uses goose if available, otherwise psql)"
+    cmds:
+      - |
+        # Determine DSN: use env var, extract from config, or use default
+        if [ -n "${CAATSM_DATABASE_DSN:-}" ]; then
+          DSN="${CAATSM_DATABASE_DSN}"
+        elif [ -f "${CAATSM_CONFIG:-config/config.local.toml}" ]; then
+          # Try to extract DSN from config file (look for dsn = "..." in [database] section)
+          DSN=$(grep -A 10 '\[database\]' "${CAATSM_CONFIG:-config/config.local.toml}" | grep -E '^\s*dsn\s*=' | sed -E 's/^\s*dsn\s*=\s*"([^"]+)".*/\1/' | head -1)
+          if [ -z "$DSN" ]; then
+            # Fallback: try any dsn line in the file
+            DSN=$(grep -E '^\s*dsn\s*=' "${CAATSM_CONFIG:-config/config.local.toml}" | sed -E 's/^\s*dsn\s*=\s*"([^"]+)".*/\1/' | head -1)
+          fi
+          if [ -z "$DSN" ]; then
+            DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
+          fi
+        else
+          DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
+        fi
+        
+        echo "Running database migrations..."
+        echo "DSN: ${DSN}"
+        
+        # Try goose first, fallback to psql
+        if command -v goose > /dev/null 2>&1; then
+          echo "Using goose migration tool..."
+          goose -dir migrations postgres "${DSN}" up
+        elif command -v psql > /dev/null 2>&1; then
+          echo "Using psql (goose not found)..."
+          # Extract connection details from DSN for psql
+          # Format: postgres://user:pass@host:port/dbname?params
+          if [[ "$DSN" =~ postgres://([^:]+):([^@]+)@([^:/]+):([^/]+)/([^?]+) ]]; then
+            PGUSER="${BASH_REMATCH[1]}"
+            PGPASSWORD="${BASH_REMATCH[2]}"
+            PGHOST="${BASH_REMATCH[3]}"
+            PGPORT="${BASH_REMATCH[4]}"
+            PGDATABASE="${BASH_REMATCH[5]}"
+            
+            export PGPASSWORD
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/001_create_telegrams_table.up.sql
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/002_create_audit_logs_table.up.sql
+            unset PGPASSWORD
+          else
+            echo "Error: Could not parse DSN format: postgres://user:pass@host:port/dbname"
+            echo "DSN provided: ${DSN}"
+            echo "Please set CAATSM_DATABASE_DSN environment variable with a valid DSN."
+            exit 1
+          fi
+        else
+          echo "Error: Neither goose nor psql found. Please install one of them."
+          echo "  - Install goose: go install github.com/pressly/goose/v3/cmd/goose@latest"
+          echo "  - Install psql: part of PostgreSQL client tools"
+          exit 1
+        fi
+        
+        echo "Migrations completed successfully!"
+
   generate-test-data:
     desc: "Generate test telegram data for development"
     cmds:
-      - go run ./cmd/generate-test-data -count 50
+      - |
+        echo "Note: Ensure migrations are run first (task migrate)"
+        go run ./cmd/generate-test-data -count 50
 
