@@ -109,6 +109,11 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) registerRoutes() {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
+
+	// Serve static files (CSS, favicon, etc.) - register before other routes
+	s.e.Static("/css", "public/css")
+	s.e.File("/favicon.ico", "public/favicon.ico")
+
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())
 	}

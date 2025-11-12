@@ -17,6 +17,8 @@ func NewClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
 		Username: cfg.Username,
 		Password: cfg.Password,
 		DB:       cfg.DB,
+		// Disable identity to avoid maint_notifications error on Redis 7
+		DisableIndentity: true,
 	}
 
 	if cfg.Timeout > 0 {

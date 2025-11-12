@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -23,11 +24,21 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 				requestID = req.Header.Get(echo.HeaderXRequestID)
 			}
 
+			// Get the actual status code - if there's an error, Echo may not have set it yet
+			status := res.Status
+			if err != nil {
+				if httpErr, ok := err.(*echo.HTTPError); ok {
+					status = httpErr.Code
+				} else if status == 0 || status == http.StatusOK {
+					status = http.StatusInternalServerError
+				}
+			}
+
 			fields := []zap.Field{
 				zap.String("remote_ip", c.RealIP()),
 				zap.String("method", req.Method),
 				zap.String("path", req.URL.Path),
-				zap.Int("status", res.Status),
+				zap.Int("status", status),
 				zap.Duration("latency", latency),
 			}
 			if requestID != "" {
@@ -36,7 +47,14 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 
 			if err != nil {
 				fields = append(fields, zap.Error(err))
-				logger.Error("request completed with error", fields...)
+				// Only log as error for 5xx status codes, warn for 4xx
+				if status >= 500 {
+					logger.Error("request completed with error", fields...)
+				} else if status >= 400 {
+					logger.Warn("request completed with client error", fields...)
+				} else {
+					logger.Info("request completed with error", fields...)
+				}
 				return err
 			}
 
