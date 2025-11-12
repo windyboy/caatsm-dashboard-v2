@@ -44,8 +44,11 @@ generate: ## Generate templ components
 tidy: ## Run go mod tidy
 	go mod tidy
 
-tailwind: ## Build Tailwind CSS
-	cd assets && npx tailwindcss -i ./css/input.css -o ../public/css/app.css --watch
+tailwind: ## Build Tailwind CSS (watch mode)
+	npm run tailwind:dev
 
 tailwind-build: ## Build Tailwind CSS once
-	cd assets && npx tailwindcss -i ./css/input.css -o ../public/css/app.css --minify
+	npm run tailwind:build
+
+install-deps: ## Install npm dependencies
+	npm install
