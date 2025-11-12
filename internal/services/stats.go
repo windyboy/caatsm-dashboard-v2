@@ -24,11 +24,12 @@ func NewStatsService(store repository.AnalyticsStore, logger *zap.Logger) StatsS
 }
 
 // TrafficSummary returns aggregated traffic metrics.
+// If no time window is provided, defaults to the last 24 hours.
 func (s *statsService) TrafficSummary(ctx context.Context, window models.TimeWindow) (*models.TrafficSummary, error) {
 	// If no time window is provided, default to last 24 hours
 	if window.Start.IsZero() && window.End.IsZero() {
 		window.End = time.Now()
-		window.Start = window.End.Add(-24 * time.Hour)
+		window.Start = window.End.Add(-DefaultTimeWindow)
 	}
 
 	summary, err := s.store.TrafficSummary(ctx, window)
@@ -45,7 +46,7 @@ func (s *statsService) TrafficSummary(ctx context.Context, window models.TimeWin
 // TopRoutes returns the top routes by message count.
 func (s *statsService) TopRoutes(ctx context.Context, limit int) ([]models.RouteStat, error) {
 	if limit <= 0 {
-		limit = 10
+		limit = DefaultStatsLimit
 	}
 
 	routes, err := s.store.RouteStats(ctx, limit)

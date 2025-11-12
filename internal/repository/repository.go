@@ -24,6 +24,8 @@ type SearchIndex interface {
 	Index(ctx context.Context, telegram *models.Telegram) error
 	BulkIndex(ctx context.Context, telegrams []*models.Telegram) error
 	Delete(ctx context.Context, messageID string) error
+	Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error)
+	SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error)
 }
 
 // StreamConsumer processes live telegram events from NATS JetStream.

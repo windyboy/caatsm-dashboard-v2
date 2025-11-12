@@ -60,7 +60,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return fmt.Errorf("begin transaction for bulk save (%d telegrams): %w", len(telegrams), err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -99,17 +99,21 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 	for i := 0; i < len(telegrams); i++ {
 		_, err := results.Exec()
 		if err != nil {
-			return fmt.Errorf("bulk save telegram %d: %w", i, err)
+			msgID := "unknown"
+			if i < len(telegrams) && telegrams[i] != nil {
+				msgID = telegrams[i].MessageID
+			}
+			return fmt.Errorf("bulk save failed at index %d (message_id: %s, total: %d): %w", i, msgID, len(telegrams), err)
 		}
 	}
 
 	// Close batch results BEFORE committing - this is required by pgx
 	if err := results.Close(); err != nil {
-		return fmt.Errorf("close batch results: %w", err)
+		return fmt.Errorf("close batch results (processed %d/%d telegrams): %w", len(telegrams), len(telegrams), err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return fmt.Errorf("commit transaction after bulk save (%d telegrams): %w", len(telegrams), err)
 	}
 	return nil
 }
@@ -185,7 +189,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 
 	limit := filter.Page.Limit
 	if limit <= 0 {
-		limit = 50
+		limit = DefaultSearchLimit
 	}
 	offset := filter.Page.Offset
 	if offset < 0 {
@@ -244,7 +248,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 			&t.RawData,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("scan telegram: %w", err)
+			return nil, fmt.Errorf("scan telegram row (limit: %d, offset: %d): %w", filter.Page.Limit, filter.Page.Offset, err)
 		}
 		telegrams = append(telegrams, t)
 	}
@@ -344,7 +348,7 @@ func (s *Store) TrafficSummary(ctx context.Context, window models.TimeWindow) (*
 // RouteStats returns top routes.
 func (s *Store) RouteStats(ctx context.Context, limit int) ([]models.RouteStat, error) {
 	if limit <= 0 {
-		limit = 10
+		limit = DefaultRouteStatsLimit
 	}
 
 	query := `

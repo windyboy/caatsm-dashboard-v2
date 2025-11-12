@@ -16,12 +16,10 @@ import (
 
 // searchService implements SearchService using Meilisearch and caching.
 type searchService struct {
-	index      repository.SearchIndex
-	store      repository.TelegramStore
-	cache      *cache.Store
-	logger     *zap.Logger
-	meili      meilisearch.ServiceManager
-	meiliIndex string
+	index  repository.SearchIndex
+	store  repository.TelegramStore
+	cache  *cache.Store
+	logger *zap.Logger
 }
 
 // NewSearchService creates a new SearchService implementation.
@@ -30,16 +28,12 @@ func NewSearchService(
 	store repository.TelegramStore,
 	cache *cache.Store,
 	logger *zap.Logger,
-	meili meilisearch.ServiceManager,
-	meiliIndex string,
 ) SearchService {
 	return &searchService{
-		index:      index,
-		store:      store,
-		cache:      cache,
-		logger:     logger,
-		meili:      meili,
-		meiliIndex: meiliIndex,
+		index:  index,
+		store:  store,
+		cache:  cache,
+		logger: logger,
 	}
 }
 
@@ -47,19 +41,18 @@ func NewSearchService(
 func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
 	// Check cache first
 	cacheKey := s.buildCacheKey(filter)
-	if _, err := s.cache.Get(ctx, cacheKey); err == nil {
-		// Return cached result if available
-		// For simplicity, we'll skip cache deserialization here
-		// In production, you'd deserialize the cached JSON
-	}
-
-	// Build Meilisearch query
-	idx := s.meili.Index(s.meiliIndex)
-
-	searchRequest := &meilisearch.SearchRequest{
-		Query:  filter.Query,
-		Limit:  int64(filter.Page.Limit),
-		Offset: int64(filter.Page.Offset),
+	cached, err := s.cache.Get(ctx, cacheKey)
+	if err == nil {
+		// Cache hit - deserialize and return cached result
+		var cachedResult models.SearchResult
+		if err := json.Unmarshal(cached, &cachedResult); err == nil {
+			s.logger.Debug("cache hit", zap.String("key", cacheKey))
+			return &cachedResult, nil
+		}
+		// If deserialization fails, log warning and continue to fresh query
+		s.logger.Warn("cache deserialization failed", zap.String("key", cacheKey), zap.Error(err))
+	} else {
+		s.logger.Debug("cache miss", zap.String("key", cacheKey))
 	}
 
 	// Build filters
@@ -112,12 +105,13 @@ func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) 
 	}
 
 	// Combine all filters
+	filterStr := ""
 	if len(filterParts) > 0 {
-		filterStr := strings.Join(filterParts, " AND ")
-		searchRequest.Filter = filterStr
+		filterStr = strings.Join(filterParts, " AND ")
 	}
 
-	// Apply sorting
+	// Build sort
+	var sort []string
 	if filter.Page.SortBy != "" {
 		sortBy := filter.Page.SortBy
 		if filter.Page.Order == "ASC" {
@@ -125,18 +119,24 @@ func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) 
 		} else {
 			sortBy += ":desc"
 		}
-		searchRequest.Sort = []string{sortBy}
+		sort = []string{sortBy}
 	}
 
-	// Execute search
-	result, err := idx.Search(filter.Query, searchRequest)
+	// Execute search via interface
+	rawResult, err := s.index.Search(ctx, filter.Query, filterStr, int64(filter.Page.Limit), int64(filter.Page.Offset), sort)
 	if err != nil {
-		return nil, fmt.Errorf("meilisearch query: %w", err)
+		return nil, fmt.Errorf("search index query: %w", err)
+	}
+
+	// Type assert to Meilisearch result
+	meiliResult, ok := rawResult.(*meilisearch.SearchResponse)
+	if !ok {
+		return nil, fmt.Errorf("unexpected search result type")
 	}
 
 	// Convert Meilisearch results to our model
-	telegrams := make([]models.Telegram, 0, len(result.Hits))
-	for _, hit := range result.Hits {
+	telegrams := make([]models.Telegram, 0, len(meiliResult.Hits))
+	for _, hit := range meiliResult.Hits {
 		var telegram models.Telegram
 		// Parse hit into telegram struct using JSON marshaling
 		hitBytes, err := json.Marshal(hit)
@@ -178,29 +178,39 @@ func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) 
 		telegrams = append(telegrams, telegram)
 	}
 
-	// Cache result
-	// In production, you'd serialize the result to JSON and cache it
-	// For now, we'll skip caching
-
 	// Get total from result
-	total := result.EstimatedTotalHits
+	total := meiliResult.EstimatedTotalHits
 	if total <= 0 {
 		// Fallback to totalHits if EstimatedTotalHits is not available
-		total = result.TotalHits
+		total = meiliResult.TotalHits
 	}
 	if total <= 0 {
 		// Fallback to hits length if both are not available
-		total = int64(len(result.Hits))
+		total = int64(len(meiliResult.Hits))
 	}
 	if total == 0 {
 		total = int64(len(telegrams))
 	}
 
-	return &models.SearchResult{
+	searchResult := &models.SearchResult{
 		Telegrams: telegrams,
 		Total:     total,
 		Page:      filter.Page,
-	}, nil
+	}
+
+	// Cache result
+	if resultBytes, err := json.Marshal(searchResult); err == nil {
+		if err := s.cache.Set(ctx, cacheKey, resultBytes); err != nil {
+			// Log error but don't fail the request
+			s.logger.Warn("failed to cache result", zap.String("key", cacheKey), zap.Error(err))
+		} else {
+			s.logger.Debug("cached result", zap.String("key", cacheKey))
+		}
+	} else {
+		s.logger.Warn("failed to marshal result for caching", zap.Error(err))
+	}
+
+	return searchResult, nil
 }
 
 // Autocomplete provides autocomplete suggestions using Meilisearch.
@@ -209,17 +219,16 @@ func (s *searchService) Autocomplete(ctx context.Context, term string, size int)
 		return []string{}, nil
 	}
 
-	idx := s.meili.Index(s.meiliIndex)
-
-	searchRequest := &meilisearch.SearchRequest{
-		Query:                term,
-		Limit:                int64(size),
-		AttributesToRetrieve: []string{"flight_number", "message_id", "source", "destination"},
-	}
-
-	result, err := idx.Search(term, searchRequest)
+	attributes := []string{"flight_number", "message_id", "source", "destination"}
+	searchResult, err := s.index.SearchAutocomplete(ctx, term, int64(size), attributes)
 	if err != nil {
 		return nil, fmt.Errorf("autocomplete query: %w", err)
+	}
+
+	// Type assert to Meilisearch result
+	result, ok := searchResult.(*meilisearch.SearchResponse)
+	if !ok {
+		return nil, fmt.Errorf("unexpected autocomplete result type")
 	}
 
 	suggestions := make([]string, 0, len(result.Hits))
@@ -263,8 +272,45 @@ func (s *searchService) Autocomplete(ctx context.Context, term string, size int)
 	return suggestions, nil
 }
 
+// buildCacheKey generates a deterministic cache key from search filter parameters.
+//
+// Cache key format: "search:{query}:{types}:{sources}:{destinations}:{priorities}:{start}:{end}:{limit}:{offset}:{sortBy}:{order}"
+//
+// This ensures that identical search parameters produce the same cache key,
+// enabling effective cache hits for repeated queries.
 func (s *searchService) buildCacheKey(filter models.SearchFilter) string {
-	// Build a cache key from filter parameters
-	// This is a simplified version; in production, you'd use a proper hash
-	return fmt.Sprintf("search:%s:%v:%v:%v:%v", filter.Query, filter.Type, filter.Source, filter.Destination, filter.Priority)
+	// Build deterministic cache key from all filter parameters
+	key := fmt.Sprintf("search:%s", filter.Query)
+
+	// Add filter arrays
+	if len(filter.Type) > 0 {
+		key += fmt.Sprintf(":types:%v", filter.Type)
+	}
+	if len(filter.Source) > 0 {
+		key += fmt.Sprintf(":sources:%v", filter.Source)
+	}
+	if len(filter.Destination) > 0 {
+		key += fmt.Sprintf(":dests:%v", filter.Destination)
+	}
+	if len(filter.Priority) > 0 {
+		key += fmt.Sprintf(":priorities:%v", filter.Priority)
+	}
+
+	// Add time range
+	if !filter.TimeRange.Start.IsZero() {
+		key += fmt.Sprintf(":start:%d", filter.TimeRange.Start.Unix())
+	}
+	if !filter.TimeRange.End.IsZero() {
+		key += fmt.Sprintf(":end:%d", filter.TimeRange.End.Unix())
+	}
+
+	// Add pagination
+	key += fmt.Sprintf(":limit:%d:offset:%d", filter.Page.Limit, filter.Page.Offset)
+
+	// Add sorting
+	if filter.Page.SortBy != "" {
+		key += fmt.Sprintf(":sort:%s:%s", filter.Page.SortBy, filter.Page.Order)
+	}
+
+	return key
 }

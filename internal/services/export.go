@@ -29,7 +29,7 @@ func NewExportService(searchService SearchService, logger *zap.Logger) ExportSer
 // Export exports search results in the specified format.
 func (e *exportService) Export(ctx context.Context, filter models.SearchFilter, format models.ExportFormat) ([]byte, error) {
 	// Set a higher limit for export
-	filter.Page.Limit = 10000
+	filter.Page.Limit = MaxExportLimit
 	filter.Page.Offset = 0
 
 	result, err := e.searchService.Search(ctx, filter)

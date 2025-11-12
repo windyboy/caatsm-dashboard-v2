@@ -39,7 +39,11 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	e.Use(observability.Correlation())
 	e.Use(observability.RequestLogger(logger))
 
-	container, err := app.New(context.Background(), cfg, logger)
+	// Create initialization context with timeout for app setup
+	initCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	container, err := app.New(initCtx, cfg, logger)
 	if err != nil {
 		return nil, err
 	}

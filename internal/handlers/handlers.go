@@ -42,7 +42,7 @@ func (h *Handler) Search(ctx echo.Context) error {
 	filter := models.SearchFilter{
 		Query: ctx.FormValue("query"),
 		Page: models.Pagination{
-			Limit:  50,
+			Limit:  DefaultPageLimit,
 			Offset: 0,
 			SortBy: "time",
 			Order:  "desc",
@@ -142,7 +142,7 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 	sizeStr := ctx.QueryParam("size")
 	size, _ := strconv.Atoi(sizeStr)
 	if size <= 0 {
-		size = 5
+		size = DefaultAutocompleteSize
 	}
 
 	suggestions, err := h.container.SearchService.Autocomplete(ctx.Request().Context(), ctx.QueryParam("term"), size)
@@ -162,11 +162,8 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 }
 
 func (h *Handler) StatsTotal(ctx echo.Context) error {
-	window := models.TimeWindow{
-		End: time.Now(),
-	}
-	// Default to last 24 hours
-	window.Start = window.End.Add(-24 * time.Hour)
+	// Use empty TimeWindow - service layer will apply default (last 24 hours)
+	window := models.TimeWindow{}
 
 	summary, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
@@ -179,11 +176,8 @@ func (h *Handler) StatsTotal(ctx echo.Context) error {
 }
 
 func (h *Handler) StatsPriority(ctx echo.Context) error {
-	window := models.TimeWindow{
-		End: time.Now(),
-	}
-	// Default to last 24 hours
-	window.Start = window.End.Add(-24 * time.Hour)
+	// Use empty TimeWindow - service layer will apply default (last 24 hours)
+	window := models.TimeWindow{}
 
 	stats, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
@@ -255,13 +249,28 @@ func (h *Handler) Export(ctx echo.Context) error {
 	return ctx.Blob(http.StatusOK, contentType, payload)
 }
 
+// Stream provides a Server-Sent Events (SSE) endpoint for real-time telegram updates.
+//
+// Status: Placeholder implementation
+//
+// Intended implementation:
+//   - Connect to NATS JetStream consumer (see internal/repository/nats/consumer.go)
+//   - Subscribe to telegram events stream
+//   - Forward events to client via SSE format
+//   - Handle client disconnections gracefully
+//   - Implement heartbeat/ping messages to keep connection alive
+//
+// Architecture notes:
+//   - NATS consumer is already implemented in cmd/sync/main.go for background processing
+//   - This endpoint would provide real-time updates to web dashboard
+//   - Consider using the same StreamConsumer interface used by sync worker
 func (h *Handler) Stream(ctx echo.Context) error {
 	ctx.Response().Header().Set("Content-Type", "text/event-stream")
 	ctx.Response().Header().Set("Cache-Control", "no-cache")
 	ctx.Response().Header().Set("Connection", "keep-alive")
 
-	// TODO: Connect to NATS/event stream and send messages
-	// For now, send a placeholder
+	// Placeholder: Return not implemented message
+	// TODO: Implement NATS consumer integration for real-time streaming
 	fmt.Fprintf(ctx.Response().Writer, "data: <p class=\"text-slate-500\">Stream not yet implemented</p>\n\n")
 	ctx.Response().Flush()
 
@@ -269,7 +278,15 @@ func (h *Handler) Stream(ctx echo.Context) error {
 }
 
 func (h *Handler) Health(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	health := h.container.HealthCheck(ctx.Request().Context())
+
+	// Return 200 if all components are healthy, 503 if degraded
+	statusCode := http.StatusOK
+	if health.Status == "degraded" {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	return ctx.JSON(statusCode, health)
 }
 
 func render(component templ.Component) echo.HandlerFunc {

@@ -131,3 +131,47 @@ func (i *Index) Delete(ctx context.Context, messageID string) error {
 
 	return nil
 }
+
+// Search performs a search query on the Meilisearch index.
+func (i *Index) Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error) {
+	idx := i.client.Index(i.index)
+
+	searchRequest := &meilisearch.SearchRequest{
+		Query:  query,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	if filter != "" {
+		searchRequest.Filter = filter
+	}
+
+	if len(sort) > 0 {
+		searchRequest.Sort = sort
+	}
+
+	result, err := idx.Search(query, searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("meilisearch search: %w", err)
+	}
+
+	return result, nil
+}
+
+// SearchAutocomplete performs an autocomplete search on the Meilisearch index.
+func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error) {
+	idx := i.client.Index(i.index)
+
+	searchRequest := &meilisearch.SearchRequest{
+		Query:                query,
+		Limit:                limit,
+		AttributesToRetrieve: attributes,
+	}
+
+	result, err := idx.Search(query, searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("meilisearch autocomplete: %w", err)
+	}
+
+	return result, nil
+}
