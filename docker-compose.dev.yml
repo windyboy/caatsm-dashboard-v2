@@ -1,9 +1,17 @@
 # version: "3.9"
 
+# Load .env.local if it exists, otherwise fall back to .env
+# Docker Compose and Podman Compose will automatically read .env file
+# For .env.local, we need to explicitly reference it in environment variables
+# or use env_file in services (but that's per-service, not global)
+
 services:
   postgres:
     image: timescale/timescaledb:2.23.0-pg16
     restart: unless-stopped
+    env_file:
+      - .env.local
+      - .env
     environment:
       POSTGRES_DB: caatsm
       POSTGRES_USER: caatsm
@@ -24,6 +32,9 @@ services:
   meilisearch:
     image: getmeili/meilisearch:v1.11
     restart: unless-stopped
+    env_file:
+      - .env.local
+      - .env
     environment:
       MEILI_ENV: ${MEILI_ENV:-development}
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey}

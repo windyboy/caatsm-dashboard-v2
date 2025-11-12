@@ -71,6 +71,20 @@ tasks:
     desc: "Start development dependencies (Docker/Podman compatible)"
     cmds:
       - |
+        # Ensure .env.local exists
+        if [ ! -f .env.local ]; then
+          if [ -f env.local.example ]; then
+            cp env.local.example .env.local
+            echo "Created .env.local from env.local.example"
+          fi
+        fi
+        # Load .env.local if it exists (for compose variable substitution)
+        if [ -f .env.local ]; then
+          set -a
+          . .env.local
+          set +a
+        fi
+        # Start development dependencies
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
           podman compose -f docker-compose.dev.yml up -d
         else
