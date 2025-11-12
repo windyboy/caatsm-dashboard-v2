@@ -131,12 +131,12 @@ tasks:
       - go run ./cmd/server -config config/config.local.toml
 
   dev:meili-key:
-    desc: "Extract Meilisearch master key from container logs"
+    desc: "Extract Meilisearch master key from container logs and update .env.local"
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>/dev/null | ./scripts/extract-meili-key.sh
+          podman compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
         else
-          docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>/dev/null | ./scripts/extract-meili-key.sh
+          docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
         fi
 
