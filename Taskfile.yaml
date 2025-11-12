@@ -120,23 +120,22 @@ tasks:
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          KEY=$$(podman compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep -A 1 "We generated a new secure master key" | grep "--master-key" | sed -E 's/.*--master-key ([^ ]+).*/\1/' | head -1)
+          podman compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep -A 1 "We generated a new secure master key" | grep "--master-key" | sed -E 's/.*--master-key ([^ ]+).*/\1/' | head -1 | while read -r KEY; do
+            if [ -n "$$KEY" ]; then
+              echo "$$KEY"
+              echo ""
+              echo "To use this key, update your .env.local:"
+              echo "CAATSM_MEILISEARCH_API_KEY=$$KEY"
+            fi
+          done || echo "Could not find generated master key in logs. Check manually: podman compose -f docker-compose.dev.yml logs meilisearch"
         else
-          KEY=$$(docker compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep -A 1 "We generated a new secure master key" | grep "--master-key" | sed -E 's/.*--master-key ([^ ]+).*/\1/' | head -1)
-        fi
-        if [ -n "$$KEY" ]; then
-          echo "$$KEY"
-          echo ""
-          echo "To use this key, update your .env.local:"
-          echo "CAATSM_MEILISEARCH_API_KEY=$$KEY"
-        else
-          echo "Could not find generated master key in logs."
-          echo "If you set MEILI_MASTER_KEY in docker-compose.dev.yml, use that value."
-          echo "Otherwise, check the logs manually:"
-          if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-            echo "  podman compose -f docker-compose.dev.yml logs meilisearch"
-          else
-            echo "  docker compose -f docker-compose.dev.yml logs meilisearch"
-          fi
+          docker compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep -A 1 "We generated a new secure master key" | grep "--master-key" | sed -E 's/.*--master-key ([^ ]+).*/\1/' | head -1 | while read -r KEY; do
+            if [ -n "$$KEY" ]; then
+              echo "$$KEY"
+              echo ""
+              echo "To use this key, update your .env.local:"
+              echo "CAATSM_MEILISEARCH_API_KEY=$$KEY"
+            fi
+          done || echo "Could not find generated master key in logs. Check manually: docker compose -f docker-compose.dev.yml logs meilisearch"
         fi
 
