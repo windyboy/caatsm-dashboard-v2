@@ -68,6 +68,75 @@
 - NATS Server
 - Redis 7+
 
+### Development Utilities & Dependencies
+
+The following development tools and dependencies are required for the dev commands:
+
+#### Required Tools
+
+- **air** - Hot reload tool for Go development
+  ```bash
+  go install github.com/cosmtrek/air@latest
+  ```
+
+- **templ** - Templating tool (automatically installed via `go run`)
+  - Used via: `go run github.com/a-h/templ/cmd/templ@v0.3.960 generate`
+  - Required for: `make generate`, `task generate`, and `task dev`
+
+- **golangci-lint** - Go linter (optional but recommended)
+  ```bash
+  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+  ```
+
+- **task** - Task runner (optional, for Taskfile commands)
+  ```bash
+  # macOS
+  brew install go-task/tap/go-task
+  
+  # Linux
+  sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+  ```
+
+- **goose** - Database migration tool (optional)
+  ```bash
+  go install github.com/pressly/goose/v3/cmd/goose@latest
+  ```
+
+#### NPM Dependencies
+
+Install Node.js dependencies for Tailwind CSS:
+
+```bash
+npm install
+```
+
+This installs:
+- `tailwindcss` - CSS framework
+- `@tailwindcss/forms` - Form plugin
+- `@tailwindcss/typography` - Typography plugin
+- `autoprefixer` - CSS post-processor
+- `postcss` - CSS transformer
+
+**Note**: The `task dev` command automatically checks and installs npm dependencies if missing, and builds Tailwind CSS if `public/css/app.css` doesn't exist.
+
+#### Development Command Dependencies
+
+- `task dev` / `make dev`:
+  - Depends on: `generate` (templ), npm dependencies, Tailwind CSS build
+  - Requires: `air` tool
+
+- `task build` / `make build`:
+  - Depends on: `generate` (templ)
+
+- `task dev:run`:
+  - Depends on: `generate` (templ)
+
+- `task lint` / `make lint`:
+  - Requires: `golangci-lint` tool
+
+- `task tailwind` / `make tailwind`:
+  - Requires: npm dependencies installed
+
 ### Installation
 
 ```bash
