@@ -97,3 +97,31 @@ tasks:
           docker compose -f docker-compose.dev.yml logs -f
         fi
 
+  dev:config:
+    desc: "Setup local development configuration"
+    cmds:
+      - |
+        if [ ! -f .env.local ]; then
+          cp env.local.example .env.local
+          echo "Created .env.local from env.local.example"
+          echo "Please edit .env.local with your settings"
+        else
+          echo ".env.local already exists, skipping..."
+        fi
+
+  dev:run:
+    desc: "Run application with local config file"
+    deps: [generate]
+    cmds:
+      - go run ./cmd/server -config config/config.local.toml
+
+  dev:meili-key:
+    desc: "Extract Meilisearch master key from container logs"
+    cmds:
+      - |
+        if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
+          podman compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep "master key" | sed -n 's/.*master key \([^ ]*\).*/\1/p' | head -1 || echo "Could not find master key. Make sure meilisearch container is running."
+        else
+          docker compose -f docker-compose.dev.yml logs meilisearch 2>/dev/null | grep "master key" | sed -n 's/.*master key \([^ ]*\).*/\1/p' | head -1 || echo "Could not find master key. Make sure meilisearch container is running."
+        fi
+

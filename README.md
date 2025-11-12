@@ -78,7 +78,14 @@ go mod tidy
 
 ### Configuration
 
-All configuration values live in `config/config.toml` and can be overridden with environment variables prefixed with `CAATSM_`. See `env.example` for a starter set.
+All configuration values live in `config/config.toml` and can be overridden with environment variables prefixed with `CAATSM_`. 
+
+For local development:
+- Use `config/config.local.toml` for TOML-based configuration (uses `localhost` addresses)
+- Use `.env.local` for environment variables (copy from `env.local.example`)
+- The loader automatically loads `.env.local` (if exists) before `.env`
+
+See `env.example` and `env.local.example` for starter sets.
 
 ```toml
 [server]
@@ -114,8 +121,33 @@ goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?s
 
 ### Run Locally
 
+#### 1. Setup Local Configuration (Optional)
+
+For local development, you can use either:
+
+**Option A: TOML Configuration File**
 ```bash
-# Start development dependencies (PostgreSQL, Meilisearch, NATS, Redis)
+# Use the local development config file
+./bin/caatsm -config config/config.local.toml
+```
+
+**Option B: Environment Variables**
+```bash
+# Copy the example file and customize
+cp env.local.example .env.local
+
+# Edit .env.local with your settings
+# If Meilisearch generates a new master key, update CAATSM_MEILISEARCH_API_KEY
+```
+
+The configuration loader will automatically:
+- Load `.env.local` (if exists) for local overrides
+- Load `.env` for shared defaults
+- Use `config/config.local.toml` if specified with `-config` flag
+
+#### 2. Start Development Dependencies
+
+```bash
 # Using Docker:
 docker compose -f docker-compose.dev.yml up -d
 
@@ -124,21 +156,31 @@ podman compose -f docker-compose.dev.yml up -d
 
 # Or using Task:
 task dev:up
+```
 
+#### 3. Run the Application
+
+```bash
 # Generate templ components
 make generate
 
 # Build Tailwind CSS
 make tailwind-build
 
-# Run with hot reload
+# Run with hot reload (uses default config or .env.local)
 make dev
+
+# Or run with specific config file
+./bin/caatsm -config config/config.local.toml
 
 # Or run directly
 make run
 ```
 
-**Note**: The development compose file (`docker-compose.dev.yml`) only includes dependencies and is compatible with both Docker and Podman. The application runs locally for better development experience with hot reload.
+**Note**: 
+- The development compose file (`docker-compose.dev.yml`) only includes dependencies and is compatible with both Docker and Podman.
+- The application runs locally for better development experience with hot reload.
+- If Meilisearch generates a new master key, update it in `.env.local` or `config/config.local.toml`.
 
 ### Docker Compose
 
@@ -220,9 +262,12 @@ task build          # Build server binary
 task test           # Run tests
 task lint           # Run linter
 task tailwind       # Build Tailwind CSS (watch)
+task dev:config     # Setup local development configuration (.env.local)
 task dev:up         # Start development dependencies (Docker/Podman)
 task dev:down       # Stop development dependencies
 task dev:logs       # Show logs from development dependencies
+task dev:run        # Run application with local config file
+task dev:meili-key  # Extract Meilisearch master key from logs
 task docker:up      # Start full Docker Compose stack
 task docker:down    # Stop Docker Compose stack
 ```

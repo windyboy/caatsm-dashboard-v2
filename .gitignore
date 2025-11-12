@@ -18,4 +18,8 @@ node_modules/
 
 # Secrets
 .env
+.env.local
+# But allow example files
+!.env.example
+!.env.local.example
 

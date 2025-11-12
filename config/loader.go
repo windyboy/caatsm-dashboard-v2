@@ -11,7 +11,10 @@ import (
 
 // Load constructs AppConfig by merging configuration file and environment variables.
 // When cfgPath is empty the loader searches for config.toml in ./config.
+// Environment variables are loaded from .env.local (if exists) and .env files.
 func Load(cfgPath string) (*AppConfig, error) {
+	// Load .env.local first (local overrides), then .env (shared defaults)
+	_ = godotenv.Load(".env.local")
 	_ = godotenv.Load()
 
 	v := viper.New()
