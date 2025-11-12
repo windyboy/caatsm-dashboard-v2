@@ -44,7 +44,7 @@ tasks:
     desc: "Build server binary"
     deps: [generate]
     cmds:
-      - go build -o bin/caatsm ./cmd/server
+      - go build -buildvcs=false -o bin/caatsm ./cmd/server
 
   test:
     desc: "Run Go tests"
