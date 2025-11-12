@@ -11,8 +11,10 @@ fi
 
 KEY=$($COMPOSE_CMD -f docker-compose.dev.yml logs meilisearch 2>/dev/null | \
   grep -A 1 "We generated a new secure master key" | \
-  grep -e "--master-key" | \
-  sed -E 's/.*--master-key ([^ ]+).*/\1/' | \
+  tail -1 | \
+  grep -oE '--master-key [^ ]+' | \
+  sed 's/--master-key //' | \
+  tr -d '><' | \
   head -1 || true)
 
 if [ -n "$KEY" ]; then
