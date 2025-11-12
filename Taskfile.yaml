@@ -20,7 +20,7 @@ tasks:
 
   dev:
     desc: "Run API server with hot reload"
-    deps: [generate]
+    deps: [generate, tailwind:build]
     cmds:
       - air
 
