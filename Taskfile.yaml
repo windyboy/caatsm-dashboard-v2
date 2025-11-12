@@ -21,7 +21,7 @@ tasks:
   generate:
     desc: "Generate templ components"
     cmds:
-      - go run github.com/a-h/templ/cmd/templ@v0.3.960 generate
+      - go run github.com/a-h/templ/cmd/templ@latest generate
 
   dev:
     desc: "Run API server with hot reload"
@@ -139,4 +139,9 @@ tasks:
         else
           docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
         fi
+
+  generate-test-data:
+    desc: "Generate test telegram data for development"
+    cmds:
+      - go run ./cmd/generate-test-data -count 50
 

@@ -5,6 +5,9 @@
 # Build artifacts
 public/css/app.css
 
+# Generated files
+*_templ.go
+
 # Go
 *.test
 

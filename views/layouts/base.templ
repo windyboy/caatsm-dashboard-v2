@@ -1,7 +1,7 @@
 package layouts
 
 // Base is the root layout for all pages.
-templ Base(title string) {
+templ Base(title string, content templ.Component) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -24,7 +24,7 @@ templ Base(title string) {
 				</div>
 			</header>
 			<main class="mx-auto max-w-6xl px-6 py-8">
-				@templ.GetChildren(ctx)
+				@content
 			</main>
 		</body>
 	</html>

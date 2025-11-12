@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/a-h/templ"
@@ -97,11 +98,44 @@ func (h *Handler) Search(ctx echo.Context) error {
 	result, err := h.container.SearchService.Search(ctx.Request().Context(), filter)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": err.Error()})
+			return ctx.HTML(http.StatusNotImplemented, "<p class=\"text-slate-500\">Search not available</p>")
 		}
 		return err
 	}
-	return ctx.JSON(http.StatusOK, result)
+
+	// Build HTML response
+	var html strings.Builder
+	html.WriteString(fmt.Sprintf("<p class=\"text-sm text-slate-400 mb-4\">Found %d results</p>", result.Total))
+	if len(result.Telegrams) > 0 {
+		html.WriteString("<div class=\"space-y-2\">")
+		for _, t := range result.Telegrams {
+			html.WriteString(fmt.Sprintf(`
+			<div class="rounded border border-slate-800 p-4">
+				<div class="flex justify-between mb-2">
+					<span class="font-medium">%s</span>
+					<span class="text-xs text-slate-500">%s</span>
+				</div>
+				<p class="text-sm text-slate-300">%s</p>
+				<div class="mt-2 flex gap-2 text-xs text-slate-400">
+					<span>Type: %s</span>
+					<span>Priority: %d</span>
+					<span>%s → %s</span>
+				</div>
+			</div>`,
+				t.MessageID,
+				t.Time.Format("2006-01-02 15:04:05"),
+				t.Content,
+				t.Type,
+				t.Priority,
+				t.Source,
+				t.Destination))
+		}
+		html.WriteString("</div>")
+	} else {
+		html.WriteString("<p class=\"text-slate-500\">No results found</p>")
+	}
+
+	return ctx.HTML(http.StatusOK, html.String())
 }
 
 func (h *Handler) Autocomplete(ctx echo.Context) error {
@@ -114,12 +148,17 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 	suggestions, err := h.container.SearchService.Autocomplete(ctx.Request().Context(), ctx.QueryParam("term"), size)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": err.Error()})
+			return ctx.HTML(http.StatusNotImplemented, "")
 		}
 		return err
 	}
 
-	return ctx.JSON(http.StatusOK, suggestions)
+	var html strings.Builder
+	for _, suggestion := range suggestions {
+		html.WriteString(fmt.Sprintf("<div class=\"cursor-pointer hover:text-slate-200 p-1\">%s</div>", suggestion))
+	}
+
+	return ctx.HTML(http.StatusOK, html.String())
 }
 
 func (h *Handler) StatsTotal(ctx echo.Context) error {
@@ -132,13 +171,11 @@ func (h *Handler) StatsTotal(ctx echo.Context) error {
 	summary, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": err.Error()})
+			return ctx.HTML(http.StatusNotImplemented, "<span class=\"text-slate-500\">Not available</span>")
 		}
 		return err
 	}
-	return ctx.JSON(http.StatusOK, map[string]interface{}{
-		"total": summary.TotalMessages,
-	})
+	return ctx.HTML(http.StatusOK, fmt.Sprintf("%d", summary.TotalMessages))
 }
 
 func (h *Handler) StatsPriority(ctx echo.Context) error {
@@ -151,14 +188,24 @@ func (h *Handler) StatsPriority(ctx echo.Context) error {
 	stats, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": err.Error()})
+			return ctx.HTML(http.StatusNotImplemented, "<p class=\"text-slate-500\">Not available</p>")
 		}
 		return err
 	}
-	return ctx.JSON(http.StatusOK, map[string]interface{}{
-		"by_priority": stats.ByPriority,
-		"by_type":     stats.ByType,
-	})
+
+	// Build HTML for priority breakdown
+	var html strings.Builder
+	if len(stats.ByPriority) > 0 {
+		for priority, count := range stats.ByPriority {
+			html.WriteString(fmt.Sprintf(
+				"<div class=\"flex justify-between\"><span>Priority %d</span><span class=\"font-medium\">%d</span></div>",
+				priority, count))
+		}
+	} else {
+		html.WriteString("<p class=\"text-slate-500\">No data</p>")
+	}
+
+	return ctx.HTML(http.StatusOK, html.String())
 }
 
 func (h *Handler) Export(ctx echo.Context) error {
@@ -209,7 +256,16 @@ func (h *Handler) Export(ctx echo.Context) error {
 }
 
 func (h *Handler) Stream(ctx echo.Context) error {
-	return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": repository.ErrNotImplemented.Error()})
+	ctx.Response().Header().Set("Content-Type", "text/event-stream")
+	ctx.Response().Header().Set("Cache-Control", "no-cache")
+	ctx.Response().Header().Set("Connection", "keep-alive")
+
+	// TODO: Connect to NATS/event stream and send messages
+	// For now, send a placeholder
+	fmt.Fprintf(ctx.Response().Writer, "data: <p class=\"text-slate-500\">Stream not yet implemented</p>\n\n")
+	ctx.Response().Flush()
+
+	return nil
 }
 
 func (h *Handler) Health(ctx echo.Context) error {
