@@ -1,0 +1,69 @@
+version: "3"
+
+vars:
+  GO_MODULE: github.com/windy/caatsm-dashboard
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  tidy:
+    desc: "Run go mod tidy"
+    cmds:
+      - go mod tidy
+
+  generate:
+    desc: "Generate templ components"
+    cmds:
+      - go run github.com/a-h/templ/cmd/templ@v0.3.960 generate
+
+  dev:
+    desc: "Run API server with hot reload"
+    deps: [generate]
+    cmds:
+      - air
+
+  build:
+    desc: "Build server binary"
+    deps: [generate]
+    cmds:
+      - go build -o bin/caatsm ./cmd/server
+
+  test:
+    desc: "Run Go tests"
+    cmds:
+      - go test ./...
+
+  lint:
+    desc: "Run golangci-lint"
+    cmds:
+      - golangci-lint run ./...
+
+  tailwind:
+    desc: "Build Tailwind CSS"
+    dir: assets
+    cmds:
+      - npx tailwindcss -i ./css/input.css -o ../public/css/app.css --watch
+
+  tailwind:build:
+    desc: "Build Tailwind CSS once"
+    dir: assets
+    cmds:
+      - npx tailwindcss -i ./css/input.css -o ../public/css/app.css --minify
+
+  docker:build:
+    desc: "Build application container"
+    cmds:
+      - docker build -t caatsm-dashboard:latest .
+
+  docker:up:
+    desc: "Start docker-compose stack"
+    cmds:
+      - docker compose up --build
+
+  docker:down:
+    desc: "Stop docker-compose stack"
+    cmds:
+      - docker compose down --remove-orphans
+

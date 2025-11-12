@@ -1,0 +1,21 @@
+# Binaries
+/bin/
+/tmp/
+
+# Build artifacts
+public/css/app.css
+
+# Go
+*.test
+
+# Node
+node_modules/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets
+.env
+

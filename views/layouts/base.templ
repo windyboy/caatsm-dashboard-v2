@@ -1,0 +1,32 @@
+package layouts
+
+// Base is the root layout for all pages.
+templ Base(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+			<meta name="viewport" content="width=device-width,initial-scale=1"/>
+			<title>{ title } · CAATSM Dashboard</title>
+			<link rel="stylesheet" href="/css/app.css"/>
+			<script src="https://unpkg.com/htmx.org@2.0.0"></script>
+			<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+		</head>
+		<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+			<header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur">
+				<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+					<h1 class="text-xl font-semibold tracking-tight">CAATSM Dashboard</h1>
+					<nav class="flex gap-4 text-sm text-slate-300">
+						<a href="/" class="hover:text-slate-50 transition">Overview</a>
+						<a href="/search" class="hover:text-slate-50 transition">Search</a>
+					</nav>
+				</div>
+			</header>
+			<main class="mx-auto max-w-6xl px-6 py-8">
+				@templ.GetChildren(ctx)
+			</main>
+		</body>
+	</html>
+}
+

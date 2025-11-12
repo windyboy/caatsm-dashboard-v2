@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.skeleton {
+  @apply animate-pulse bg-slate-800/50 rounded;
+}
+
