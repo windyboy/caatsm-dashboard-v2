@@ -71,24 +71,11 @@ tasks:
     desc: "Start development dependencies (Docker/Podman compatible)"
     cmds:
       - |
-        # Ensure .env.local exists
-        if [ ! -f .env.local ]; then
-          if [ -f env.local.example ]; then
-            cp env.local.example .env.local
-            echo "Created .env.local from env.local.example"
-          fi
-        fi
-        # Load .env.local if it exists (for compose variable substitution)
-        if [ -f .env.local ]; then
-          set -a
-          . .env.local
-          set +a
-        fi
-        # Start development dependencies
+        # Start development dependencies with .env.local
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml up -d
+          podman compose -f docker-compose.dev.yml --env-file .env.local up -d
         else
-          docker compose -f docker-compose.dev.yml up -d
+          docker compose -f docker-compose.dev.yml --env-file .env.local up -d
         fi
 
   dev:down:
@@ -96,9 +83,9 @@ tasks:
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml down --remove-orphans
+          podman compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
         else
-          docker compose -f docker-compose.dev.yml down --remove-orphans
+          docker compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
         fi
 
   dev:logs:
@@ -106,9 +93,9 @@ tasks:
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml logs -f
+          podman compose -f docker-compose.dev.yml --env-file .env.local logs -f
         else
-          docker compose -f docker-compose.dev.yml logs -f
+          docker compose -f docker-compose.dev.yml --env-file .env.local logs -f
         fi
 
   dev:config:
@@ -132,5 +119,10 @@ tasks:
   dev:meili-key:
     desc: "Extract Meilisearch master key from container logs"
     cmds:
-      - ./scripts/extract-meili-key.sh
+      - |
+        if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
+          podman compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>/dev/null | ./scripts/extract-meili-key.sh
+        else
+          docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>/dev/null | ./scripts/extract-meili-key.sh
+        fi
 
