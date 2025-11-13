@@ -10,7 +10,7 @@
 - 📊 **Analytics**: PostgreSQL + TimescaleDB for time-series data
 - 🚀 **Scalable**: Redis caching, connection pooling, and async processing
 - 📈 **Observability**: Prometheus + Grafana for metrics and monitoring
-- 🔒 **Secure**: BasicAuth/JWT authentication, rate limiting, audit logging
+- 🔒 **Security**: Optional Basic Auth middleware with planned JWT, rate limiting, and audit logging enhancements
 
 ## Architecture
 
