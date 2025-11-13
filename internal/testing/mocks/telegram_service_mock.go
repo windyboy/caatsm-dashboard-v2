@@ -8,7 +8,6 @@ import (
 )
 
 // TelegramServiceMock is a mock implementation of application.TelegramService
-// Note: We don't import application package to avoid import cycles
 type TelegramServiceMock struct {
 	mock.Mock
 }

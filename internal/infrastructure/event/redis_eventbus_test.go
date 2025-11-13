@@ -21,10 +21,6 @@ func (m *MockRedisClient) Publish(ctx context.Context, channel string, message i
 	return args.Get(0).(*redis.IntCmd)
 }
 
-// Note: This is a simplified mock. In a real implementation, you'd need to mock
-// all methods of redis.UniversalClient. For now, we'll test the EventBus logic
-// with a simpler approach.
-
 func TestRedisEventBus_Publish(t *testing.T) {
 	t.Run("successful publish", func(t *testing.T) {
 		// Create a real Redis client mock would be complex

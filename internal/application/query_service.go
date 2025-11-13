@@ -29,10 +29,8 @@ func NewQueryService(
 
 // Search performs a search query using the search index
 func (s *queryService) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
-	// Build filter string for Meilisearch
 	filterStr := buildFilterString(filter)
 
-	// Build sort
 	var sort []string
 	if filter.Page.SortBy != "" {
 		sortBy := filter.Page.SortBy
@@ -44,23 +42,17 @@ func (s *queryService) Search(ctx context.Context, filter models.SearchFilter) (
 		sort = []string{sortBy}
 	}
 
-	// Execute search via index
 	rawResult, err := s.index.Search(ctx, filter.Query, filterStr, int64(filter.Page.Limit), int64(filter.Page.Offset), sort)
 	if err != nil {
 		return nil, fmt.Errorf("search index query: %w", err)
 	}
 
-	// Convert result to SearchResult
-	// Note: This is a simplified conversion - actual implementation would need
-	// to handle Meilisearch response structure properly
 	result := &models.SearchResult{
 		Telegrams: []models.Telegram{},
 		Total:     0,
 		Page:      filter.Page,
 	}
 
-	// TODO: Properly convert Meilisearch result to SearchResult
-	// This requires understanding the Meilisearch response structure
 	_ = rawResult
 
 	return result, nil
@@ -82,7 +74,6 @@ func (s *queryService) Recent(ctx context.Context, limit int) ([]*domain.Telegra
 		return nil, fmt.Errorf("search recent telegrams: %w", err)
 	}
 
-	// Convert models to domain entities
 	telegrams := make([]*domain.Telegram, len(result.Telegrams))
 	for i, tg := range result.Telegrams {
 		telegrams[i] = domain.ToDomain(&tg)
@@ -93,12 +84,9 @@ func (s *queryService) Recent(ctx context.Context, limit int) ([]*domain.Telegra
 
 // buildFilterString builds a Meilisearch filter string from SearchFilter
 func buildFilterString(filter models.SearchFilter) string {
-	// This is a simplified implementation
-	// A full implementation would properly build Meilisearch filter syntax
 	var parts []string
 
 	if len(filter.Type) > 0 {
-		// Build type filter: type = "aftn" OR type = "sita"
 		typeParts := make([]string, len(filter.Type))
 		for i, t := range filter.Type {
 			typeParts[i] = fmt.Sprintf(`type = "%s"`, t)

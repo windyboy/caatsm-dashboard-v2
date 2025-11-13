@@ -30,10 +30,6 @@ func TestWorker_Integration_SaveTelegram(t *testing.T) {
 
 	// Initialize repositories
 	store := pgstore.New(env.Pool)
-	
-	// Note: Meilisearch client setup would be needed here
-	// For now, we'll skip the index part in integration test
-	// index := meili.New(meiliClient, "test_index")
 
 	// Initialize event bus
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")

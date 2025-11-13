@@ -25,7 +25,7 @@ func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
 	return &Consumer{js: js, stream: stream, consumer: consumer}
 }
 
-// SetHandler sets the message handler function.
+// SetHandler sets the message handler.
 func (c *Consumer) SetHandler(handler func(context.Context, *models.Telegram) error) {
 	c.handler = handler
 }
@@ -134,22 +134,16 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			for _, msg := range msgs {
 				var telegram models.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
-					// Log error but acknowledge to avoid reprocessing
-					// Note: We can't log here without a logger, but the handler will log errors
 					msg.Ack()
 					continue
 				}
 
-				// Validate that we got a valid telegram
 				if telegram.MessageID == "" {
-					// Invalid message, acknowledge to avoid reprocessing
 					msg.Ack()
 					continue
 				}
 
 				if err := c.handler(ctx, &telegram); err != nil {
-					// Handler will log the error, we just need to handle the message
-					// Use Nak() to allow retry, but limit retries via MaxDeliver config
 					msg.Nak()
 					continue
 				}

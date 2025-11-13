@@ -250,16 +250,13 @@ func (h *Handler) Stream(ctx echo.Context) error {
 
 	h.container.Logger.Info("SSE connection established", zap.String("remote_addr", ctx.RealIP()))
 
-	// Helper function to safely write SSE data with error handling
 	writeSSE := func(eventType, data string) error {
-		// Check if context is done before writing
 		select {
 		case <-ctx.Request().Context().Done():
 			return ctx.Request().Context().Err()
 		default:
 		}
 
-		// Check if response is already committed (connection might be closed)
 		if ctx.Response().Committed {
 			return fmt.Errorf("response already committed, connection may be closed")
 		}
@@ -269,25 +266,15 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			return fmt.Errorf("write SSE data: %w", err)
 		}
 
-		// Flush immediately to send data
 		ctx.Response().Flush()
 		return nil
 	}
 
-	// Helper function to format SSE data (handle multi-line HTML)
 	formatSSEData := func(html string) string {
-		// For SSE, we can send multi-line data by prefixing each line with "data: "
-		// However, for HTMX SSE extension, single-line data works better
-		// Normalize line endings first
 		cleaned := strings.ReplaceAll(html, "\r\n", "\n")
 		cleaned = strings.ReplaceAll(cleaned, "\r", "\n")
-		// Trim leading/trailing whitespace
 		cleaned = strings.TrimSpace(cleaned)
-		// Replace newlines with single space to create single-line HTML
-		// This preserves HTML structure while making it SSE-compatible
 		cleaned = strings.ReplaceAll(cleaned, "\n", " ")
-		// Collapse multiple consecutive spaces to single space
-		// This is safe for HTML as browsers normalize whitespace anyway
 		for strings.Contains(cleaned, "  ") {
 			cleaned = strings.ReplaceAll(cleaned, "  ", " ")
 		}
@@ -355,7 +342,6 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			case <-ctx.Request().Context().Done():
 				return nil
 			default:
-				// Check if response is committed before writing
 				if ctx.Response().Committed {
 					return nil
 				}
@@ -388,7 +374,6 @@ func (h *Handler) Stream(ctx echo.Context) error {
 				// Extract telegram from event
 				telegramData, ok := eventData["telegram"].(map[string]interface{})
 				if ok {
-					// Convert to Telegram model
 					var telegram models.Telegram
 					telegramBytes, _ := json.Marshal(telegramData)
 					if err := json.Unmarshal(telegramBytes, &telegram); err == nil {

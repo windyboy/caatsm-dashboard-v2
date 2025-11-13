@@ -28,7 +28,7 @@ func NewWorker(consumer repository.StreamConsumer, telegramService application.T
 	}
 }
 
-// Handle processes a single telegram message.
+// Handle processes a telegram message.
 func (w *Worker) Handle(ctx context.Context, telegram *models.Telegram) error {
 	w.logger.Info("worker received telegram",
 		zap.String("message_id", telegram.MessageID),
@@ -38,28 +38,22 @@ func (w *Worker) Handle(ctx context.Context, telegram *models.Telegram) error {
 		zap.String("route", fmt.Sprintf("%s -> %s", telegram.Source, telegram.Destination)),
 	)
 
-	// Convert models.Telegram to domain.Telegram
 	domainTelegram := domain.ToDomain(telegram)
 
-	// Validate using domain rules
 	if err := domainTelegram.Validate(); err != nil {
 		w.logger.Warn("invalid telegram data",
 			zap.String("message_id", telegram.MessageID),
 			zap.Error(err),
 		)
-		// Return ErrBadData - this should ACK the message (don't retry)
 		return fmt.Errorf("%w: %v", ErrBadData, err)
 	}
 
-	// Use Application Service to save telegram
-	// This handles: validation, save, index, and event publishing
 	if err := w.telegramService.SaveTelegram(ctx, domainTelegram); err != nil {
 		w.logger.Error("failed to save telegram via application service",
 			zap.Error(err),
 			zap.String("message_id", telegram.MessageID),
 			zap.String("type", telegram.Type),
 		)
-		// Return ErrAppFailure - this should NACK the message (retry)
 		return fmt.Errorf("%w: %v", ErrAppFailure, err)
 	}
 
@@ -73,19 +67,16 @@ func (w *Worker) Handle(ctx context.Context, telegram *models.Telegram) error {
 
 // Run starts the worker loop.
 func (w *Worker) Run(ctx context.Context) error {
-	// Set up handler for NATS consumer
 	if natsConsumer, ok := w.consumer.(*natsrepo.Consumer); ok {
 		natsConsumer.SetHandler(w.Handle)
 	}
 
-	// Start consuming messages
 	if err := w.consumer.Start(ctx); err != nil {
 		return fmt.Errorf("start consumer: %w", err)
 	}
 
 	w.logger.Info("sync worker started")
 
-	// Wait for context cancellation
 	<-ctx.Done()
 
 	w.logger.Info("sync worker stopped")

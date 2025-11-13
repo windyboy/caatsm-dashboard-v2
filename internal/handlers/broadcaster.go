@@ -105,7 +105,6 @@ func (b *EventBroadcaster) StartRedisListener() {
 	select {
 	case msg := <-ch:
 		if msg != nil {
-			// This is the subscription confirmation message
 			b.logger.Info("subscription confirmed",
 				zap.String("channel", msg.Channel),
 				zap.String("kind", msg.Payload))

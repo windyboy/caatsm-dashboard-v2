@@ -29,7 +29,6 @@ func (v *Validator) ValidateICAOCode(code string) bool {
 	if len(code) != 4 {
 		return false
 	}
-	// Check if all characters are uppercase letters
 	for _, r := range code {
 		if r < 'A' || r > 'Z' {
 			return false

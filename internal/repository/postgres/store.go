@@ -93,7 +93,6 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 	}
 
 	results := tx.SendBatch(ctx, batch)
-	// Note: We'll close results explicitly before commit, defer is just a safety net
 	defer results.Close()
 
 	for i := 0; i < len(telegrams); i++ {
