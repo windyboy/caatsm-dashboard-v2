@@ -460,6 +460,8 @@ go test -v -race -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out -o coverage.html
 ```
 
+For detailed testing documentation, see [TESTING.md](TESTING.md) and [internal/testing/README.md](internal/testing/README.md).
+
 ## Contributing
 
 1. Fork the repository
