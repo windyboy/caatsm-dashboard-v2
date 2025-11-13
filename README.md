@@ -17,7 +17,7 @@
 ```
 ┌───────────────────────────────────────┐
 │                前端层                  │
-│ HTMX + Alpine.js + Tailwind + templ    │
+│ HTMX + Alpine.js + UnoCSS + templ      │
 │  ├─ Dashboard 仪表盘 (SSE 实时刷新)      │
 │  ├─ 搜索结果视图 (HTMX 局部渲染)          │
 │  └─ 历史记录 / 导出页面 (分页)            │
@@ -61,7 +61,7 @@
 ### Prerequisites
 
 - Go 1.25+
-- Node.js 20+ (for Tailwind assets)
+- Node.js 20+ (for UnoCSS assets)
 - Docker & Docker Compose (for containerized services)
 - PostgreSQL 15+ (or TimescaleDB)
 - Meilisearch
@@ -104,25 +104,25 @@ The following development tools and dependencies are required for the dev comman
 
 #### NPM Dependencies
 
-Install Node.js dependencies for Tailwind CSS:
+Install Node.js dependencies for UnoCSS:
 
 ```bash
 npm install
 ```
 
 This installs:
-- `tailwindcss` - CSS framework
-- `@tailwindcss/forms` - Form plugin
-- `@tailwindcss/typography` - Typography plugin
-- `autoprefixer` - CSS post-processor
-- `postcss` - CSS transformer
+- `unocss` - Atomic CSS engine (Tailwind-compatible)
+- `@unocss/preset-wind3` - Wind preset for Tailwind-like utilities
+- `@unocss/preset-typography` - Typography plugin
+- `@unocss/transformer-directives` - CSS directive transformer
+- `@unocss/reset` - CSS reset
 
-**Note**: The `task dev` command automatically checks and installs npm dependencies if missing, and builds Tailwind CSS if `public/css/app.css` doesn't exist.
+**Note**: The `task dev` command automatically checks and installs npm dependencies if missing, and builds UnoCSS if `public/css/app.css` doesn't exist.
 
 #### Development Command Dependencies
 
 - `task dev` / `make dev`:
-  - Depends on: `generate` (templ), npm dependencies, Tailwind CSS build
+  - Depends on: `generate` (templ), npm dependencies, UnoCSS build
   - Requires: `air` tool
 
 - `task build` / `make build`:
@@ -134,7 +134,7 @@ This installs:
 - `task lint` / `make lint`:
   - Requires: `golangci-lint` tool
 
-- `task tailwind` / `make tailwind`:
+- `task unocss` / `make unocss`:
   - Requires: npm dependencies installed
 
 ### Installation
@@ -173,6 +173,9 @@ index = "telegrams"
 url = "nats://localhost:4222"
 stream = "telegrams"
 consumer = "dashboard-sync"
+
+[redis]
+addr = "localhost:6379"
 ```
 
 ### Database Setup
@@ -232,8 +235,8 @@ task dev:up
 # Generate templ components
 make generate
 
-# Build Tailwind CSS
-make tailwind-build
+# Build UnoCSS
+make unocss-build
 
 # Run with hot reload (uses default config or .env.local)
 make dev
@@ -275,7 +278,9 @@ This will start:
 caatsm/
 ├─ cmd/
 │  ├─ server/             # Main service entry point
-│  └─ sync/               # Background sync worker
+│  ├─ sync/               # Background sync worker
+│  ├─ generate-test-data/ # Test data generator
+│  └─ publish-stream/     # NATS message publisher for testing
 ├─ config/
 │  ├─ config.go           # Configuration structs
 │  ├─ loader.go           # Viper config loader
@@ -296,7 +301,7 @@ caatsm/
 │  ├─ auth/               # Authentication middleware
 │  └─ models/             # Data models
 ├─ views/                 # templ templates
-├─ assets/                # Tailwind/PostCSS sources
+├─ assets/                # UnoCSS sources
 ├─ public/                # Generated static assets
 ├─ migrations/            # Database migrations
 ├─ scripts/               # Utility scripts
@@ -313,8 +318,8 @@ make lint          # Run linter
 make run           # Run the application
 make dev           # Run with hot reload (air)
 make generate      # Generate templ components
-make tailwind      # Build Tailwind CSS (watch mode)
-make tailwind-build # Build Tailwind CSS once
+make unocss        # Build UnoCSS (watch mode)
+make unocss-build  # Build UnoCSS once
 make docker-build  # Build Docker image
 make docker-up     # Start Docker Compose stack
 make docker-down   # Stop Docker Compose stack
@@ -329,7 +334,7 @@ task dev            # Start hot reload server
 task build          # Build server binary
 task test           # Run tests
 task lint           # Run linter
-task tailwind       # Build Tailwind CSS (watch)
+task unocss         # Build UnoCSS (watch)
 task dev:config     # Setup local development configuration (.env.local)
 task dev:up         # Start development dependencies (Docker/Podman)
 task dev:down       # Stop development dependencies
@@ -351,6 +356,7 @@ task docker:down    # Stop Docker Compose stack
 
 - `GET /api/stats/total` - Total message count (24h)
 - `GET /api/stats/priority` - Priority breakdown
+- `GET /api/stats/type` - Message type breakdown
 
 ### Export
 
@@ -379,12 +385,17 @@ export CAATSM_REDIS_ADDR="redis.example.com:6379"
 
 ```bash
 goose -dir migrations postgres "$CAATSM_DATABASE_DSN" up
+# or
+task migrate
 ```
 
 3. **Build and Run**:
 
 ```bash
 make build
+# or
+task build
+
 ./bin/caatsm -config /path/to/config.toml
 ```
 
@@ -422,6 +433,8 @@ Import Grafana dashboards from `deploy/grafana/` (coming soon).
 ```bash
 # Run all tests
 make test
+# or
+task test
 
 # Run tests with coverage
 go test -v -race -coverprofile=coverage.out ./...
@@ -445,5 +458,6 @@ MIT © 2025 Windy
 - [Echo](https://echo.labstack.com/) - High-performance HTTP framework
 - [Meilisearch](https://www.meilisearch.com/) - Fast, typo-tolerant search
 - [NATS](https://nats.io/) - Cloud-native messaging
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [UnoCSS](https://unocss.com/) - Instant atomic CSS engine
 - [HTMX](https://htmx.org/) - Hypermedia-driven web applications
+- [templ](https://templ.guide/) - Type-safe templating for Go
