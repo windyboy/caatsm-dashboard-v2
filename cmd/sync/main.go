@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"github.com/windy/caatsm-dashboard/config"
+	"github.com/windy/caatsm-dashboard/internal/application"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/observability"
 	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
 	natsClient "github.com/windy/caatsm-dashboard/internal/platform/nats"
@@ -76,12 +78,21 @@ func main() {
 	}
 	defer nc.Close()
 
+	// Initialize repositories
 	store := pgstore.New(pool)
 	index := meili.New(meiliSvc, cfg.Meilisearch.Index)
+
+	// Initialize event bus
+	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
+
+	// Initialize application service
+	telegramService := application.NewTelegramService(store, index, eventBus, logger)
+
+	// Initialize NATS consumer
 	streamConsumer := natsrepo.New(js, cfg.NATS.Stream, cfg.NATS.Consumer)
 
-	worker := sync.NewWorker(streamConsumer, store, index, logger)
-	worker.SetRedisClient(redisCli) // Enable Redis pub/sub for real-time updates
+	// Create worker with application service
+	worker := sync.NewWorker(streamConsumer, telegramService, logger)
 	if err := worker.Run(ctx); err != nil {
 		logger.Error("worker terminated", zap.Error(err))
 		os.Exit(1)

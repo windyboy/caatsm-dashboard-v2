@@ -9,9 +9,19 @@ help: ## Show this help message
 build: ## Build the application
 	go build -o bin/caatsm ./cmd/server
 
-test: ## Run tests
+test: ## Run all tests (unit + integration)
 	go test -v -race -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
+
+test-unit: ## Run unit tests only
+	go test -v -race -coverprofile=coverage.out -short ./...
+	go tool cover -html=coverage.out -o coverage.html
+
+test-integration: ## Run integration tests only
+	go test -v -race -tags=integration ./...
+
+race: ## Run tests with race detector
+	go test -race ./...
 
 lint: ## Run linter
 	golangci-lint run ./...
