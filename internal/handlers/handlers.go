@@ -41,6 +41,7 @@ func Register(e *echo.Echo, c *app.Container, broadcaster *EventBroadcaster) {
 	api.GET("/autocomplete", h.Autocomplete)
 	api.GET("/stats/total", h.StatsTotal)
 	api.GET("/stats/priority", h.StatsPriority)
+	api.GET("/stats/type", h.StatsType)
 	api.GET("/export", h.Export)
 	api.GET("/stream", h.Stream)
 	api.GET("/health", h.Health)
@@ -159,6 +160,21 @@ func (h *Handler) StatsPriority(ctx echo.Context) error {
 	}
 
 	return render(components.StatsPriority(stats.ByPriority))(ctx)
+}
+
+func (h *Handler) StatsType(ctx echo.Context) error {
+	// Use empty TimeWindow - service layer will apply default (last 24 hours)
+	window := models.TimeWindow{}
+
+	stats, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotImplemented) {
+			return render(components.ErrorMessage("Not available"))(ctx)
+		}
+		return err
+	}
+
+	return render(components.StatsType(stats.ByType))(ctx)
 }
 
 func (h *Handler) Export(ctx echo.Context) error {
@@ -284,7 +300,10 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			data := formatSSEData(buf.String())
 			if err := writeSSE("stats-total", data); err != nil {
 				h.container.Logger.Warn("failed to write initial stats-total", zap.Error(err))
-				return err
+				// Don't return on initial stats failure - continue with connection
+				if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+					return err
+				}
 			}
 		}
 
@@ -294,7 +313,24 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			data := formatSSEData(buf.String())
 			if err := writeSSE("stats-priority", data); err != nil {
 				h.container.Logger.Warn("failed to write initial stats-priority", zap.Error(err))
-				return err
+				// Don't return on initial stats failure - continue with connection
+				if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+					return err
+				}
+			}
+		}
+
+		// Send type breakdown update
+		typeHTML := components.StatsType(summary.ByType)
+		buf.Reset()
+		if err := typeHTML.Render(ctx.Request().Context(), &buf); err == nil {
+			data := formatSSEData(buf.String())
+			if err := writeSSE("stats-type", data); err != nil {
+				h.container.Logger.Warn("failed to write initial stats-type", zap.Error(err))
+				// Don't return on initial stats failure - continue with connection
+				if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+					return err
+				}
 			}
 		}
 	}
@@ -363,7 +399,12 @@ func (h *Handler) Stream(ctx echo.Context) error {
 								zap.Int("html_length", len(data)))
 							if err := writeSSE("message", data); err != nil {
 								h.container.Logger.Warn("failed to write message", zap.Error(err))
-								return err
+								// Don't return here - continue processing other events
+								// Only return if context is done or connection is truly closed
+								if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+									return err
+								}
+								// Continue to stats update even if message write failed
 							}
 							h.container.Logger.Info("sent message event to client",
 								zap.String("message_id", telegram.MessageID),
@@ -391,7 +432,11 @@ func (h *Handler) Stream(ctx echo.Context) error {
 					data := formatSSEData(buf.String())
 					if err := writeSSE("stats-total", data); err != nil {
 						h.container.Logger.Warn("failed to write stats-total update", zap.Error(err))
-						return err
+						// Don't return here - continue processing
+						if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+							return err
+						}
+						// Continue to try sending priority stats
 					}
 					h.container.Logger.Debug("sent stats-total event", zap.Int64("total", summary.TotalMessages))
 				}
@@ -403,9 +448,29 @@ func (h *Handler) Stream(ctx echo.Context) error {
 					data := formatSSEData(buf.String())
 					if err := writeSSE("stats-priority", data); err != nil {
 						h.container.Logger.Warn("failed to write stats-priority update", zap.Error(err))
-						return err
+						// Don't return here - continue processing other events
+						if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+							return err
+						}
+						// Continue processing
 					}
 					h.container.Logger.Debug("sent stats-priority event")
+				}
+
+				// Send type breakdown update
+				typeHTML := components.StatsType(summary.ByType)
+				buf.Reset()
+				if err := typeHTML.Render(ctx.Request().Context(), &buf); err == nil {
+					data := formatSSEData(buf.String())
+					if err := writeSSE("stats-type", data); err != nil {
+						h.container.Logger.Warn("failed to write stats-type update", zap.Error(err))
+						// Don't return here - continue processing other events
+						if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+							return err
+						}
+						// Continue processing
+					}
+					h.container.Logger.Debug("sent stats-type event")
 				}
 			} else {
 				h.container.Logger.Warn("failed to get traffic summary", zap.Error(err))

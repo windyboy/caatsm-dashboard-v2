@@ -16,8 +16,9 @@ FROM node:${NODE_VERSION}-bookworm AS assets
 WORKDIR /assets
 COPY assets ./assets
 COPY views ./views
-RUN npm install -g tailwindcss@3.4.14 @tailwindcss/forms @tailwindcss/typography
-RUN tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify --config ./assets/tailwind.config.js
+COPY uno.config.ts package.json package-lock.json ./
+RUN npm install
+RUN npm run unocss:build
 
 FROM base AS builder
 COPY --from=templ /app /app

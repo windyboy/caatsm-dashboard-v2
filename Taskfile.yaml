@@ -37,14 +37,14 @@ tasks:
     cmds:
       - |
         # Ensure npm dependencies are installed
-        if [ ! -d node_modules ] || [ ! -f node_modules/tailwindcss/package.json ] 2>/dev/null; then
+        if [ ! -d node_modules ] || [ ! -f node_modules/unocss/package.json ] 2>/dev/null; then
           echo "Installing npm dependencies..."
           npm install
         fi
-        # Build Tailwind CSS if not exists
+        # Build UnoCSS if not exists
         if [ ! -f public/css/app.css ]; then
-          echo "Building Tailwind CSS..."
-          npm run tailwind:build
+          echo "Building UnoCSS..."
+          npm run unocss:build
         fi
       - air
 
@@ -64,15 +64,15 @@ tasks:
     cmds:
       - golangci-lint run ./...
 
-  tailwind:
-    desc: "Build Tailwind CSS"
+  unocss:
+    desc: "Build UnoCSS (watch mode)"
     cmds:
-      - npm run tailwind:dev
+      - npm run unocss:dev
 
-  tailwind:build:
-    desc: "Build Tailwind CSS once"
+  unocss:build:
+    desc: "Build UnoCSS once"
     cmds:
-      - npm run tailwind:build
+      - npm run unocss:build
 
   docker:build:
     desc: "Build application container"

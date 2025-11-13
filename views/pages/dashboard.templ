@@ -6,51 +6,162 @@ import (
 
 // DashboardContent renders the dashboard content section.
 templ DashboardContent() {
-	<section class="space-y-6" hx-ext="sse" sse-connect="/api/stream">
+	<style>
+		/* 消息组件颜色类 - 直接定义确保生效 */
+		.bg-purple-50\/80 { background-color: rgba(250, 245, 255, 0.8) !important; }
+		.bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
+		.text-purple-700 { color: rgb(126, 34, 206) !important; }
+		.group:hover .group-hover\:bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
+		
+		.bg-emerald-50\/80 { background-color: rgba(236, 253, 245, 0.8) !important; }
+		.bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
+		.text-emerald-700 { color: rgb(4, 120, 87) !important; }
+		.group:hover .group-hover\:bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
+		
+		.bg-sky-50\/80 { background-color: rgba(240, 249, 255, 0.8) !important; }
+		.bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
+		.text-sky-700 { color: rgb(3, 105, 161) !important; }
+		.group:hover .group-hover\:bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
+		
+		.bg-rose-50\/80 { background-color: rgba(255, 241, 242, 0.8) !important; }
+		.bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
+		.text-rose-700 { color: rgb(190, 18, 60) !important; }
+		.group:hover .group-hover\:bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
+		
+		.bg-violet-50\/80 { background-color: rgba(245, 243, 255, 0.8) !important; }
+		.bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
+		.text-violet-700 { color: rgb(109, 40, 217) !important; }
+		.group:hover .group-hover\:bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
+		
+		.bg-amber-50\/80 { background-color: rgba(255, 251, 235, 0.8) !important; }
+		.bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
+		.text-amber-700 { color: rgb(180, 83, 9) !important; }
+		.group:hover .group-hover\:bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
+		
+		.bg-slate-50\/80 { background-color: rgba(248, 250, 252, 0.8) !important; }
+		.bg-slate-100\/80 { background-color: rgba(241, 245, 249, 0.8) !important; }
+		.bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
+		.text-slate-500 { color: rgb(100, 116, 139) !important; }
+		.text-slate-600 { color: rgb(71, 85, 105) !important; }
+		.text-slate-700 { color: rgb(51, 65, 85) !important; }
+		.text-slate-800 { color: rgb(30, 41, 59) !important; }
+		.group:hover .group-hover\:bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
+		.group:hover .group-hover\:text-slate-800 { color: rgb(30, 41, 59) !important; }
+		.group:hover .group-hover\:text-slate-700 { color: rgb(51, 65, 85) !important; }
+		
+		/* Traffic Snapshot 类型统计颜色类 */
+		.bg-sky-100\/80 { background-color: rgba(224, 242, 254, 0.8) !important; }
+		.group:hover .group-hover\:bg-sky-200\/80 { background-color: rgba(186, 230, 253, 0.8) !important; }
+		
+		.bg-rose-100\/80 { background-color: rgba(255, 228, 230, 0.8) !important; }
+		.group:hover .group-hover\:bg-rose-200\/80 { background-color: rgba(254, 205, 211, 0.8) !important; }
+		
+		.bg-emerald-100\/80 { background-color: rgba(209, 250, 229, 0.8) !important; }
+		.group:hover .group-hover\:bg-emerald-200\/80 { background-color: rgba(167, 243, 208, 0.8) !important; }
+		
+		.bg-violet-100\/80 { background-color: rgba(237, 233, 254, 0.8) !important; }
+		.group:hover .group-hover\:bg-violet-200\/80 { background-color: rgba(221, 214, 254, 0.8) !important; }
+		
+		.bg-amber-100\/80 { background-color: rgba(254, 243, 199, 0.8) !important; }
+		.group:hover .group-hover\:bg-amber-200\/80 { background-color: rgba(253, 230, 138, 0.8) !important; }
+		
+		.bg-slate-100\/80 { background-color: rgba(241, 245, 249, 0.8) !important; }
+		.group:hover .group-hover\:bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
+	</style>
+	<section class="space-y-8" hx-ext="sse" sse-connect="/api/stream">
 		<div class="grid gap-6 lg:grid-cols-3">
-			<div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900/40 p-6 shadow-lg">
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2">
-						<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-						<h2 class="text-lg font-medium text-slate-200">Live Stream</h2>
+			<div class="lg:col-span-2 rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
+				<div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-200/60">
+					<div class="flex items-center gap-3">
+						<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-md shadow-emerald-500/50"></div>
+						<h2 class="text-xl font-bold text-slate-800 tracking-tight">Live Stream</h2>
 					</div>
-					<span class="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-md">Real-time updates</span>
+					<span class="text-xs text-emerald-700 bg-emerald-50/80 px-3 py-1 rounded-md font-medium border border-emerald-200/50 shadow-sm">
+						Real-time
+					</span>
 				</div>
-				<div class="h-96 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/60 p-4 space-y-3 scroll-smooth" 
-					 id="live-stream" 
+				<div class="overflow-y-auto scrollbar-thin rounded-lg bg-slate-100/30 p-5 space-y-3 scroll-smooth h-[800px] max-h-[800px] min-h-[800px] border-0 shadow-inner" 
+					 style="height: 800px; max-height: 800px; min-height: 800px; overflow-y: auto;"
+					 id="live-stream"
 					 sse-swap="message"
 					 hx-swap="afterbegin"
 					 x-data="{ 
+						maxMessages: 50,
 						scrollToTop() { 
 							this.$nextTick(() => {
 								this.$el.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
 							});
+						},
+						removePlaceholder() {
+							const placeholder = this.$el.querySelector('#waiting-placeholder');
+							if (placeholder) {
+								placeholder.remove();
+							}
+						},
+						limitMessages() {
+							const messages = Array.from(this.$el.children).filter(
+								el => !el.id || el.id !== 'waiting-placeholder'
+							);
+							
+							if (messages.length > this.maxMessages) {
+								const toRemove = messages.slice(this.maxMessages);
+								toRemove.forEach(msg => {
+									msg.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out';
+									msg.style.opacity = '0';
+									msg.style.transform = 'translateY(-10px)';
+									msg.style.maxHeight = msg.offsetHeight + 'px';
+									setTimeout(() => {
+										msg.style.maxHeight = '0';
+										msg.style.marginBottom = '0';
+										setTimeout(() => msg.remove(), 300);
+									}, 50);
+								});
+							}
 						}
 					 }"
-					 @htmx:after-swap="scrollToTop()"
-					 @htmx:sse-message.window="if ($event.detail && $event.detail.event === 'message') { $nextTick(() => { scrollToTop(); }); }">
-					<p class="text-sm text-slate-500 text-center py-8">Waiting for telegrams...</p>
+					 @htmx:after-swap="scrollToTop(); removePlaceholder(); limitMessages()"
+					 @htmx:sse-message.window="if ($event.detail && $event.detail.event === 'message') { $nextTick(() => { scrollToTop(); removePlaceholder(); limitMessages(); }); }">
+					<p id="waiting-placeholder" class="text-sm text-slate-400 text-center py-12 font-medium">Waiting for telegrams...</p>
 				</div>
 			</div>
-			<div class="rounded-xl border border-slate-800 bg-slate-900/40 p-6 shadow-lg">
-				<h2 class="mb-4 text-lg font-medium text-slate-200">Traffic Snapshot</h2>
+			<div class="rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
+				<div class="mb-6 pb-4 border-b border-slate-200/60">
+					<h2 class="text-xl font-bold text-slate-800 tracking-tight">
+						Traffic Snapshot
+					</h2>
+				</div>
 				<div class="space-y-4">
-					<div class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-						<p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Total Messages (24h)</p>
-						<div class="text-3xl font-semibold text-slate-100" 
+					<div class="rounded-lg bg-gradient-to-br from-slate-50/60 to-white/90 p-5 hover:from-slate-100/70 hover:to-white transition-all duration-200 stats-card-glow border-0">
+						<p class="text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Total Messages (24h)</p>
+						<div class="text-2xl font-bold text-slate-900" 
 							 sse-swap="stats-total"
 							 hx-get="/api/stats/total" 
 							 hx-trigger="load" 
 							 hx-swap="innerHTML">--</div>
 					</div>
-					<div class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-						<p class="text-xs uppercase tracking-wider text-slate-500 mb-3">Priority Breakdown</p>
-						<div class="space-y-2 text-sm text-slate-300" 
+					<div class="rounded-lg bg-gradient-to-br from-slate-50/60 to-white/90 p-5 hover:from-slate-100/70 hover:to-white transition-all duration-200 stats-card-glow border-0">
+						<p class="text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Priority Breakdown</p>
+						<div class="space-y-2 text-sm text-slate-700 max-h-[150px] overflow-y-auto scrollbar-thin" 
 							 sse-swap="stats-priority"
 							 hx-get="/api/stats/priority" 
 							 hx-trigger="load" 
 							 hx-swap="innerHTML">
-							<p class="text-slate-500 text-center py-2">Loading...</p>
+							<div class="flex items-center justify-center py-4">
+								<div class="skeleton w-full h-8 rounded-md"></div>
+							</div>
+						</div>
+					</div>
+					<div class="rounded-lg bg-gradient-to-br from-slate-50/60 to-white/90 p-5 hover:from-slate-100/70 hover:to-white transition-all duration-200 stats-card-glow border-0">
+						<p class="text-xs uppercase tracking-widest text-slate-500 mb-3 font-bold">Type Breakdown</p>
+						<div id="stats-type-container" 
+							 class="space-y-2 text-sm text-slate-700 max-h-[200px] overflow-y-auto scrollbar-thin" 
+							 sse-swap="stats-type"
+							 hx-get="/api/stats/type" 
+							 hx-trigger="load" 
+							 hx-swap="innerHTML">
+							<div class="flex items-center justify-center py-4">
+								<div class="skeleton w-full h-8 rounded-md"></div>
+							</div>
 						</div>
 					</div>
 				</div>

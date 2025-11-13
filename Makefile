@@ -44,11 +44,11 @@ generate: ## Generate templ components
 tidy: ## Run go mod tidy
 	go mod tidy
 
-tailwind: ## Build Tailwind CSS (watch mode)
-	npm run tailwind:dev
+unocss: ## Build UnoCSS (watch mode)
+	npm run unocss:dev
 
-tailwind-build: ## Build Tailwind CSS once
-	npm run tailwind:build
+unocss-build: ## Build UnoCSS once
+	npm run unocss:build
 
 install-deps: ## Install npm dependencies
 	npm install

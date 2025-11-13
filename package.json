@@ -3,15 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "tailwind:dev": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --watch --config ./assets/tailwind.config.js",
-    "tailwind:build": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify --config ./assets/tailwind.config.js"
+    "unocss:dev": "unocss \"views/**/*.templ\" \"assets/css/**/*.css\" --watch -o ./public/css/app.css",
+    "unocss:build": "unocss \"views/**/*.templ\" \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.12",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.14"
+    "@unocss/preset-typography": "latest",
+    "@unocss/preset-wind3": "latest",
+    "@unocss/transformer-directives": "latest",
+    "unocss": "latest"
+  },
+  "dependencies": {
+    "@unocss/reset": "^66.5.6"
   }
 }
-

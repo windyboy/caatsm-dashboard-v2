@@ -10,24 +10,60 @@ templ Base(title string, content templ.Component) {
 			<meta name="viewport" content="width=device-width,initial-scale=1"/>
 			<title>{ title } · CAATSM Dashboard</title>
 			<link rel="stylesheet" href="/css/app.css"/>
+			<style>
+				html {
+					background: linear-gradient(135deg, 
+						rgb(238, 242, 247) 0%, 
+						rgb(235, 239, 245) 50%, 
+						rgb(237, 241, 246) 100%) !important;
+					background-color: rgb(238, 242, 247) !important;
+					background-attachment: fixed !important;
+					min-height: 100%;
+				}
+				body {
+					background: linear-gradient(135deg, 
+						rgb(238, 242, 247) 0%, 
+						rgb(235, 239, 245) 50%, 
+						rgb(237, 241, 246) 100%) !important;
+					background-color: rgb(238, 242, 247) !important;
+					background-attachment: fixed !important;
+					min-height: 100vh;
+					margin: 0;
+					padding: 0;
+				}
+			</style>
 		<script src="https://unpkg.com/htmx.org@2.0.0"></script>
 		<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 		<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 	</head>
-		<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
-			<header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur">
-				<div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-					<h1 class="text-xl font-semibold tracking-tight">CAATSM Dashboard</h1>
-					<nav class="flex gap-4 text-sm text-slate-300">
-						<a href="/" class="hover:text-slate-50 transition">Overview</a>
-						<a href="/search" class="hover:text-slate-50 transition">Search</a>
-					</nav>
+		<body class="min-h-screen text-slate-900 antialiased" style="background: linear-gradient(135deg, rgb(238, 242, 247) 0%, rgb(235, 239, 245) 50%, rgb(237, 241, 246) 100%) !important; background-color: rgb(238, 242, 247) !important; background-attachment: fixed !important;">
+
+    <header class="bg-white/95 backdrop-blur-lg shadow-sm border-b border-slate-200/60 sticky top-0 z-50">
+        <div class="mx-auto max-w-7xl px-6 py-5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+					<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 shadow-md border border-sky-600/20"></div>
+					<h1 class="text-2xl font-bold text-slate-900 tracking-tight">
+						CAATSM Dashboard
+					</h1>
 				</div>
-			</header>
-			<main class="mx-auto max-w-6xl px-6 py-8">
-				@content
-			</main>
-		</body>
+				<nav class="flex items-center gap-2">
+					<a href="/" class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-sky-600 hover:bg-sky-50/80 rounded-lg transition-all duration-200 border border-transparent hover:border-sky-200/60">
+						Dashboard
+					</a>
+					<a href="/search" class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-sky-600 hover:bg-sky-50/80 rounded-lg transition-all duration-200 border border-transparent hover:border-sky-200/60">
+						Search
+					</a>
+				</nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-6 py-8">
+        @content
+    </main>
+</body>
+
 	</html>
 }
 
