@@ -186,6 +186,9 @@ Run database migrations:
 # Using goose (recommended)
 goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
 
+# Or using task
+task migrate
+
 # Note: Migration files use goose annotations (-- +goose Up/Down)
 # If using psql directly, you'll need to extract the "Up" portion manually
 ```
@@ -253,6 +256,17 @@ make run
 - The application runs locally for better development experience with hot reload.
 - If Meilisearch generates a new master key, update it in `.env.local` or `config/config.local.toml`.
 
+#### 4. Run Background Workers (Optional)
+
+For message ingestion and indexing:
+
+```bash
+# Run sync worker to consume messages from NATS
+task sync
+# or
+go run ./cmd/sync -config config/config.local.toml
+```
+
 ### Docker Compose
 
 Start the entire stack:
@@ -287,6 +301,9 @@ caatsm/
 │  └─ config.toml         # Default configuration
 ├─ internal/
 │  ├─ app/                # Dependency injection container
+│  ├─ domain/             # Domain layer (business entities & rules)
+│  ├─ application/        # Application layer (use cases)
+│  ├─ infrastructure/      # Infrastructure layer (external adapters)
 │  ├─ handlers/           # HTTP controllers
 │  ├─ services/           # Business logic layer
 │  ├─ repository/         # Data access layer
@@ -299,7 +316,8 @@ caatsm/
 │  ├─ metrics/            # Prometheus metrics
 │  ├─ observability/      # Logging, tracing, middleware
 │  ├─ auth/               # Authentication middleware
-│  └─ models/             # Data models
+│  ├─ models/             # Data models
+│  └─ testing/            # Test utilities & mocks
 ├─ views/                 # templ templates
 ├─ assets/                # UnoCSS sources
 ├─ public/                # Generated static assets
@@ -341,29 +359,30 @@ task dev:down       # Stop development dependencies
 task dev:logs       # Show logs from development dependencies
 task dev:run        # Run application with local config file
 task dev:meili-key  # Extract Meilisearch master key from logs
+task sync           # Run sync worker to consume messages from NATS
+task migrate        # Run database migrations
+task generate-test-data  # Generate test telegram data for development
+task publish-stream      # Publish live messages to NATS for testing
+task publish-stream:fast # Publish messages quickly (1 per second, 50 total)
+task publish-stream:slow # Publish messages slowly (5 seconds interval)
 task docker:up      # Start full Docker Compose stack
 task docker:down    # Stop Docker Compose stack
 ```
 
 ## API Endpoints
 
-### Search
+### HTMX Actions (for frontend interactions)
 
-- `POST /api/search` - Search telegrams
-- `GET /api/autocomplete?term=...&size=5` - Autocomplete suggestions
+- `POST /actions/search` - Search telegrams
+- `GET /actions/autocomplete?term=...&size=5` - Autocomplete suggestions
+- `GET /actions/stats/total` - Total message count (24h)
+- `GET /actions/stats/priority` - Priority breakdown
+- `GET /actions/stats/type` - Message type breakdown
 
-### Statistics
-
-- `GET /api/stats/total` - Total message count (24h)
-- `GET /api/stats/priority` - Priority breakdown
-- `GET /api/stats/type` - Message type breakdown
-
-### Export
+### API Endpoints (for programmatic access)
 
 - `GET /api/export?format=csv&query=...` - Export search results (CSV/Excel/PDF)
-
-### Health
-
+- `GET /api/stream` - Server-Sent Events (SSE) for real-time updates
 - `GET /api/health` - Health check
 - `GET /metrics` - Prometheus metrics
 

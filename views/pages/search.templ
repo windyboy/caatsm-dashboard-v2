@@ -54,14 +54,14 @@ templ SearchContent() {
 			<div class="mb-6 pb-4 border-b border-slate-200/60">
 				<h2 class="text-xl font-bold text-slate-800 tracking-tight">Search Telegrams</h2>
 			</div>
-			<form class="space-y-6" hx-post="/api/search" hx-target="#search-results" hx-swap="innerHTML">
+			<form class="space-y-6" hx-post="/actions/search" hx-target="#search-results" hx-swap="innerHTML">
 				<div>
 					<label class="block text-sm font-semibold text-slate-700 mb-2.5" for="query">Keywords</label>
 					<input id="query" name="query" type="search" placeholder="Flight number, message id, content..." 
 					       class="w-full rounded-lg bg-slate-100/50 px-5 py-3 text-slate-900 border-0 
 					              placeholder:text-slate-400 focus:bg-white/95 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:shadow-md
 					              transition-all duration-200 shadow-sm" 
-					       hx-get="/api/autocomplete" hx-trigger="keyup changed delay:500ms" hx-target="#autocomplete-results" hx-swap="innerHTML"/>
+					       hx-get="/actions/autocomplete" hx-trigger="keyup changed delay:500ms" hx-target="#autocomplete-results" hx-swap="innerHTML"/>
 					<div id="autocomplete-results" class="mt-2"></div>
 				</div>
 				<div class="grid gap-5 md:grid-cols-3">

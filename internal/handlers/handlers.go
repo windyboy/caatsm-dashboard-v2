@@ -36,12 +36,16 @@ func Register(e *echo.Echo, c *app.Container, broadcaster *EventBroadcaster) {
 	e.GET("/", render(pages.Dashboard()))
 	e.GET("/search", render(pages.Search()))
 
+	// HTMX action routes
+	actions := e.Group("/actions")
+	actions.POST("/search", h.Search)
+	actions.GET("/autocomplete", h.Autocomplete)
+	actions.GET("/stats/total", h.StatsTotal)
+	actions.GET("/stats/priority", h.StatsPriority)
+	actions.GET("/stats/type", h.StatsType)
+
+	// API routes (non-HTMX)
 	api := e.Group("/api")
-	api.POST("/search", h.Search)
-	api.GET("/autocomplete", h.Autocomplete)
-	api.GET("/stats/total", h.StatsTotal)
-	api.GET("/stats/priority", h.StatsPriority)
-	api.GET("/stats/type", h.StatsType)
 	api.GET("/export", h.Export)
 	api.GET("/stream", h.Stream)
 	api.GET("/health", h.Health)
