@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,17 +15,23 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/models"
 	"github.com/windy/caatsm-dashboard/internal/repository"
+	"github.com/windy/caatsm-dashboard/views/components"
 	"github.com/windy/caatsm-dashboard/views/pages"
+	"go.uber.org/zap"
 )
 
 // Handler bundles view and API handlers.
 type Handler struct {
-	container *app.Container
+	container   *app.Container
+	broadcaster *EventBroadcaster
 }
 
 // Register attaches all HTTP routes to the provided Echo instance.
-func Register(e *echo.Echo, c *app.Container) {
-	h := &Handler{container: c}
+func Register(e *echo.Echo, c *app.Container, broadcaster *EventBroadcaster) {
+	h := &Handler{
+		container:   c,
+		broadcaster: broadcaster,
+	}
 
 	e.GET("/", render(pages.Dashboard()))
 	e.GET("/search", render(pages.Search()))
@@ -98,44 +106,12 @@ func (h *Handler) Search(ctx echo.Context) error {
 	result, err := h.container.SearchService.Search(ctx.Request().Context(), filter)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.HTML(http.StatusNotImplemented, "<p class=\"text-slate-500\">Search not available</p>")
+			return render(components.ErrorMessage("Search not available"))(ctx)
 		}
 		return err
 	}
 
-	// Build HTML response
-	var html strings.Builder
-	html.WriteString(fmt.Sprintf("<p class=\"text-sm text-slate-400 mb-4\">Found %d results</p>", result.Total))
-	if len(result.Telegrams) > 0 {
-		html.WriteString("<div class=\"space-y-2\">")
-		for _, t := range result.Telegrams {
-			html.WriteString(fmt.Sprintf(`
-			<div class="rounded border border-slate-800 p-4">
-				<div class="flex justify-between mb-2">
-					<span class="font-medium">%s</span>
-					<span class="text-xs text-slate-500">%s</span>
-				</div>
-				<p class="text-sm text-slate-300">%s</p>
-				<div class="mt-2 flex gap-2 text-xs text-slate-400">
-					<span>Type: %s</span>
-					<span>Priority: %d</span>
-					<span>%s → %s</span>
-				</div>
-			</div>`,
-				t.MessageID,
-				t.Time.Format("2006-01-02 15:04:05"),
-				t.Content,
-				t.Type,
-				t.Priority,
-				t.Source,
-				t.Destination))
-		}
-		html.WriteString("</div>")
-	} else {
-		html.WriteString("<p class=\"text-slate-500\">No results found</p>")
-	}
-
-	return ctx.HTML(http.StatusOK, html.String())
+	return render(components.SearchResults(result.Telegrams, result.Total))(ctx)
 }
 
 func (h *Handler) Autocomplete(ctx echo.Context) error {
@@ -153,12 +129,7 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 		return err
 	}
 
-	var html strings.Builder
-	for _, suggestion := range suggestions {
-		html.WriteString(fmt.Sprintf("<div class=\"cursor-pointer hover:text-slate-200 p-1\">%s</div>", suggestion))
-	}
-
-	return ctx.HTML(http.StatusOK, html.String())
+	return render(components.Autocomplete(suggestions))(ctx)
 }
 
 func (h *Handler) StatsTotal(ctx echo.Context) error {
@@ -168,11 +139,11 @@ func (h *Handler) StatsTotal(ctx echo.Context) error {
 	summary, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.HTML(http.StatusNotImplemented, "<span class=\"text-slate-500\">Not available</span>")
+			return render(components.ErrorMessage("Not available"))(ctx)
 		}
 		return err
 	}
-	return ctx.HTML(http.StatusOK, fmt.Sprintf("%d", summary.TotalMessages))
+	return render(components.StatsTotal(summary.TotalMessages))(ctx)
 }
 
 func (h *Handler) StatsPriority(ctx echo.Context) error {
@@ -182,24 +153,12 @@ func (h *Handler) StatsPriority(ctx echo.Context) error {
 	stats, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.HTML(http.StatusNotImplemented, "<p class=\"text-slate-500\">Not available</p>")
+			return render(components.ErrorMessage("Not available"))(ctx)
 		}
 		return err
 	}
 
-	// Build HTML for priority breakdown
-	var html strings.Builder
-	if len(stats.ByPriority) > 0 {
-		for priority, count := range stats.ByPriority {
-			html.WriteString(fmt.Sprintf(
-				"<div class=\"flex justify-between\"><span>Priority %d</span><span class=\"font-medium\">%d</span></div>",
-				priority, count))
-		}
-	} else {
-		html.WriteString("<p class=\"text-slate-500\">No data</p>")
-	}
-
-	return ctx.HTML(http.StatusOK, html.String())
+	return render(components.StatsPriority(stats.ByPriority))(ctx)
 }
 
 func (h *Handler) Export(ctx echo.Context) error {
@@ -249,32 +208,210 @@ func (h *Handler) Export(ctx echo.Context) error {
 	return ctx.Blob(http.StatusOK, contentType, payload)
 }
 
-// Stream provides a Server-Sent Events (SSE) endpoint for real-time telegram updates.
-//
-// Status: Placeholder implementation
-//
-// Intended implementation:
-//   - Connect to NATS JetStream consumer (see internal/repository/nats/consumer.go)
-//   - Subscribe to telegram events stream
-//   - Forward events to client via SSE format
-//   - Handle client disconnections gracefully
-//   - Implement heartbeat/ping messages to keep connection alive
-//
-// Architecture notes:
-//   - NATS consumer is already implemented in cmd/sync/main.go for background processing
-//   - This endpoint would provide real-time updates to web dashboard
-//   - Consider using the same StreamConsumer interface used by sync worker
+// Stream provides a Server-Sent Events (SSE) endpoint for real-time stats updates.
 func (h *Handler) Stream(ctx echo.Context) error {
+	// Add panic recovery to prevent connection issues
+	defer func() {
+		if r := recover(); r != nil {
+			h.container.Logger.Error("panic in SSE stream handler",
+				zap.Any("panic", r),
+				zap.String("remote_addr", ctx.RealIP()))
+		}
+	}()
+
 	ctx.Response().Header().Set("Content-Type", "text/event-stream")
 	ctx.Response().Header().Set("Cache-Control", "no-cache")
 	ctx.Response().Header().Set("Connection", "keep-alive")
+	ctx.Response().Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
-	// Placeholder: Return not implemented message
-	// TODO: Implement NATS consumer integration for real-time streaming
-	fmt.Fprintf(ctx.Response().Writer, "data: <p class=\"text-slate-500\">Stream not yet implemented</p>\n\n")
-	ctx.Response().Flush()
+	// Subscribe to events
+	clientChan := h.broadcaster.Subscribe()
+	defer h.broadcaster.Unsubscribe(clientChan)
 
-	return nil
+	h.container.Logger.Info("SSE connection established", zap.String("remote_addr", ctx.RealIP()))
+
+	// Helper function to safely write SSE data with error handling
+	writeSSE := func(eventType, data string) error {
+		// Check if context is done before writing
+		select {
+		case <-ctx.Request().Context().Done():
+			return ctx.Request().Context().Err()
+		default:
+		}
+
+		// Check if response is already committed (connection might be closed)
+		if ctx.Response().Committed {
+			return fmt.Errorf("response already committed, connection may be closed")
+		}
+
+		_, err := fmt.Fprintf(ctx.Response().Writer, "event: %s\ndata: %s\n\n", eventType, data)
+		if err != nil {
+			return fmt.Errorf("write SSE data: %w", err)
+		}
+
+		// Flush immediately to send data
+		ctx.Response().Flush()
+		return nil
+	}
+
+	// Helper function to format SSE data (handle multi-line HTML)
+	formatSSEData := func(html string) string {
+		// For SSE, we can send multi-line data by prefixing each line with "data: "
+		// However, for HTMX SSE extension, single-line data works better
+		// Normalize line endings first
+		cleaned := strings.ReplaceAll(html, "\r\n", "\n")
+		cleaned = strings.ReplaceAll(cleaned, "\r", "\n")
+		// Trim leading/trailing whitespace
+		cleaned = strings.TrimSpace(cleaned)
+		// Replace newlines with single space to create single-line HTML
+		// This preserves HTML structure while making it SSE-compatible
+		cleaned = strings.ReplaceAll(cleaned, "\n", " ")
+		// Collapse multiple consecutive spaces to single space
+		// This is safe for HTML as browsers normalize whitespace anyway
+		for strings.Contains(cleaned, "  ") {
+			cleaned = strings.ReplaceAll(cleaned, "  ", " ")
+		}
+		return cleaned
+	}
+
+	// Send initial stats
+	window := models.TimeWindow{}
+	summary, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
+	if err == nil {
+		totalHTML := components.StatsTotal(summary.TotalMessages)
+		var buf bytes.Buffer
+		if err := totalHTML.Render(ctx.Request().Context(), &buf); err == nil {
+			data := formatSSEData(buf.String())
+			if err := writeSSE("stats-total", data); err != nil {
+				h.container.Logger.Warn("failed to write initial stats-total", zap.Error(err))
+				return err
+			}
+		}
+
+		priorityHTML := components.StatsPriority(summary.ByPriority)
+		buf.Reset()
+		if err := priorityHTML.Render(ctx.Request().Context(), &buf); err == nil {
+			data := formatSSEData(buf.String())
+			if err := writeSSE("stats-priority", data); err != nil {
+				h.container.Logger.Warn("failed to write initial stats-priority", zap.Error(err))
+				return err
+			}
+		}
+	}
+
+	// Send heartbeat every 30 seconds
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Listen for events
+	for {
+		select {
+		case <-ctx.Request().Context().Done():
+			h.container.Logger.Info("SSE connection closed by client")
+			return nil
+		case <-ticker.C:
+			// Send heartbeat (SSE comment format)
+			select {
+			case <-ctx.Request().Context().Done():
+				return nil
+			default:
+				// Check if response is committed before writing
+				if ctx.Response().Committed {
+					return nil
+				}
+				if _, err := fmt.Fprintf(ctx.Response().Writer, ": heartbeat\n\n"); err != nil {
+					h.container.Logger.Warn("failed to write heartbeat", zap.Error(err))
+					return err
+				}
+				ctx.Response().Flush()
+			}
+		case event, ok := <-clientChan:
+			if !ok {
+				h.container.Logger.Info("SSE client channel closed")
+				return nil
+			}
+
+			h.container.Logger.Info("received event from broadcaster", zap.ByteString("event", event))
+
+			// Parse event JSON to determine event type
+			var eventData map[string]interface{}
+			if err := json.Unmarshal(event, &eventData); err != nil {
+				h.container.Logger.Warn("failed to parse event", zap.Error(err), zap.ByteString("raw", event))
+				continue
+			}
+
+			eventType, _ := eventData["type"].(string)
+			h.container.Logger.Info("parsed event type", zap.String("type", eventType))
+
+			// If it's a telegram_processed event, send the message to live stream
+			if eventType == "telegram_processed" {
+				// Extract telegram from event
+				telegramData, ok := eventData["telegram"].(map[string]interface{})
+				if ok {
+					// Convert to Telegram model
+					var telegram models.Telegram
+					telegramBytes, _ := json.Marshal(telegramData)
+					if err := json.Unmarshal(telegramBytes, &telegram); err == nil {
+						// Render message item component
+						messageHTML := components.MessageItem(telegram)
+						var buf bytes.Buffer
+						if err := messageHTML.Render(ctx.Request().Context(), &buf); err == nil {
+							data := formatSSEData(buf.String())
+							// Log the data being sent for debugging
+							h.container.Logger.Debug("rendered message HTML",
+								zap.String("message_id", telegram.MessageID),
+								zap.Int("html_length", len(data)))
+							if err := writeSSE("message", data); err != nil {
+								h.container.Logger.Warn("failed to write message", zap.Error(err))
+								return err
+							}
+							h.container.Logger.Info("sent message event to client",
+								zap.String("message_id", telegram.MessageID),
+								zap.String("type", telegram.Type),
+								zap.Int("data_length", len(data)))
+						} else {
+							h.container.Logger.Warn("failed to render message", zap.Error(err))
+						}
+					} else {
+						h.container.Logger.Warn("failed to unmarshal telegram", zap.Error(err))
+					}
+				} else {
+					h.container.Logger.Warn("telegram data not found in event")
+				}
+			}
+
+			// Always update stats when we receive any event
+			window := models.TimeWindow{}
+			summary, err := h.container.StatsService.TrafficSummary(ctx.Request().Context(), window)
+			if err == nil {
+				// Send total count update
+				totalHTML := components.StatsTotal(summary.TotalMessages)
+				var buf bytes.Buffer
+				if err := totalHTML.Render(ctx.Request().Context(), &buf); err == nil {
+					data := formatSSEData(buf.String())
+					if err := writeSSE("stats-total", data); err != nil {
+						h.container.Logger.Warn("failed to write stats-total update", zap.Error(err))
+						return err
+					}
+					h.container.Logger.Debug("sent stats-total event", zap.Int64("total", summary.TotalMessages))
+				}
+
+				// Send priority breakdown update
+				priorityHTML := components.StatsPriority(summary.ByPriority)
+				buf.Reset()
+				if err := priorityHTML.Render(ctx.Request().Context(), &buf); err == nil {
+					data := formatSSEData(buf.String())
+					if err := writeSSE("stats-priority", data); err != nil {
+						h.container.Logger.Warn("failed to write stats-priority update", zap.Error(err))
+						return err
+					}
+					h.container.Logger.Debug("sent stats-priority event")
+				}
+			} else {
+				h.container.Logger.Warn("failed to get traffic summary", zap.Error(err))
+			}
+		}
+	}
 }
 
 func (h *Handler) Health(ctx echo.Context) error {

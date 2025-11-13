@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -60,14 +61,27 @@ func (c *Consumer) EnsureConsumer(ctx context.Context) error {
 		AckPolicy:     nats.AckExplicitPolicy,
 		AckWait:       30 * time.Second,
 		MaxDeliver:    10,
+		MaxWaiting:    128, // Must match PullMaxWaiting in PullSubscribe
 	}
 
 	_, err := c.js.AddConsumer(c.stream, cfg)
 	if err != nil {
-		// Consumer might already exist
-		if err.Error() != "consumer name already in use" {
-			return fmt.Errorf("ensure consumer: %w", err)
+		// Consumer might already exist, try to delete and recreate
+		if strings.Contains(err.Error(), "consumer name already in use") {
+			// Delete existing consumer
+			if deleteErr := c.js.DeleteConsumer(c.stream, c.consumer); deleteErr != nil {
+				// If delete fails, consumer might be in use or doesn't exist
+				// Return original error
+				return fmt.Errorf("ensure consumer: %w (delete failed: %v)", err, deleteErr)
+			}
+			// Try to create again after deletion
+			_, err = c.js.AddConsumer(c.stream, cfg)
+			if err != nil {
+				return fmt.Errorf("recreate consumer: %w", err)
+			}
+			return nil
 		}
+		return fmt.Errorf("ensure consumer: %w", err)
 	}
 
 	return nil
@@ -121,13 +135,21 @@ func (c *Consumer) processMessages(ctx context.Context) {
 				var telegram models.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
 					// Log error but acknowledge to avoid reprocessing
+					// Note: We can't log here without a logger, but the handler will log errors
+					msg.Ack()
+					continue
+				}
+
+				// Validate that we got a valid telegram
+				if telegram.MessageID == "" {
+					// Invalid message, acknowledge to avoid reprocessing
 					msg.Ack()
 					continue
 				}
 
 				if err := c.handler(ctx, &telegram); err != nil {
-					// Log error but acknowledge to avoid infinite retries
-					// In production, you might want to implement a dead letter queue
+					// Handler will log the error, we just need to handle the message
+					// Use Nak() to allow retry, but limit retries via MaxDeliver config
 					msg.Nak()
 					continue
 				}

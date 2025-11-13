@@ -4,15 +4,15 @@ import "time"
 
 // Telegram represents a single aviation telegram message stored in the system.
 type Telegram struct {
-	MessageID    string
-	Type         string
-	Time         time.Time
-	FlightNumber string
-	Source       string
-	Destination  string
-	Priority     int
-	Content      string
-	RawData      string
+	MessageID    string    `json:"message_id"`
+	Type         string    `json:"type"`
+	Time         time.Time `json:"time"`
+	FlightNumber string    `json:"flight_number"`
+	Source       string    `json:"source"`
+	Destination  string    `json:"destination"`
+	Priority     int       `json:"priority"`
+	Content      string    `json:"content"`
+	RawData      string    `json:"raw_data"`
 }
 
 // SearchFilter captures filters available to the search API.

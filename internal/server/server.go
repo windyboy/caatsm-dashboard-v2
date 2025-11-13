@@ -50,6 +50,17 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 
 	metricsExporter := observability.NewMetricsExporter()
 
+	// Create event broadcaster for SSE
+	redisCli := container.RedisClient()
+	if redisCli == nil {
+		logger.Warn("redis client is nil, SSE real-time updates will not work")
+	} else {
+		logger.Info("redis client available for SSE")
+	}
+	broadcaster := handlers.NewEventBroadcaster(redisCli, logger)
+	go broadcaster.StartRedisListener()
+	logger.Info("started Redis listener goroutine")
+
 	s := &Server{
 		e:         e,
 		cfg:       cfg,
@@ -58,7 +69,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		metrics:   metricsExporter,
 	}
 
-	s.registerRoutes()
+	s.registerRoutes(broadcaster)
 	return s, nil
 }
 
@@ -111,7 +122,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-func (s *Server) registerRoutes() {
+func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
 
 	// Serve static files (CSS, favicon, etc.) - register before other routes
@@ -121,5 +132,5 @@ func (s *Server) registerRoutes() {
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())
 	}
-	handlers.Register(s.e, s.container)
+	handlers.Register(s.e, s.container, broadcaster)
 }

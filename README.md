@@ -180,12 +180,11 @@ consumer = "dashboard-sync"
 Run database migrations:
 
 ```bash
-# Using psql
-psql -U caatsm -d caatsm -f migrations/001_create_telegrams_table.up.sql
-psql -U caatsm -d caatsm -f migrations/002_create_audit_logs_table.up.sql
-
-# Or use a migration tool like goose
+# Using goose (recommended)
 goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
+
+# Note: Migration files use goose annotations (-- +goose Up/Down)
+# If using psql directly, you'll need to extract the "Up" portion manually
 ```
 
 ### Run Locally

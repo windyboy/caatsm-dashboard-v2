@@ -1,0 +1,10 @@
+package components
+
+templ Autocomplete(suggestions []string) {
+	if len(suggestions) > 0 {
+		for _, suggestion := range suggestions {
+			<div class="cursor-pointer hover:text-slate-200 p-1">{ suggestion }</div>
+		}
+	}
+}
+

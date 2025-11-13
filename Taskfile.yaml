@@ -138,6 +138,18 @@ tasks:
     cmds:
       - go run ./cmd/server -config config/config.local.toml
 
+  sync:
+    desc: "Run sync worker to consume messages from NATS"
+    cmds:
+      - |
+        CONFIG="${CAATSM_CONFIG:-config/config.local.toml}"
+        if [ ! -f "$CONFIG" ]; then
+          echo "Warning: Config file not found: $CONFIG"
+          echo "Using default config..."
+          CONFIG=""
+        fi
+        go run ./cmd/sync -config "$CONFIG"
+
   dev:meili-key:
     desc: "Extract Meilisearch master key from container logs and update .env.local"
     cmds:
@@ -188,8 +200,8 @@ tasks:
             PGDATABASE="${BASH_REMATCH[5]}"
             
             export PGPASSWORD
-            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/001_create_telegrams_table.up.sql
-            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/002_create_audit_logs_table.up.sql
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/20240101000000_create_telegrams_table.sql
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/20240101000001_create_audit_logs_table.sql
             unset PGPASSWORD
           else
             echo "Error: Could not parse DSN format: postgres://user:pass@host:port/dbname"
@@ -212,4 +224,27 @@ tasks:
       - |
         echo "Note: Ensure migrations are run first (task migrate)"
         go run ./cmd/generate-test-data -count 50
+
+  publish-stream:
+    desc: "Publish live messages to NATS for testing real-time updates"
+    cmds:
+      - |
+        CONFIG="${CAATSM_CONFIG:-config/config.local.toml}"
+        if [ ! -f "$CONFIG" ]; then
+          echo "Warning: Config file not found: $CONFIG"
+          echo "Using default config..."
+          CONFIG=""
+        fi
+        ARGS="${CLI_ARGS:-}"
+        go run ./cmd/publish-stream -config "$CONFIG" $ARGS
+
+  publish-stream:fast:
+    desc: "Publish messages quickly (1 per second, 50 total) for quick testing"
+    cmds:
+      - CLI_ARGS="-interval 1s -total 50" task publish-stream
+
+  publish-stream:slow:
+    desc: "Publish messages slowly (5 seconds interval) for steady testing"
+    cmds:
+      - CLI_ARGS="-interval 5s" task publish-stream
 

@@ -81,6 +81,7 @@ func main() {
 	streamConsumer := natsrepo.New(js, cfg.NATS.Stream, cfg.NATS.Consumer)
 
 	worker := sync.NewWorker(streamConsumer, store, index, logger)
+	worker.SetRedisClient(redisCli) // Enable Redis pub/sub for real-time updates
 	if err := worker.Run(ctx); err != nil {
 		logger.Error("worker terminated", zap.Error(err))
 		os.Exit(1)

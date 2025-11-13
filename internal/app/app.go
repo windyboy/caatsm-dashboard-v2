@@ -172,3 +172,8 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 
 	return result
 }
+
+// RedisClient returns the Redis client for external use.
+func (c *Container) RedisClient() redis.UniversalClient {
+	return c.redisCli
+}

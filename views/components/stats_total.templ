@@ -1,0 +1,11 @@
+package components
+
+import "fmt"
+
+templ StatsTotal(count int64) {
+	<div class="flex items-baseline gap-2">
+		<span class="text-3xl font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">{ fmt.Sprintf("%d", count) }</span>
+		<span class="text-sm text-slate-500 font-medium">messages</span>
+	</div>
+}
+

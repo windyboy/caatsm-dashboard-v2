@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "tailwind:dev": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --watch",
-    "tailwind:build": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify"
+    "tailwind:dev": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --watch --config ./assets/tailwind.config.js",
+    "tailwind:build": "tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify --config ./assets/tailwind.config.js"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",

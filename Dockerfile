@@ -17,7 +17,7 @@ WORKDIR /assets
 COPY assets ./assets
 COPY views ./views
 RUN npm install -g tailwindcss@3.4.14 @tailwindcss/forms @tailwindcss/typography
-RUN tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify
+RUN tailwindcss -i ./assets/css/input.css -o ./public/css/app.css --minify --config ./assets/tailwind.config.js
 
 FROM base AS builder
 COPY --from=templ /app /app

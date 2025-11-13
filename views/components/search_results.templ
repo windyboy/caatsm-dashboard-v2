@@ -1,0 +1,31 @@
+package components
+
+import (
+	"fmt"
+	"github.com/windy/caatsm-dashboard/internal/models"
+)
+
+templ SearchResults(telegrams []models.Telegram, total int64) {
+	<p class="text-sm text-slate-400 mb-4">Found { fmt.Sprintf("%d", total) } results</p>
+	if len(telegrams) > 0 {
+		<div class="space-y-2">
+			for _, t := range telegrams {
+				<div class="rounded border border-slate-800 p-4">
+					<div class="flex justify-between mb-2">
+						<span class="font-medium">{ t.MessageID }</span>
+						<span class="text-xs text-slate-500">{ t.Time.Format("2006-01-02 15:04:05") }</span>
+					</div>
+					<p class="text-sm text-slate-300">{ t.Content }</p>
+					<div class="mt-2 flex gap-2 text-xs text-slate-400">
+						<span>Type: { t.Type }</span>
+						<span>Priority: { fmt.Sprintf("%d", t.Priority) }</span>
+						<span>{ t.Source } → { t.Destination }</span>
+					</div>
+				</div>
+			}
+		</div>
+	} else {
+		<p class="text-slate-500">No results found</p>
+	}
+}
+
