@@ -244,11 +244,37 @@ func (h *Handler) Stream(ctx echo.Context) error {
 	ctx.Response().Header().Set("Connection", "keep-alive")
 	ctx.Response().Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
+	// Disable WriteTimeout for SSE connections using ResponseController (Go 1.20+)
+	// This allows the connection to stay open indefinitely for long-lived SSE connections
+	if rc := http.NewResponseController(ctx.Response().Writer); rc != nil {
+		rc.SetWriteDeadline(time.Time{}) // Disable write deadline
+	}
+
 	// Subscribe to events
 	clientChan := h.broadcaster.Subscribe()
 	defer h.broadcaster.Unsubscribe(clientChan)
 
 	h.container.Logger.Info("SSE connection established", zap.String("remote_addr", ctx.RealIP()))
+
+	formatSSEData := func(html string) string {
+		// Clean up the HTML: normalize line endings
+		cleaned := strings.ReplaceAll(html, "\r\n", "\n")
+		cleaned = strings.ReplaceAll(cleaned, "\r", "\n")
+		cleaned = strings.TrimSpace(cleaned)
+
+		// For SSE, if data contains newlines, each line must be prefixed with "data: "
+		// This allows preserving HTML structure while maintaining SSE format
+		lines := strings.Split(cleaned, "\n")
+		var result strings.Builder
+		for i, line := range lines {
+			if i > 0 {
+				result.WriteString("\n")
+			}
+			result.WriteString("data: ")
+			result.WriteString(line)
+		}
+		return result.String()
+	}
 
 	writeSSE := func(eventType, data string) error {
 		select {
@@ -261,24 +287,14 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			return fmt.Errorf("response already committed, connection may be closed")
 		}
 
-		_, err := fmt.Fprintf(ctx.Response().Writer, "event: %s\ndata: %s\n\n", eventType, data)
+		// Data is already formatted by formatSSEData before calling writeSSE
+		_, err := fmt.Fprintf(ctx.Response().Writer, "event: %s\n%s\n\n", eventType, data)
 		if err != nil {
 			return fmt.Errorf("write SSE data: %w", err)
 		}
 
 		ctx.Response().Flush()
 		return nil
-	}
-
-	formatSSEData := func(html string) string {
-		cleaned := strings.ReplaceAll(html, "\r\n", "\n")
-		cleaned = strings.ReplaceAll(cleaned, "\r", "\n")
-		cleaned = strings.TrimSpace(cleaned)
-		cleaned = strings.ReplaceAll(cleaned, "\n", " ")
-		for strings.Contains(cleaned, "  ") {
-			cleaned = strings.ReplaceAll(cleaned, "  ", " ")
-		}
-		return cleaned
 	}
 
 	// Send initial stats
@@ -372,7 +388,20 @@ func (h *Handler) Stream(ctx echo.Context) error {
 			// If it's a telegram_processed event, send the message to live stream
 			if eventType == "telegram_processed" {
 				// Extract telegram from event
-				telegramData, ok := eventData["telegram"].(map[string]interface{})
+				// RedisEventBus wraps the event in a "data" field, so we need to check both locations
+				var telegramData map[string]interface{}
+				var ok bool
+
+				// First try to get telegram from the "data" field (RedisEventBus wrapped format)
+				if dataField, dataOk := eventData["data"].(map[string]interface{}); dataOk {
+					telegramData, ok = dataField["telegram"].(map[string]interface{})
+				}
+
+				// If not found in data field, try top level (for backward compatibility)
+				if !ok {
+					telegramData, ok = eventData["telegram"].(map[string]interface{})
+				}
+
 				if ok {
 					var telegram models.Telegram
 					telegramBytes, _ := json.Marshal(telegramData)
@@ -406,7 +435,9 @@ func (h *Handler) Stream(ctx echo.Context) error {
 						h.container.Logger.Warn("failed to unmarshal telegram", zap.Error(err))
 					}
 				} else {
-					h.container.Logger.Warn("telegram data not found in event")
+					h.container.Logger.Warn("telegram data not found in event",
+						zap.Any("event_data", eventData),
+						zap.String("event_type", eventType))
 				}
 			}
 

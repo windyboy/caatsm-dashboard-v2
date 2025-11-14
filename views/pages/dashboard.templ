@@ -19,9 +19,7 @@ templ DashboardContent() {
 					</span>
 				</div>
 				<div class="overflow-y-auto scrollbar-thin rounded-lg bg-slate-100/30 p-5 space-y-3 scroll-smooth h-[800px] max-h-[800px] min-h-[800px] border-0 shadow-inner" 
-					 id="live-stream"
-					 sse-swap="message"
-					 hx-swap="afterbegin"
+					 id="live-stream" sse-swap="message" hx-swap="afterbegin" hx-target="this"
 					 x-data="{ 
 						maxMessages: 50,
 						scrollToTop() { 

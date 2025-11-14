@@ -89,7 +89,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port),
 		Handler:      s.e,
 		ReadTimeout:  s.cfg.Server.ReadTimeout,
-		WriteTimeout: s.cfg.Server.WriteTimeout,
+		WriteTimeout: 0, // Disable WriteTimeout for SSE connections (long-lived connections)
 		IdleTimeout:  s.cfg.Server.IdleTimeout,
 	}
 
