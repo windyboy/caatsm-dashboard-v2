@@ -13,6 +13,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/models"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/views/components"
@@ -340,6 +341,55 @@ func (h *Handler) Stream(ctx echo.Context) error {
 				}
 			}
 		}
+	}
+
+	// Load recent messages from database when SSE connection is established
+	// This ensures users see the latest messages when the dashboard loads
+	h.container.Logger.Info("loading recent messages for SSE connection")
+
+	// Load last 50 messages (matching client maxMessages)
+	recentTelegrams, err := h.container.QueryService.Recent(ctx.Request().Context(), 50)
+	if err == nil && len(recentTelegrams) > 0 {
+		h.container.Logger.Info("loaded recent messages from database",
+			zap.Int("count", len(recentTelegrams)))
+
+		// Send messages in reverse chronological order (oldest first)
+		// This ensures newest messages appear at top after hx-swap="afterbegin"
+		for i := len(recentTelegrams) - 1; i >= 0; i-- {
+			telegram := recentTelegrams[i]
+			// Convert domain.Telegram to models.Telegram
+			telegramModel := domain.FromDomain(telegram)
+			if telegramModel == nil {
+				h.container.Logger.Warn("failed to convert domain telegram to model",
+					zap.String("message_id", telegram.MessageID))
+				continue
+			}
+
+			messageHTML := components.MessageItem(*telegramModel)
+			var buf bytes.Buffer
+			if err := messageHTML.Render(ctx.Request().Context(), &buf); err == nil {
+				data := formatSSEData(buf.String())
+				if err := writeSSE("message", data); err != nil {
+					h.container.Logger.Warn("failed to write historical message",
+						zap.Error(err),
+						zap.String("message_id", telegramModel.MessageID))
+					// If write fails, connection may be closed
+					if ctx.Request().Context().Err() != nil || ctx.Response().Committed {
+						return err
+					}
+				}
+			} else {
+				h.container.Logger.Warn("failed to render historical message",
+					zap.Error(err),
+					zap.String("message_id", telegramModel.MessageID))
+			}
+		}
+		h.container.Logger.Info("sent historical messages to client", zap.Int("count", len(recentTelegrams)))
+	} else if err != nil {
+		h.container.Logger.Warn("failed to load recent messages from database", zap.Error(err))
+		// Don't return error, continue with connection even if historical load fails
+	} else {
+		h.container.Logger.Info("no recent messages found in database")
 	}
 
 	// Send heartbeat every 30 seconds

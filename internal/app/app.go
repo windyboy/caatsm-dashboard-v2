@@ -9,6 +9,7 @@ import (
 	meilisearch "github.com/meilisearch/meilisearch-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
+	"github.com/windy/caatsm-dashboard/internal/application"
 	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
 	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
 	redisClient "github.com/windy/caatsm-dashboard/internal/platform/redis"
@@ -26,6 +27,7 @@ type Container struct {
 	SearchService services.SearchService
 	StatsService  services.StatsService
 	ExportService services.ExportService
+	QueryService  application.QueryService
 
 	// Client references for health checks
 	pool     *pgxpool.Pool
@@ -81,9 +83,13 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	statsService := services.NewStatsService(store, logger)
 	exportService := services.NewExportService(searchService, logger)
 
+	// Initialize QueryService
+	queryService := application.NewQueryService(store, meiliIndex)
+
 	container.SearchService = searchService
 	container.StatsService = statsService
 	container.ExportService = exportService
+	container.QueryService = queryService
 
 	// Store client references for health checks
 	container.pool = pool
