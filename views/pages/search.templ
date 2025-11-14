@@ -6,49 +6,6 @@ import (
 
 // SearchContent renders the search interface content.
 templ SearchContent() {
-	<style>
-		/* 消息组件颜色类 - 直接定义确保生效 */
-		.bg-purple-50\/80 { background-color: rgba(250, 245, 255, 0.8) !important; }
-		.bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
-		.text-purple-700 { color: rgb(126, 34, 206) !important; }
-		.group:hover .group-hover\:bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
-		
-		.bg-emerald-50\/80 { background-color: rgba(236, 253, 245, 0.8) !important; }
-		.bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
-		.text-emerald-700 { color: rgb(4, 120, 87) !important; }
-		.group:hover .group-hover\:bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
-		
-		.bg-sky-50\/80 { background-color: rgba(240, 249, 255, 0.8) !important; }
-		.bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
-		.text-sky-700 { color: rgb(3, 105, 161) !important; }
-		.group:hover .group-hover\:bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
-		
-		.bg-rose-50\/80 { background-color: rgba(255, 241, 242, 0.8) !important; }
-		.bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
-		.text-rose-700 { color: rgb(190, 18, 60) !important; }
-		.group:hover .group-hover\:bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
-		
-		.bg-violet-50\/80 { background-color: rgba(245, 243, 255, 0.8) !important; }
-		.bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
-		.text-violet-700 { color: rgb(109, 40, 217) !important; }
-		.group:hover .group-hover\:bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
-		
-		.bg-amber-50\/80 { background-color: rgba(255, 251, 235, 0.8) !important; }
-		.bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
-		.text-amber-700 { color: rgb(180, 83, 9) !important; }
-		.group:hover .group-hover\:bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
-		
-		.bg-slate-50\/80 { background-color: rgba(248, 250, 252, 0.8) !important; }
-		.bg-slate-100\/80 { background-color: rgba(241, 245, 249, 0.8) !important; }
-		.bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
-		.text-slate-500 { color: rgb(100, 116, 139) !important; }
-		.text-slate-600 { color: rgb(71, 85, 105) !important; }
-		.text-slate-700 { color: rgb(51, 65, 85) !important; }
-		.text-slate-800 { color: rgb(30, 41, 59) !important; }
-		.group:hover .group-hover\:bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
-		.group:hover .group-hover\:text-slate-800 { color: rgb(30, 41, 59) !important; }
-		.group:hover .group-hover\:text-slate-700 { color: rgb(51, 65, 85) !important; }
-	</style>
 	<section class="space-y-8">
 		<div class="rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
 			<div class="mb-6 pb-4 border-b border-slate-200/60">

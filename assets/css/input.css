@@ -1,8 +1,5 @@
-/* UnoCSS 样式重置 - Tailwind v4 (最新 Preflight) */
-@import '@unocss/reset/tailwind-v4.css';
-
 /* UnoCSS 入口 - 使用 @unocss 指令 */
-/* 注意：使用 reset 后不再需要 @unocss preflights */
+/* PresetWind4 内置了 reset 样式，不需要单独导入 */
 @unocss default;
 
 
@@ -115,13 +112,6 @@
     0 0 0 0.5px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 1);
   border-color: rgba(226, 232, 240, 0.7);
-}
-
-/* 内阴影效果 - 浅色主题 */
-.inner-shadow {
-  box-shadow: 
-    inset 0 2px 4px rgba(0, 0, 0, 0.04),
-    inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 }
 

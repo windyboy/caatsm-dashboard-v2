@@ -6,68 +6,6 @@ import (
 
 // DashboardContent renders the dashboard content section.
 templ DashboardContent() {
-	<style>
-		/* 消息组件颜色类 - 直接定义确保生效 */
-		.bg-purple-50\/80 { background-color: rgba(250, 245, 255, 0.8) !important; }
-		.bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
-		.text-purple-700 { color: rgb(126, 34, 206) !important; }
-		.group:hover .group-hover\:bg-purple-100\/90 { background-color: rgba(243, 232, 255, 0.9) !important; }
-		
-		.bg-emerald-50\/80 { background-color: rgba(236, 253, 245, 0.8) !important; }
-		.bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
-		.text-emerald-700 { color: rgb(4, 120, 87) !important; }
-		.group:hover .group-hover\:bg-emerald-100\/90 { background-color: rgba(209, 250, 229, 0.9) !important; }
-		
-		.bg-sky-50\/80 { background-color: rgba(240, 249, 255, 0.8) !important; }
-		.bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
-		.text-sky-700 { color: rgb(3, 105, 161) !important; }
-		.group:hover .group-hover\:bg-sky-100\/90 { background-color: rgba(224, 242, 254, 0.9) !important; }
-		
-		.bg-rose-50\/80 { background-color: rgba(255, 241, 242, 0.8) !important; }
-		.bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
-		.text-rose-700 { color: rgb(190, 18, 60) !important; }
-		.group:hover .group-hover\:bg-rose-100\/90 { background-color: rgba(255, 228, 230, 0.9) !important; }
-		
-		.bg-violet-50\/80 { background-color: rgba(245, 243, 255, 0.8) !important; }
-		.bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
-		.text-violet-700 { color: rgb(109, 40, 217) !important; }
-		.group:hover .group-hover\:bg-violet-100\/90 { background-color: rgba(237, 233, 254, 0.9) !important; }
-		
-		.bg-amber-50\/80 { background-color: rgba(255, 251, 235, 0.8) !important; }
-		.bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
-		.text-amber-700 { color: rgb(180, 83, 9) !important; }
-		.group:hover .group-hover\:bg-amber-100\/90 { background-color: rgba(254, 243, 199, 0.9) !important; }
-		
-		.bg-slate-50\/80 { background-color: rgba(248, 250, 252, 0.8) !important; }
-		.bg-slate-100\/80 { background-color: rgba(241, 245, 249, 0.8) !important; }
-		.bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
-		.text-slate-500 { color: rgb(100, 116, 139) !important; }
-		.text-slate-600 { color: rgb(71, 85, 105) !important; }
-		.text-slate-700 { color: rgb(51, 65, 85) !important; }
-		.text-slate-800 { color: rgb(30, 41, 59) !important; }
-		.group:hover .group-hover\:bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
-		.group:hover .group-hover\:text-slate-800 { color: rgb(30, 41, 59) !important; }
-		.group:hover .group-hover\:text-slate-700 { color: rgb(51, 65, 85) !important; }
-		
-		/* Traffic Snapshot 类型统计颜色类 */
-		.bg-sky-100\/80 { background-color: rgba(224, 242, 254, 0.8) !important; }
-		.group:hover .group-hover\:bg-sky-200\/80 { background-color: rgba(186, 230, 253, 0.8) !important; }
-		
-		.bg-rose-100\/80 { background-color: rgba(255, 228, 230, 0.8) !important; }
-		.group:hover .group-hover\:bg-rose-200\/80 { background-color: rgba(254, 205, 211, 0.8) !important; }
-		
-		.bg-emerald-100\/80 { background-color: rgba(209, 250, 229, 0.8) !important; }
-		.group:hover .group-hover\:bg-emerald-200\/80 { background-color: rgba(167, 243, 208, 0.8) !important; }
-		
-		.bg-violet-100\/80 { background-color: rgba(237, 233, 254, 0.8) !important; }
-		.group:hover .group-hover\:bg-violet-200\/80 { background-color: rgba(221, 214, 254, 0.8) !important; }
-		
-		.bg-amber-100\/80 { background-color: rgba(254, 243, 199, 0.8) !important; }
-		.group:hover .group-hover\:bg-amber-200\/80 { background-color: rgba(253, 230, 138, 0.8) !important; }
-		
-		.bg-slate-100\/80 { background-color: rgba(241, 245, 249, 0.8) !important; }
-		.group:hover .group-hover\:bg-slate-200\/80 { background-color: rgba(226, 232, 240, 0.8) !important; }
-	</style>
 	<section class="space-y-8" hx-ext="sse" sse-connect="/api/stream">
 		<div class="grid gap-6 lg:grid-cols-3">
 			<div class="lg:col-span-2 rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
@@ -81,7 +19,6 @@ templ DashboardContent() {
 					</span>
 				</div>
 				<div class="overflow-y-auto scrollbar-thin rounded-lg bg-slate-100/30 p-5 space-y-3 scroll-smooth h-[800px] max-h-[800px] min-h-[800px] border-0 shadow-inner" 
-					 style="height: 800px; max-height: 800px; min-height: 800px; overflow-y: auto;"
 					 id="live-stream"
 					 sse-swap="message"
 					 hx-swap="afterbegin"

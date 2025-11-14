@@ -76,7 +76,7 @@ The following development tools and dependencies are required for the dev comman
 
 - **air** - Hot reload tool for Go development
   ```bash
-  go install github.com/cosmtrek/air@latest
+  go install github.com/air-verse/air@latest
   ```
 
 - **templ** - Templating tool (automatically installed via `go run`)

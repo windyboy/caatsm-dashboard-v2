@@ -7,12 +7,10 @@
     "unocss:build": "unocss \"views/**/*.templ\" \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
   },
   "devDependencies": {
+    "@unocss/cli": "^66.5.6",
     "@unocss/preset-typography": "latest",
-    "@unocss/preset-wind3": "latest",
+    "@unocss/preset-wind4": "latest",
     "@unocss/transformer-directives": "latest",
     "unocss": "latest"
-  },
-  "dependencies": {
-    "@unocss/reset": "^66.5.6"
   }
 }
