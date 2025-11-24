@@ -62,7 +62,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 	if err != nil {
 		return fmt.Errorf("begin transaction for bulk save (%d telegrams): %w", len(telegrams), err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	query := `INSERT INTO telegrams (message_id, type, time, flight_number, source, destination, content, priority, raw_data)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -93,7 +93,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 	}
 
 	results := tx.SendBatch(ctx, batch)
-	defer results.Close()
+	defer func() { _ = results.Close() }()
 
 	for i := 0; i < len(telegrams); i++ {
 		_, err := results.Exec()
@@ -199,6 +199,20 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 	if sortBy == "" {
 		sortBy = "time"
 	}
+	// Whitelist allowed sort columns to prevent SQL injection
+	allowedSortColumns := map[string]bool{
+		"time":          true,
+		"priority":      true,
+		"message_id":    true,
+		"type":          true,
+		"flight_number": true,
+		"source":        true,
+		"destination":   true,
+	}
+	if !allowedSortColumns[sortBy] {
+		sortBy = "time"
+	}
+
 	order := filter.Page.Order
 	if order == "" {
 		order = "DESC"
@@ -206,6 +220,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 	if order != "ASC" && order != "DESC" {
 		order = "DESC"
 	}
+	// order is already validated above, safe to interpolate
 
 	countQuery := "SELECT COUNT(*) FROM telegrams " + whereClause
 	var total int64

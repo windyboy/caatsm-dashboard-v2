@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
@@ -90,23 +89,4 @@ func (s *telegramService) SaveTelegram(ctx context.Context, telegram *domain.Tel
 	}
 
 	return nil
-}
-
-// publishEvent is a helper method to publish events (kept for backward compatibility)
-func (s *telegramService) publishEvent(ctx context.Context, telegram *domain.Telegram) error {
-	if s.eventBus == nil {
-		return nil
-	}
-
-	eventData := map[string]any{
-		"type":     "telegram_processed",
-		"telegram": domain.FromDomain(telegram),
-	}
-
-	eventBytes, err := json.Marshal(eventData)
-	if err != nil {
-		return fmt.Errorf("marshal event: %w", err)
-	}
-
-	return s.eventBus.Publish(ctx, "telegram_processed", eventBytes)
 }

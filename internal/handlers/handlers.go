@@ -5,12 +5,21 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/models"
 	"github.com/windy/caatsm-dashboard/internal/repository"
+)
+
+const (
+	maxQueryLength      = 500
+	maxLimit            = 1000
+	maxOffset           = 100000
+	maxAutocompleteSize = 50
+	maxExportLimit      = 10000
 )
 
 // Handler bundles view and API handlers.
@@ -54,7 +63,7 @@ func Register(e *echo.Echo, c *app.Container, broadcaster *EventBroadcaster) {
 
 func (h *Handler) Search(ctx echo.Context) error {
 	filter := models.SearchFilter{
-		Query: ctx.FormValue("query"),
+		Query: sanitizeQuery(ctx.FormValue("query")),
 		Page: models.Pagination{
 			Limit:  DefaultPageLimit,
 			Offset: 0,
@@ -63,14 +72,24 @@ func (h *Handler) Search(ctx echo.Context) error {
 		},
 	}
 
+	if len(filter.Query) > maxQueryLength {
+		return echo.NewHTTPError(http.StatusBadRequest, "query too long")
+	}
+
 	// Parse pagination
 	if limitStr := ctx.QueryParam("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			if limit > maxLimit {
+				limit = maxLimit
+			}
 			filter.Page.Limit = limit
 		}
 	}
 	if offsetStr := ctx.QueryParam("offset"); offsetStr != "" {
 		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
+			if offset > maxOffset {
+				return echo.NewHTTPError(http.StatusBadRequest, "offset too large")
+			}
 			filter.Page.Offset = offset
 		}
 	}
@@ -92,7 +111,7 @@ func (h *Handler) Search(ctx echo.Context) error {
 		filter.Destination = []string{dstStr}
 	}
 	if priorityStr := ctx.QueryParam("priority"); priorityStr != "" {
-		if priority, err := strconv.Atoi(priorityStr); err == nil {
+		if priority, err := strconv.Atoi(priorityStr); err == nil && priority >= 0 {
 			filter.Priority = []int{priority}
 		}
 	}
@@ -129,6 +148,9 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 	size, _ := strconv.Atoi(sizeStr)
 	if size <= 0 {
 		size = DefaultAutocompleteSize
+	}
+	if size > maxAutocompleteSize {
+		size = maxAutocompleteSize
 	}
 
 	suggestions, err := h.container.SearchService.Autocomplete(ctx.Request().Context(), ctx.QueryParam("term"), size)
@@ -195,6 +217,11 @@ func (h *Handler) StatsType(ctx echo.Context) error {
 }
 
 func (h *Handler) Export(ctx echo.Context) error {
+	// Require authentication for export
+	if !h.container.Config.Auth.EnableBasic {
+		return echo.NewHTTPError(http.StatusUnauthorized, "authentication required for export")
+	}
+
 	format := models.ExportFormat(ctx.QueryParam("format"))
 	if format == "" {
 		format = models.ExportFormatCSV
@@ -203,7 +230,7 @@ func (h *Handler) Export(ctx echo.Context) error {
 	filter := models.SearchFilter{
 		Query: ctx.QueryParam("query"),
 		Page: models.Pagination{
-			Limit:  10000,
+			Limit:  maxExportLimit,
 			Offset: 0,
 		},
 	}
@@ -259,13 +286,13 @@ func (h *Handler) Root(ctx echo.Context) error {
 		"message": "CAATSM Dashboard API",
 		"version": "1.0.0",
 		"endpoints": map[string]string{
-			"api":        "/api",
-			"websocket":  "/ws",
-			"health":     "/api/health",
-			"metrics":    "/metrics",
-			"search":     "/api/search",
-			"stats":      "/api/stats/total, /api/stats/priority, /api/stats/type",
-			"export":     "/api/export",
+			"api":          "/api",
+			"websocket":    "/ws",
+			"health":       "/api/health",
+			"metrics":      "/metrics",
+			"search":       "/api/search",
+			"stats":        "/api/stats/total, /api/stats/priority, /api/stats/type",
+			"export":       "/api/export",
 			"autocomplete": "/api/autocomplete",
 		},
 		"frontend": map[string]string{
@@ -274,4 +301,13 @@ func (h *Handler) Root(ctx echo.Context) error {
 		},
 		"note": "In development, access the frontend at http://localhost:5173. This backend (port 3002) only serves API endpoints.",
 	})
+}
+
+func sanitizeQuery(q string) string {
+	// Remove control characters and limit length
+	q = strings.TrimSpace(q)
+	if len(q) > maxQueryLength {
+		q = q[:maxQueryLength]
+	}
+	return q
 }

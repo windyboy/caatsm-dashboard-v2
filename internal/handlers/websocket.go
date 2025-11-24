@@ -52,15 +52,15 @@ func (h *Handler) WebSocket(c echo.Context) error {
 		h.container.Logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
 	}
-	defer ws.Close()
+	defer func() { _ = ws.Close() }()
 
 	h.container.Logger.Info("WebSocket connection established", zap.String("remote_addr", c.RealIP()))
 
 	// Set read deadline and message size limits
-	ws.SetReadDeadline(time.Now().Add(pongWait))
+	_ = ws.SetReadDeadline(time.Now().Add(pongWait))
 	ws.SetReadLimit(maxMessageSize)
 	ws.SetPongHandler(func(string) error {
-		ws.SetReadDeadline(time.Now().Add(pongWait))
+		_ = ws.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
@@ -119,7 +119,7 @@ func (h *Handler) WebSocket(c echo.Context) error {
 			h.container.Logger.Info("WebSocket connection closed")
 			return nil
 		case <-pingTicker.C:
-			ws.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := ws.WriteMessage(websocket.PingMessage, nil); err != nil {
 				h.container.Logger.Warn("failed to send ping", zap.Error(err))
 				return err
@@ -322,6 +322,6 @@ func (h *Handler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, 
 
 // writeWebSocketMessage writes a WebSocket message to the client.
 func (h *Handler) writeWebSocketMessage(ws *websocket.Conn, msg WebSocketMessage) error {
-	ws.SetWriteDeadline(time.Now().Add(writeWait))
+	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
 	return ws.WriteJSON(msg)
 }

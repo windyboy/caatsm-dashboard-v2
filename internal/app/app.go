@@ -141,8 +141,6 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 		result.PostgreSQL = ComponentHealth{Status: "ok"}
 	}
 
-	healthCtx, cancel = context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
 	// Meilisearch Health() doesn't take context, but we use timeout context for cancellation
 	healthResp, err := c.meiliSvc.Health()
 	if err != nil {

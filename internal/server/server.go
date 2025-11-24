@@ -126,6 +126,12 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
 
+	// Add rate limiting
+	rateLimiterConfig := middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStore(10), // 10 requests per second
+	}
+	s.e.Use(middleware.RateLimiterWithConfig(rateLimiterConfig))
+
 	// Register API routes first (before static file serving)
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())

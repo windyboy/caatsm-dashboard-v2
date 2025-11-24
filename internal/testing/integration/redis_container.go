@@ -18,18 +18,17 @@ type RedisContainer struct {
 
 // NewRedisContainer creates and starts a Valkey test container
 func NewRedisContainer(ctx context.Context) (*RedisContainer, error) {
-	redisContainer, err := rediscontainer.RunContainer(ctx,
-		testcontainers.WithImage("valkey/valkey:9-alpine"),
+	redisContainer, err := rediscontainer.Run(ctx, "valkey/valkey:9-alpine",
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Ready to accept connections").
 				WithStartupTimeout(30),
 		),
 	)
-		if err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("failed to start valkey container: %w", err)
 	}
 
-		endpoint, err := redisContainer.Endpoint(ctx, "")
+	endpoint, err := redisContainer.Endpoint(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get valkey endpoint: %w", err)
 	}

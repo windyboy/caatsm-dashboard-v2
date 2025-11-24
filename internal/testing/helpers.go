@@ -25,30 +25,30 @@ func SetupTestEnv(ctx context.Context) (*TestEnv, error) {
 
 	redisContainer, err := integration.NewRedisContainer(ctx)
 	if err != nil {
-		pgContainer.Terminate(ctx)
+		_ = pgContainer.Terminate(ctx)
 		return nil, fmt.Errorf("failed to setup redis: %w", err)
 	}
 
 	meiliContainer, err := integration.NewMeiliContainer(ctx)
 	if err != nil {
-		pgContainer.Terminate(ctx)
-		redisContainer.Terminate(ctx)
+		_ = pgContainer.Terminate(ctx)
+		_ = redisContainer.Terminate(ctx)
 		return nil, fmt.Errorf("failed to setup meilisearch: %w", err)
 	}
 
 	pool, err := pgContainer.Pool(ctx)
 	if err != nil {
-		pgContainer.Terminate(ctx)
-		redisContainer.Terminate(ctx)
-		meiliContainer.Terminate(ctx)
+		_ = pgContainer.Terminate(ctx)
+		_ = redisContainer.Terminate(ctx)
+		_ = meiliContainer.Terminate(ctx)
 		return nil, fmt.Errorf("failed to create pool: %w", err)
 	}
 
 	// Run migrations
 	if err := RunMigrations(ctx, pool); err != nil {
-		pgContainer.Terminate(ctx)
-		redisContainer.Terminate(ctx)
-		meiliContainer.Terminate(ctx)
+		_ = pgContainer.Terminate(ctx)
+		_ = redisContainer.Terminate(ctx)
+		_ = meiliContainer.Terminate(ctx)
 		pool.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}

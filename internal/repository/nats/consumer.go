@@ -134,21 +134,21 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			for _, msg := range msgs {
 				var telegram models.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
-					msg.Ack()
+					_ = msg.Ack()
 					continue
 				}
 
 				if telegram.MessageID == "" {
-					msg.Ack()
+					_ = msg.Ack()
 					continue
 				}
 
 				if err := c.handler(ctx, &telegram); err != nil {
-					msg.Nak()
+					_ = msg.Nak()
 					continue
 				}
 
-				msg.Ack()
+				_ = msg.Ack()
 			}
 		}
 	}

@@ -36,7 +36,6 @@ var (
 func generateTestData(count int) []*models.Telegram {
 	telegrams := make([]*models.Telegram, count)
 	now := time.Now()
-	rand.Seed(time.Now().UnixNano())
 
 	for i := 0; i < count; i++ {
 		// Generate random time within last 24 hours
@@ -88,7 +87,7 @@ func main() {
 	}
 
 	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	// Initialize database connection
 	pool, err := postgresClient.NewPool(ctx, cfg.Database)

@@ -97,7 +97,6 @@ func main() {
 	)
 	flag.Parse()
 
-	rand.Seed(time.Now().UnixNano())
 	ctx := context.Background()
 
 	// Load config
@@ -109,7 +108,7 @@ func main() {
 
 	// Setup logger
 	logger, _ := zap.NewDevelopment()
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	logger.Info("connecting to NATS",
 		zap.String("url", cfg.NATS.URL),

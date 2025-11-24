@@ -92,6 +92,9 @@ func (c *AppConfig) Validate() error {
 	if c.Meilisearch.Host == "" {
 		errs = append(errs, errors.New("meilisearch.host is required"))
 	}
+	if c.Meilisearch.APIKey == "" {
+		errs = append(errs, errors.New("meilisearch.api_key is required"))
+	}
 
 	if c.NATS.URL == "" {
 		errs = append(errs, errors.New("nats.url is required"))

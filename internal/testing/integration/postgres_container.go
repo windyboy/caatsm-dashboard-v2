@@ -18,8 +18,7 @@ type PostgresContainer struct {
 
 // NewPostgresContainer creates and starts a PostgreSQL test container
 func NewPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
-	pgContainer, err := postgres.RunContainer(ctx,
-		testcontainers.WithImage("timescale/timescaledb:2.16.0-pg15"),
+	pgContainer, err := postgres.Run(ctx, "timescale/timescaledb:2.16.0-pg15",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
 		postgres.WithPassword("testpass"),

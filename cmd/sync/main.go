@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("connect redis", zap.Error(err))
 	}
-	defer redisCli.Close()
+	defer func() { _ = redisCli.Close() }()
 
 	nc, js, err := natsClient.Connect(ctx, cfg.NATS)
 	if err != nil {

@@ -61,25 +61,43 @@ func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) 
 	if len(filter.Type) > 0 {
 		typeFilters := make([]string, len(filter.Type))
 		for i, t := range filter.Type {
+			// Validate and sanitize type value
+			if strings.ContainsAny(t, `"=()[]{}`) {
+				continue // Skip invalid characters
+			}
 			typeFilters[i] = fmt.Sprintf("type = %q", t)
 		}
-		filterParts = append(filterParts, "("+strings.Join(typeFilters, " OR ")+")")
+		if len(typeFilters) > 0 {
+			filterParts = append(filterParts, "("+strings.Join(typeFilters, " OR ")+")")
+		}
 	}
 
 	if len(filter.Source) > 0 {
 		sourceFilters := make([]string, len(filter.Source))
 		for i, src := range filter.Source {
+			// Validate and sanitize source value
+			if strings.ContainsAny(src, `"=()[]{}`) {
+				continue // Skip invalid characters
+			}
 			sourceFilters[i] = fmt.Sprintf("source = %q", src)
 		}
-		filterParts = append(filterParts, "("+strings.Join(sourceFilters, " OR ")+")")
+		if len(sourceFilters) > 0 {
+			filterParts = append(filterParts, "("+strings.Join(sourceFilters, " OR ")+")")
+		}
 	}
 
 	if len(filter.Destination) > 0 {
 		destFilters := make([]string, len(filter.Destination))
 		for i, dst := range filter.Destination {
+			// Validate and sanitize destination value
+			if strings.ContainsAny(dst, `"=()[]{}`) {
+				continue // Skip invalid characters
+			}
 			destFilters[i] = fmt.Sprintf("destination = %q", dst)
 		}
-		filterParts = append(filterParts, "("+strings.Join(destFilters, " OR ")+")")
+		if len(destFilters) > 0 {
+			filterParts = append(filterParts, "("+strings.Join(destFilters, " OR ")+")")
+		}
 	}
 
 	if len(filter.Priority) > 0 {
