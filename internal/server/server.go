@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -50,12 +51,12 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 
 	metricsExporter := observability.NewMetricsExporter()
 
-	// Create event broadcaster for SSE
+	// Create event broadcaster for WebSocket
 	redisCli := container.RedisClient()
 	if redisCli == nil {
-		logger.Warn("redis client is nil, SSE real-time updates will not work")
+		logger.Warn("redis client is nil, WebSocket real-time updates will not work")
 	} else {
-		logger.Info("redis client available for SSE")
+		logger.Info("redis client available for WebSocket")
 	}
 	broadcaster := handlers.NewEventBroadcaster(redisCli, logger)
 	go broadcaster.StartRedisListener()
@@ -89,7 +90,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         fmt.Sprintf("%s:%d", s.cfg.Server.Host, s.cfg.Server.Port),
 		Handler:      s.e,
 		ReadTimeout:  s.cfg.Server.ReadTimeout,
-		WriteTimeout: 0, // Disable WriteTimeout for SSE connections (long-lived connections)
+		WriteTimeout: 0, // Disable WriteTimeout for WebSocket connections (long-lived connections)
 		IdleTimeout:  s.cfg.Server.IdleTimeout,
 	}
 
@@ -125,12 +126,45 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
 
-	// Serve static files (CSS, favicon, etc.) - register before other routes
-	s.e.Static("/css", "public/css")
-	s.e.File("/favicon.ico", "public/favicon.ico")
-
+	// Register API routes first (before static file serving)
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())
 	}
 	handlers.Register(s.e, s.container, broadcaster)
+
+	// Serve static files from Svelte frontend build directory
+	// This should be registered last to catch all non-API routes
+	// Deno adapter outputs to .svelte-kit/deno by default, but we check multiple locations
+	buildDirs := []string{
+		"frontend/.svelte-kit/deno",
+		"frontend/build",
+		"frontend/.svelte-kit/output",
+	}
+
+	var staticServed bool
+	for _, dir := range buildDirs {
+		if _, err := os.Stat(dir); err == nil {
+			s.e.Static("/", dir)
+			s.logger.Info("serving static files from", zap.String("dir", dir))
+			staticServed = true
+			break
+		}
+	}
+
+	if !staticServed {
+		// Register legacy static assets before the fallback route
+		// (these will be overridden by frontend/build if it exists)
+		s.e.Static("/css", "public/css")
+		s.e.File("/favicon.ico", "public/favicon.ico")
+
+		s.logger.Warn("frontend build directory not found, serving fallback message",
+			zap.Strings("checked_dirs", buildDirs))
+		// Fallback: serve a helpful error message
+		s.e.GET("/*", func(c echo.Context) error {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"message": "Frontend not built. Please run 'cd frontend && deno task build' or 'cd frontend && npm run build'",
+				"error":   "Not Found",
+			})
+		})
+	}
 }

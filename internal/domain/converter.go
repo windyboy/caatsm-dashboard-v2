@@ -39,4 +39,3 @@ func FromDomain(d *Telegram) *models.Telegram {
 		RawData:      d.RawData,
 	}
 }
-

@@ -68,4 +68,3 @@ func (c *PostgresContainer) Pool(ctx context.Context) (*pgxpool.Pool, error) {
 func (c *PostgresContainer) Terminate(ctx context.Context) error {
 	return c.container.Terminate(ctx)
 }
-

@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@sveltejs/kit": "jsr:@sveltejs/kit@2",
+    "$lib": "./src/lib",
+    "$lib/": "./src/lib/"
+  }
+}
+

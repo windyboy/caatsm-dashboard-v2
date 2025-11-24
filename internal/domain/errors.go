@@ -9,4 +9,3 @@ type ErrInvalidTelegram struct {
 func (e ErrInvalidTelegram) Error() string {
 	return "invalid telegram: " + e.Field + " " + e.Reason
 }
-

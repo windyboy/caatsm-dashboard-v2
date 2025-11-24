@@ -145,7 +145,7 @@ func (s *searchService) Search(ctx context.Context, filter models.SearchFilter) 
 			continue
 		}
 
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(hitBytes, &data); err != nil {
 			s.logger.Warn("failed to unmarshal hit", zap.Error(err))
 			continue
@@ -241,7 +241,7 @@ func (s *searchService) Autocomplete(ctx context.Context, term string, size int)
 			continue
 		}
 
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(hitBytes, &data); err != nil {
 			continue
 		}

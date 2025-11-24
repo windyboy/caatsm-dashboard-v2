@@ -17,11 +17,11 @@ import (
 
 func TestWorker_Handle(t *testing.T) {
 	tests := []struct {
-		name           string
-		telegram       *models.Telegram
-		serviceError   error
-		expectError    bool
-		expectBadData  bool
+		name             string
+		telegram         *models.Telegram
+		serviceError     error
+		expectError      bool
+		expectBadData    bool
 		expectAppFailure bool
 	}{
 		{
@@ -53,8 +53,8 @@ func TestWorker_Handle(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			serviceError:    errors.New("service error"),
-			expectError:     true,
+			serviceError:     errors.New("service error"),
+			expectError:      true,
 			expectAppFailure: true,
 		},
 	}
@@ -104,9 +104,9 @@ func TestWorker_Handle(t *testing.T) {
 
 func TestIsRetryableError(t *testing.T) {
 	tests := []struct {
-		name  string
-		err   error
-		want  bool
+		name string
+		err  error
+		want bool
 	}{
 		{
 			name: "ErrAppFailure is retryable",
@@ -140,9 +140,9 @@ func TestIsRetryableError(t *testing.T) {
 
 func TestIsBadDataError(t *testing.T) {
 	tests := []struct {
-		name  string
-		err   error
-		want  bool
+		name string
+		err  error
+		want bool
 	}{
 		{
 			name: "ErrBadData is bad data",
@@ -168,4 +168,3 @@ func TestIsBadDataError(t *testing.T) {
 		})
 	}
 }
-

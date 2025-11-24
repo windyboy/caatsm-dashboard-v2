@@ -17,7 +17,7 @@ type TestSuite struct {
 // SetupSuite runs once before all tests in the suite
 func (s *TestSuite) SetupSuite() {
 	s.ctx = context.Background()
-	
+
 	// Only setup test environment for integration tests
 	// Unit tests should skip this
 	if !testing.Short() {
@@ -55,4 +55,3 @@ func (s *TestSuite) Context() context.Context {
 	}
 	return s.ctx
 }
-

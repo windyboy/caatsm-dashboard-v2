@@ -120,7 +120,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 // Search performs a structured query over telegram records.
 func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 	argPos := 1
 
 	if filter.Query != "" {
@@ -266,7 +266,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 // TrafficSummary returns aggregated data for dashboards.
 func (s *Store) TrafficSummary(ctx context.Context, window models.TimeWindow) (*models.TrafficSummary, error) {
 	var whereClause string
-	var args []interface{}
+	var args []any
 
 	if !window.Start.IsZero() || !window.End.IsZero() {
 		var conditions []string

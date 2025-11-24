@@ -75,4 +75,3 @@ func TestValidator_ValidateICAOCode(t *testing.T) {
 		})
 	}
 }
-

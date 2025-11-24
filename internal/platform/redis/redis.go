@@ -7,18 +7,23 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 	"github.com/windy/caatsm-dashboard/config"
 )
 
-// NewClient creates a redis client based on configuration.
+// NewClient creates a Valkey/Redis client based on configuration.
+// Uses github.com/redis/go-redis/v9 which is protocol-compatible with both Redis and Valkey.
 func NewClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
 	options := &redis.Options{
 		Addr:     cfg.Addr,
 		Username: cfg.Username,
 		Password: cfg.Password,
 		DB:       cfg.DB,
-		// Disable identity to avoid maint_notifications error on Redis 7
-		DisableIndentity: true,
+		// Disable maintenance notifications to avoid maint_notifications error
+		// when the Redis/Valkey server doesn't support this command
+		MaintNotificationsConfig: &maintnotifications.Config{
+			Mode: maintnotifications.ModeDisabled,
+		},
 	}
 
 	if cfg.Timeout > 0 {
@@ -43,7 +48,7 @@ func NewClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("ping redis: %w", err)
+		return nil, fmt.Errorf("ping valkey/redis: %w", err)
 	}
 
 	return client, nil

@@ -8,13 +8,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RedisEventBus implements EventBus using Redis pub/sub
+// RedisEventBus implements EventBus using Valkey/Redis pub/sub
 type RedisEventBus struct {
-	client redis.UniversalClient
+	client  redis.UniversalClient
 	channel string
 }
 
-// NewRedisEventBus creates a new RedisEventBus
+// NewRedisEventBus creates a new RedisEventBus (works with both Redis and Valkey)
 func NewRedisEventBus(client redis.UniversalClient, channel string) EventBus {
 	return &RedisEventBus{
 		client:  client,
@@ -22,9 +22,9 @@ func NewRedisEventBus(client redis.UniversalClient, channel string) EventBus {
 	}
 }
 
-// Publish publishes an event to Redis
-func (e *RedisEventBus) Publish(ctx context.Context, eventType string, data interface{}) error {
-	eventData := map[string]interface{}{
+// Publish publishes an event to Valkey/Redis
+func (e *RedisEventBus) Publish(ctx context.Context, eventType string, data any) error {
+	eventData := map[string]any{
 		"type": eventType,
 		"data": data,
 	}
@@ -35,9 +35,8 @@ func (e *RedisEventBus) Publish(ctx context.Context, eventType string, data inte
 	}
 
 	if err := e.client.Publish(ctx, e.channel, eventBytes).Err(); err != nil {
-		return fmt.Errorf("publish to redis: %w", err)
+		return fmt.Errorf("publish to valkey/redis: %w", err)
 	}
 
 	return nil
 }
-

@@ -10,21 +10,21 @@ build: ## Build the application
 	go build -o bin/caatsm ./cmd/server
 
 test: ## Run all tests (unit + integration)
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -v -race -coverprofile=coverage.out -timeout=5m ./...
 	go tool cover -html=coverage.out -o coverage.html
 
 test-unit: ## Run unit tests only
-	go test -v -race -coverprofile=coverage.out -short ./...
+	go test -v -race -coverprofile=coverage.out -short -timeout=2m ./...
 	go tool cover -html=coverage.out -o coverage.html
 
 test-integration: ## Run integration tests only
-	go test -v -race -tags=integration ./...
+	go test -v -race -tags=integration -timeout=10m ./...
 
 race: ## Run tests with race detector
 	go test -race ./...
 
 lint: ## Run linter
-	golangci-lint run ./...
+	golangci-lint run -buildvcs=false ./...
 
 run: build ## Build and run the application
 	./bin/caatsm
@@ -48,8 +48,6 @@ migrate: ## Run database migrations
 	@echo "Running database migrations..."
 	@echo "Please implement migration script in scripts/migrate.sh"
 
-generate: ## Generate templ components
-	go run github.com/a-h/templ/cmd/templ@v0.3.960 generate
 
 tidy: ## Run go mod tidy
 	go mod tidy

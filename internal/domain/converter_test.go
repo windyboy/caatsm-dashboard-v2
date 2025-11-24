@@ -103,4 +103,3 @@ func TestFromDomain(t *testing.T) {
 		assert.Equal(t, original.RawData, converted.RawData)
 	})
 }
-

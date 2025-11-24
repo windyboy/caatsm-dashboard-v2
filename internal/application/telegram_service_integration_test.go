@@ -126,4 +126,3 @@ func TestTelegramService_Integration_MultipleTelegrams(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(5), result.Total, "all 5 telegrams should be saved")
 }
-

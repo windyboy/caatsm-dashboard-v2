@@ -36,4 +36,3 @@ func (m *TelegramStoreMock) Search(ctx context.Context, filter models.SearchFilt
 	}
 	return args.Get(0).(*models.SearchResult), args.Error(1)
 }
-

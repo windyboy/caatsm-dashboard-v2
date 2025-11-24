@@ -26,7 +26,7 @@ func TestRedisEventBus_Publish(t *testing.T) {
 		// Create a real Redis client mock would be complex
 		// For now, we test the logic without actual Redis connection
 		// In integration tests, we use testcontainers
-		
+
 		// This test verifies the structure of the event data
 		eventData := map[string]interface{}{
 			"type": "test_event",
@@ -68,4 +68,3 @@ func TestRedisEventBus_Publish(t *testing.T) {
 		assert.Equal(t, data, decoded["data"])
 	})
 }
-

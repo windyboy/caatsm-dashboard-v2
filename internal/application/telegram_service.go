@@ -72,7 +72,7 @@ func (s *telegramService) SaveTelegram(ctx context.Context, telegram *domain.Tel
 
 	// 5. Publish event (non-blocking - errors are logged but don't fail)
 	if s.eventBus != nil {
-		eventData := map[string]interface{}{
+		eventData := map[string]any{
 			"type":     "telegram_processed",
 			"telegram": modelTelegram,
 		}
@@ -98,7 +98,7 @@ func (s *telegramService) publishEvent(ctx context.Context, telegram *domain.Tel
 		return nil
 	}
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"type":     "telegram_processed",
 		"telegram": domain.FromDomain(telegram),
 	}
@@ -110,4 +110,3 @@ func (s *telegramService) publishEvent(ctx context.Context, telegram *domain.Tel
 
 	return s.eventBus.Publish(ctx, "telegram_processed", eventBytes)
 }
-

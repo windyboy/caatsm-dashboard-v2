@@ -33,9 +33,9 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 		return fmt.Errorf("update searchable attributes: %w", err)
 	}
 
-	// Configure filterable attributes - convert []string to []interface{}
+	// Configure filterable attributes - convert []string to []any
 	filterableAttributes := []string{"type", "source", "destination", "priority", "time"}
-	filterableInterface := make([]interface{}, len(filterableAttributes))
+	filterableInterface := make([]any, len(filterableAttributes))
 	for j, v := range filterableAttributes {
 		filterableInterface[j] = v
 	}
@@ -69,7 +69,7 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 func (i *Index) Index(ctx context.Context, telegram *models.Telegram) error {
 	idx := i.client.Index(i.index)
 
-	doc := map[string]interface{}{
+	doc := map[string]any{
 		"message_id":    telegram.MessageID,
 		"type":          telegram.Type,
 		"time":          telegram.Time.Unix(),
@@ -81,7 +81,7 @@ func (i *Index) Index(ctx context.Context, telegram *models.Telegram) error {
 	}
 
 	primaryKey := "message_id"
-	_, err := idx.AddDocuments([]map[string]interface{}{doc}, &primaryKey)
+	_, err := idx.AddDocuments([]map[string]any{doc}, &primaryKey)
 	if err != nil {
 		return fmt.Errorf("index telegram: %w", err)
 	}
@@ -97,9 +97,9 @@ func (i *Index) BulkIndex(ctx context.Context, telegrams []*models.Telegram) err
 
 	idx := i.client.Index(i.index)
 
-	docs := make([]map[string]interface{}, len(telegrams))
+	docs := make([]map[string]any, len(telegrams))
 	for i, telegram := range telegrams {
-		docs[i] = map[string]interface{}{
+		docs[i] = map[string]any{
 			"message_id":    telegram.MessageID,
 			"type":          telegram.Type,
 			"time":          telegram.Time.Unix(),
@@ -133,7 +133,7 @@ func (i *Index) Delete(ctx context.Context, messageID string) error {
 }
 
 // Search performs a search query on the Meilisearch index.
-func (i *Index) Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error) {
+func (i *Index) Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (any, error) {
 	idx := i.client.Index(i.index)
 
 	searchRequest := &meilisearch.SearchRequest{
@@ -159,7 +159,7 @@ func (i *Index) Search(ctx context.Context, query string, filter string, limit, 
 }
 
 // SearchAutocomplete performs an autocomplete search on the Meilisearch index.
-func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error) {
+func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error) {
 	idx := i.client.Index(i.index)
 
 	searchRequest := &meilisearch.SearchRequest{

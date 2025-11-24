@@ -22,4 +22,3 @@ func IsRetryableError(err error) bool {
 func IsBadDataError(err error) bool {
 	return errors.Is(err, ErrBadData)
 }
-

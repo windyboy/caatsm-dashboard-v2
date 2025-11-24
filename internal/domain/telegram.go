@@ -55,4 +55,3 @@ func (t *Telegram) ExtractRoute() string {
 func (t *Telegram) Normalize() {
 	// TODO: implement normalization logic
 }
-

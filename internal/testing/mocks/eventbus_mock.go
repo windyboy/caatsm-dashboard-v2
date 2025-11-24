@@ -16,8 +16,7 @@ type EventBusMock struct {
 var _ event.EventBus = (*EventBusMock)(nil)
 
 // Publish mocks the Publish method
-func (m *EventBusMock) Publish(ctx context.Context, eventType string, data interface{}) error {
+func (m *EventBusMock) Publish(ctx context.Context, eventType string, data any) error {
 	args := m.Called(ctx, eventType, data)
 	return args.Error(0)
 }
-

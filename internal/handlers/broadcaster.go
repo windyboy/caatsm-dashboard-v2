@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// EventBroadcaster manages SSE connections and broadcasts events to all connected clients.
+// EventBroadcaster manages WebSocket connections and broadcasts events to all connected clients.
 type EventBroadcaster struct {
 	clients  map[chan []byte]bool
 	mu       sync.RWMutex
@@ -94,31 +94,21 @@ func (b *EventBroadcaster) StartRedisListener() {
 
 	b.logger.Info("subscribing to Redis channel", zap.String("channel", "stats:update"))
 	pubsub := b.redisCli.Subscribe(b.ctx, "stats:update")
-	defer pubsub.Close()
-
-	b.logger.Info("started redis listener for stats updates", zap.String("channel", "stats:update"))
-
-	// Wait for subscription confirmation
-	// The first message from Channel() is the subscription confirmation
-	ch := pubsub.Channel()
-	confirmationTimeout := time.NewTimer(5 * time.Second)
-	select {
-	case msg := <-ch:
-		if msg != nil {
-			b.logger.Info("subscription confirmed",
-				zap.String("channel", msg.Channel),
-				zap.String("kind", msg.Payload))
+	defer func() {
+		if err := pubsub.Close(); err != nil {
+			b.logger.Warn("error closing pubsub", zap.Error(err))
+		} else {
+			b.logger.Info("pubsub closed")
 		}
-		confirmationTimeout.Stop()
-	case <-confirmationTimeout.C:
-		b.logger.Warn("subscription confirmation timeout, continuing anyway")
-	case <-b.ctx.Done():
-		return
-	}
+	}()
 
-	b.logger.Info("redis listener is now waiting for messages...")
+	// Subscription is confirmed when Subscribe() returns successfully
+	// pubsub.Channel() will automatically handle subscription confirmation
+	b.logger.Info("redis listener subscribed and ready", zap.String("channel", "stats:update"))
 
-	// Now process actual messages
+	ch := pubsub.Channel()
+
+	// Process pub/sub messages
 	for {
 		select {
 		case <-b.ctx.Done():
@@ -126,29 +116,35 @@ func (b *EventBroadcaster) StartRedisListener() {
 			return
 		case msg := <-ch:
 			if msg != nil {
-				// Filter out subscription confirmation messages
-				// Actual messages have the channel name and non-empty payload
+				// Process messages from the subscribed channel
 				if msg.Channel == "stats:update" && msg.Payload != "" {
-					// Try to parse as JSON to verify it's a real message (not subscription count)
-					var testData map[string]interface{}
-					if err := json.Unmarshal([]byte(msg.Payload), &testData); err == nil {
-						b.logger.Info("received stats update event from redis",
+					// Verify it's valid JSON before broadcasting
+					var eventData map[string]any
+					if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
+						eventType, _ := eventData["type"].(string)
+						b.logger.Info("received event from redis",
 							zap.String("channel", msg.Channel),
-							zap.String("payload", msg.Payload))
+							zap.String("event_type", eventType),
+							zap.Int("payload_size", len(msg.Payload)))
+
 						b.Broadcast([]byte(msg.Payload))
 						b.mu.RLock()
 						clientCount := len(b.clients)
 						b.mu.RUnlock()
-						b.logger.Info("broadcasted event to clients", zap.Int("client_count", clientCount))
+						b.logger.Info("broadcasted event to clients",
+							zap.String("event_type", eventType),
+							zap.Int("client_count", clientCount))
 					} else {
-						b.logger.Debug("ignored non-JSON message (likely subscription confirmation)",
+						b.logger.Warn("ignored invalid JSON message from redis",
+							zap.String("channel", msg.Channel),
 							zap.String("payload", msg.Payload),
 							zap.Error(err))
 					}
 				} else {
 					b.logger.Debug("ignored message",
 						zap.String("channel", msg.Channel),
-						zap.String("payload", msg.Payload))
+						zap.Bool("has_payload", msg.Payload != ""),
+						zap.String("expected_channel", "stats:update"))
 				}
 			}
 		}
@@ -161,7 +157,7 @@ func (b *EventBroadcaster) PublishStatsUpdate(ctx context.Context) error {
 		return fmt.Errorf("redis client not available")
 	}
 
-	event := map[string]interface{}{
+	event := map[string]any{
 		"type": "stats_update",
 		"time": time.Now().Unix(),
 	}

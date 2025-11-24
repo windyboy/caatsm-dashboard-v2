@@ -16,14 +16,14 @@ import (
 
 func TestTelegramService_SaveTelegram(t *testing.T) {
 	tests := []struct {
-		name           string
-		telegram       *domain.Telegram
-		storeError     error
-		indexError     error
-		publishError   error
-		expectError    bool
-		expectStoreCall bool
-		expectIndexCall bool
+		name              string
+		telegram          *domain.Telegram
+		storeError        error
+		indexError        error
+		publishError      error
+		expectError       bool
+		expectStoreCall   bool
+		expectIndexCall   bool
 		expectPublishCall bool
 	}{
 		{
@@ -34,10 +34,10 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			expectError:        false,
-			expectStoreCall:    true,
-			expectIndexCall:    true,
-			expectPublishCall:  true,
+			expectError:       false,
+			expectStoreCall:   true,
+			expectIndexCall:   true,
+			expectPublishCall: true,
 		},
 		{
 			name: "invalid telegram - validation fails",
@@ -47,10 +47,10 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			expectError:        true,
-			expectStoreCall:    false,
-			expectIndexCall:    false,
-			expectPublishCall:  false,
+			expectError:       true,
+			expectStoreCall:   false,
+			expectIndexCall:   false,
+			expectPublishCall: false,
 		},
 		{
 			name: "store save fails",
@@ -60,11 +60,11 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			storeError:         errors.New("database error"),
-			expectError:        true,
-			expectStoreCall:    true,
-			expectIndexCall:    false,
-			expectPublishCall:  false,
+			storeError:        errors.New("database error"),
+			expectError:       true,
+			expectStoreCall:   true,
+			expectIndexCall:   false,
+			expectPublishCall: false,
 		},
 		{
 			name: "index fails - should continue",
@@ -74,11 +74,11 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			indexError:         errors.New("index error"),
-			expectError:        false, // Index error should not fail the operation
-			expectStoreCall:    true,
-			expectIndexCall:    true,
-			expectPublishCall:  true,
+			indexError:        errors.New("index error"),
+			expectError:       false, // Index error should not fail the operation
+			expectStoreCall:   true,
+			expectIndexCall:   true,
+			expectPublishCall: true,
 		},
 		{
 			name: "publish fails - should continue",
@@ -88,11 +88,11 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  2,
 			},
-			publishError:       errors.New("publish error"),
-			expectError:        false, // Publish error should not fail the operation
-			expectStoreCall:    true,
-			expectIndexCall:    true,
-			expectPublishCall:  true,
+			publishError:      errors.New("publish error"),
+			expectError:       false, // Publish error should not fail the operation
+			expectStoreCall:   true,
+			expectIndexCall:   true,
+			expectPublishCall: true,
 		},
 	}
 
@@ -170,4 +170,3 @@ func TestTelegramService_SaveTelegram_Normalize(t *testing.T) {
 	indexMock.AssertExpectations(t)
 	eventBusMock.AssertExpectations(t)
 }
-

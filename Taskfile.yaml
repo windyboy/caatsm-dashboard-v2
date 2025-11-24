@@ -16,53 +16,56 @@ tasks:
   install-deps:
     desc: "Install npm dependencies and Go tool dependencies (goose)"
     cmds:
-      - npm install
+      - npm install || exit 1
       - |
         # Install goose if not already available
         if ! command -v goose > /dev/null 2>&1; then
           echo "Installing goose migration tool..."
-          go install github.com/pressly/goose/v3/cmd/goose@latest
+          go install github.com/pressly/goose/v3/cmd/goose@latest || exit 1
         else
           echo "goose is already installed"
         fi
 
-  generate:
-    desc: "Generate templ components"
-    cmds:
-      - go run github.com/a-h/templ/cmd/templ@latest generate
-
   dev:
-    desc: "Run API server with hot reload"
-    deps: [generate]
+    desc: "Run API server with hot reload (frontend should be run separately with 'task frontend:dev')"
     cmds:
       - |
+        set -e
         # Ensure npm dependencies are installed
         if [ ! -d node_modules ] || [ ! -f node_modules/unocss/package.json ] 2>/dev/null; then
           echo "Installing npm dependencies..."
-          npm install
+          npm install || exit 1
         fi
         # Build UnoCSS if not exists
         if [ ! -f public/css/app.css ]; then
           echo "Building UnoCSS..."
-          npm run unocss:build
+          npm run unocss:build || exit 1
         fi
+        echo "Starting backend server with hot reload..."
+        echo "Note: Run 'task frontend:dev' in another terminal to start the frontend dev server"
       - air
 
   build:
     desc: "Build server binary"
-    deps: [generate]
     cmds:
       - go build -buildvcs=false -o bin/caatsm ./cmd/server
 
   test:
     desc: "Run Go tests"
     cmds:
-      - go test ./...
+      - go test -timeout=5m ./...
+
+  test:coverage:
+    desc: "Run Go tests with coverage report"
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "Coverage report generated: coverage.html"'
 
   lint:
     desc: "Run golangci-lint"
     cmds:
-      - golangci-lint run ./...
+      - golangci-lint run -buildvcs=false ./...
 
   unocss:
     desc: "Build UnoCSS (watch mode)"
@@ -73,6 +76,38 @@ tasks:
     desc: "Build UnoCSS once"
     cmds:
       - npm run unocss:build
+
+  frontend:dev:
+    desc: "Run frontend development server (uses Deno, fallback to npm)"
+    dir: frontend
+    cmds:
+      - |
+        if command -v deno > /dev/null 2>&1; then
+          echo "Using Deno to run frontend dev server..."
+          deno task dev
+        else
+          echo "Deno not found, using npm..."
+          npm run dev
+        fi
+
+  frontend:build:
+    desc: "Build frontend for production (uses Deno, fallback to npm)"
+    dir: frontend
+    cmds:
+      - |
+        if command -v deno > /dev/null 2>&1; then
+          echo "Using Deno to build frontend..."
+          deno task build
+        else
+          echo "Deno not found, using npm..."
+          npm run build
+        fi
+
+  frontend:test:
+    desc: "Run frontend tests"
+    dir: frontend
+    cmds:
+      - npm test
 
   docker:build:
     desc: "Build application container"
@@ -93,32 +128,57 @@ tasks:
     desc: "Start development dependencies (Docker/Podman compatible)"
     cmds:
       - |
-        # Start development dependencies with .env.local
+        set -e
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml --env-file .env.local up -d
+          CMD=podman
         else
-          docker compose -f docker-compose.dev.yml --env-file .env.local up -d
+          CMD=docker
         fi
+        if [ ! -f .env.local ]; then
+          echo "Warning: .env.local not found. Run 'task dev:config' first."
+          exit 1
+        fi
+        $CMD compose -f docker-compose.dev.yml --env-file .env.local up -d
+
+  dev:compose-up:
+    desc: "Start development dependencies and run API server with hot reload"
+    cmds:
+      - task: dev:up
+      - |
+        set -e
+        # Ensure npm dependencies are installed
+        if [ ! -d node_modules ] || [ ! -f node_modules/unocss/package.json ] 2>/dev/null; then
+          echo "Installing npm dependencies..."
+          npm install || exit 1
+        fi
+        # Build UnoCSS if not exists
+        if [ ! -f public/css/app.css ]; then
+          echo "Building UnoCSS..."
+          npm run unocss:build || exit 1
+        fi
+      - air
 
   dev:down:
     desc: "Stop development dependencies"
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
+          CMD=podman
         else
-          docker compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
+          CMD=docker
         fi
+        $CMD compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
 
   dev:logs:
     desc: "Show logs from development dependencies"
     cmds:
       - |
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml --env-file .env.local logs -f
+          CMD=podman
         else
-          docker compose -f docker-compose.dev.yml --env-file .env.local logs -f
+          CMD=docker
         fi
+        $CMD compose -f docker-compose.dev.yml --env-file .env.local logs -f
 
   dev:config:
     desc: "Setup local development configuration"
@@ -134,7 +194,6 @@ tasks:
 
   dev:run:
     desc: "Run application with local config file"
-    deps: [generate]
     cmds:
       - go run ./cmd/server -config config/config.local.toml
 
@@ -142,6 +201,7 @@ tasks:
     desc: "Run sync worker to consume messages from NATS"
     cmds:
       - |
+        set -e
         CONFIG="${CAATSM_CONFIG:-config/config.local.toml}"
         if [ ! -f "$CONFIG" ]; then
           echo "Warning: Config file not found: $CONFIG"
@@ -154,27 +214,35 @@ tasks:
     desc: "Extract Meilisearch master key from container logs and update .env.local"
     cmds:
       - |
+        set -e
         if command -v podman > /dev/null 2>&1 && ! command -v docker > /dev/null 2>&1; then
-          podman compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
+          CMD=podman
         else
-          docker compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
+          CMD=docker
         fi
+        $CMD compose -f docker-compose.dev.yml --env-file .env.local logs meilisearch 2>&1 | ./scripts/extract-meili-key.sh
 
   migrate:
     desc: "Run database migrations (uses goose if available, otherwise psql)"
     cmds:
       - |
+        #!/bin/bash
+        set -e
         # Determine DSN: use env var, extract from config, or use default
         if [ -n "${CAATSM_DATABASE_DSN:-}" ]; then
           DSN="${CAATSM_DATABASE_DSN}"
         elif [ -f "${CAATSM_CONFIG:-config/config.local.toml}" ]; then
-          # Try to extract DSN from config file (look for dsn = "..." in [database] section)
-          DSN=$(grep -A 10 '\[database\]' "${CAATSM_CONFIG:-config/config.local.toml}" | grep -E '^\s*dsn\s*=' | sed -E 's/^\s*dsn\s*=\s*"([^"]+)".*/\1/' | head -1)
-          if [ -z "$DSN" ]; then
-            # Fallback: try any dsn line in the file
-            DSN=$(grep -E '^\s*dsn\s*=' "${CAATSM_CONFIG:-config/config.local.toml}" | sed -E 's/^\s*dsn\s*=\s*"([^"]+)".*/\1/' | head -1)
-          fi
-          if [ -z "$DSN" ]; then
+          # Extract DSN from config file using robust TOML parser
+          # This handles all TOML formats: single/double quotes, multiline strings, etc.
+          CONFIG_FILE="${CAATSM_CONFIG:-config/config.local.toml}"
+          if DSN=$(go run ./cmd/extract-dsn -config "$CONFIG_FILE" 2>/dev/null); then
+            # Helper already trims the DSN, but ensure it's not empty
+            if [ -z "$DSN" ]; then
+              # Fallback to default if extraction returned empty
+              DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
+            fi
+          else
+            # Fallback to default if extraction failed (e.g., Go not available, parse error)
             DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
           fi
         else
@@ -182,14 +250,57 @@ tasks:
         fi
         
         echo "Running database migrations..."
-        echo "DSN: ${DSN}"
+        # Mask password in DSN for logging (security)
+        DSN_MASKED=$(echo "$DSN" | sed -E 's|://([^:]+):([^@]+)@|://\1:***@|')
+        echo "DSN: ${DSN_MASKED}"
         
         # Try goose first, fallback to psql
         if command -v goose > /dev/null 2>&1; then
           echo "Using goose migration tool..."
-          goose -dir migrations postgres "${DSN}" up
+          # Parse DSN using string manipulation (more reliable than regex in some shells)
+          # Format: postgres://user:pass@host:port/dbname?params
+          DSN_NO_PROTO="${DSN#postgres://}"
+          if [ "$DSN_NO_PROTO" != "$DSN" ]; then
+            # Extract user:password@host:port/dbname
+            USER_PASS="${DSN_NO_PROTO%%@*}"
+            HOST_PORT_DB="${DSN_NO_PROTO#*@}"
+            
+            # Extract user and password
+            PGUSER="${USER_PASS%%:*}"
+            PGPASSWORD="${USER_PASS#*:}"
+            
+            # Extract host, port, and database
+            HOST_PORT="${HOST_PORT_DB%%/*}"
+            DB_AND_PARAMS="${HOST_PORT_DB#*/}"
+            PGDATABASE="${DB_AND_PARAMS%%\?*}"
+            
+            # Extract host and port
+            if [[ "$HOST_PORT" =~ : ]]; then
+              PGHOST="${HOST_PORT%%:*}"
+              PGPORT="${HOST_PORT#*:}"
+            else
+              PGHOST="$HOST_PORT"
+              PGPORT="5432"
+            fi
+            
+            # Export these to override any existing PG* variables
+            export PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
+            # Unset other PG variables that might interfere
+            unset PGSERVICE PGSSLMODE 2>/dev/null || true
+            
+            # Run goose - it will use the PG* environment variables we just set
+            goose -dir migrations postgres "${DSN}" up
+            
+            # Clean up
+            unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
+          else
+            echo "Error: DSN must start with postgres://"
+            echo "DSN provided: ${DSN_MASKED}"
+            exit 1
+          fi
         elif command -v psql > /dev/null 2>&1; then
           echo "Using psql (goose not found)..."
+          echo "Warning: Extracting 'Up' sections from goose-format migration files"
           # Extract connection details from DSN for psql
           # Format: postgres://user:pass@host:port/dbname?params
           if [[ "$DSN" =~ postgres://([^:]+):([^@]+)@([^:/]+):([^/]+)/([^?]+) ]]; then
@@ -200,12 +311,22 @@ tasks:
             PGDATABASE="${BASH_REMATCH[5]}"
             
             export PGPASSWORD
-            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/20240101000000_create_telegrams_table.sql
-            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f migrations/20240101000001_create_audit_logs_table.sql
+            
+            # Extract and run only the "Up" section from each migration file
+            # Find all migration files in order
+            for migration_file in migrations/*.sql; do
+              if [ -f "$migration_file" ]; then
+                echo "Running migration: $(basename "$migration_file")"
+                # Extract content between -- +goose Up and -- +goose Down (excluding the markers)
+                awk '/^-- \+goose Up$/,/^-- \+goose Down$/{if (!/^-- \+goose (Up|Down)$/) print}' "$migration_file" | \
+                  psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f -
+              fi
+            done
+            
             unset PGPASSWORD
           else
             echo "Error: Could not parse DSN format: postgres://user:pass@host:port/dbname"
-            echo "DSN provided: ${DSN}"
+            echo "DSN provided: ${DSN_MASKED}"
             echo "Please set CAATSM_DATABASE_DSN environment variable with a valid DSN."
             exit 1
           fi
@@ -229,6 +350,7 @@ tasks:
     desc: "Publish live messages to NATS for testing real-time updates"
     cmds:
       - |
+        set -e
         CONFIG="${CAATSM_CONFIG:-config/config.local.toml}"
         if [ ! -f "$CONFIG" ]; then
           echo "Warning: Config file not found: $CONFIG"
@@ -248,3 +370,18 @@ tasks:
     cmds:
       - CLI_ARGS="-interval 5s" task publish-stream
 
+  clean:
+    desc: "Clean generated files and build artifacts"
+    cmds:
+      - rm -rf bin/
+      - rm -rf tmp/
+      - rm -f coverage.out coverage.html
+      - echo "Cleaned build artifacts"
+
+  clean:all:
+    desc: "Clean all including node_modules and generated files"
+    cmds:
+      - task: clean
+      - rm -rf node_modules/
+      - rm -rf frontend/node_modules/
+      - echo "Cleaned all artifacts including dependencies"

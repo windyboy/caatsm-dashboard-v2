@@ -9,19 +9,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-FROM base AS templ
-RUN go run github.com/a-h/templ/cmd/templ@v0.3.960 generate
-
 FROM node:${NODE_VERSION}-bookworm AS assets
 WORKDIR /assets
 COPY assets ./assets
-COPY views ./views
 COPY uno.config.ts package.json package-lock.json ./
 RUN npm install
 RUN npm run unocss:build
 
 FROM base AS builder
-COPY --from=templ /app /app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/caatsm ./cmd/server
 
 FROM gcr.io/distroless/base-debian12:nonroot AS runtime

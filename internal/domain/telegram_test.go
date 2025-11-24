@@ -10,9 +10,9 @@ import (
 
 func TestTelegram_Validate(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		telegram Telegram
-		wantErr bool
+		wantErr  bool
 		errField string
 	}{
 		{
@@ -200,4 +200,3 @@ func TestTelegram_Normalize(t *testing.T) {
 	assert.Equal(t, "TEST-001", tg.MessageID)
 	assert.Equal(t, "test123", tg.FlightNumber)
 }
-

@@ -35,14 +35,13 @@ func (m *SearchIndexMock) Delete(ctx context.Context, messageID string) error {
 }
 
 // Search mocks the Search method
-func (m *SearchIndexMock) Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error) {
+func (m *SearchIndexMock) Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (any, error) {
 	args := m.Called(ctx, query, filter, limit, offset, sort)
 	return args.Get(0), args.Error(1)
 }
 
 // SearchAutocomplete mocks the SearchAutocomplete method
-func (m *SearchIndexMock) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error) {
+func (m *SearchIndexMock) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error) {
 	args := m.Called(ctx, query, limit, attributes)
 	return args.Get(0), args.Error(1)
 }
-

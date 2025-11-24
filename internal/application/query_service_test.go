@@ -114,7 +114,7 @@ func TestQueryService_Recent(t *testing.T) {
 	}{
 		{
 			name:  "valid recent query",
-			limit:  10,
+			limit: 10,
 			storeResult: &models.SearchResult{
 				Telegrams: []models.Telegram{
 					{MessageID: "TEST-001", Type: "aftn", Time: time.Now(), Priority: 2},
@@ -190,9 +190,9 @@ func TestBuildFilterString(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "empty filter",
+			name:   "empty filter",
 			filter: models.SearchFilter{},
-			want:  "",
+			want:   "",
 		},
 		{
 			name: "type filter",
@@ -232,4 +232,3 @@ func TestBuildFilterString(t *testing.T) {
 		})
 	}
 }
-

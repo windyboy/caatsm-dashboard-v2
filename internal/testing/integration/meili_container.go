@@ -75,4 +75,3 @@ func (c *MeiliContainer) MasterKey() string {
 func (c *MeiliContainer) Terminate(ctx context.Context) error {
 	return c.container.Terminate(ctx)
 }
-

@@ -82,4 +82,3 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "validate telegram")
 }
-

@@ -52,4 +52,3 @@ func TestDefaultParser_Supports(t *testing.T) {
 	assert.True(t, p.Supports("cpdlc"))
 	assert.True(t, p.Supports("unknown"))
 }
-

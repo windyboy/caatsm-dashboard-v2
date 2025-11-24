@@ -17,4 +17,3 @@ func (m *TelegramServiceMock) SaveTelegram(ctx context.Context, telegram *domain
 	args := m.Called(ctx, telegram)
 	return args.Error(0)
 }
-

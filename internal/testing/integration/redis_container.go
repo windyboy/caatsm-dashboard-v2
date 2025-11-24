@@ -10,28 +10,28 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// RedisContainer wraps a Redis test container
+// RedisContainer wraps a Valkey test container (protocol-compatible with Redis)
 type RedisContainer struct {
 	container testcontainers.Container
 	addr      string
 }
 
-// NewRedisContainer creates and starts a Redis test container
+// NewRedisContainer creates and starts a Valkey test container
 func NewRedisContainer(ctx context.Context) (*RedisContainer, error) {
 	redisContainer, err := rediscontainer.RunContainer(ctx,
-		testcontainers.WithImage("redis:7-alpine"),
+		testcontainers.WithImage("valkey/valkey:9-alpine"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Ready to accept connections").
 				WithStartupTimeout(30),
 		),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to start redis container: %w", err)
+		if err != nil {
+		return nil, fmt.Errorf("failed to start valkey container: %w", err)
 	}
 
-	endpoint, err := redisContainer.Endpoint(ctx, "")
+		endpoint, err := redisContainer.Endpoint(ctx, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get redis endpoint: %w", err)
+		return nil, fmt.Errorf("failed to get valkey endpoint: %w", err)
 	}
 
 	return &RedisContainer{
@@ -56,4 +56,3 @@ func (c *RedisContainer) Client() *redisclient.Client {
 func (c *RedisContainer) Terminate(ctx context.Context) error {
 	return c.container.Terminate(ctx)
 }
-

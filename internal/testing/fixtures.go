@@ -107,4 +107,3 @@ func NewTimeWindowLast24h() models.TimeWindow {
 		End:   now,
 	}
 }
-

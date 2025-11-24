@@ -35,4 +35,3 @@ func (p *DefaultParser) Parse(rawData string) (*Telegram, error) {
 func (p *DefaultParser) Supports(telegramType string) bool {
 	return true
 }
-

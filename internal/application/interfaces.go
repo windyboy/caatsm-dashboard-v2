@@ -20,4 +20,3 @@ type QueryService interface {
 	// Recent retrieves recent telegrams
 	Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
 }
-

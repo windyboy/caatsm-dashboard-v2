@@ -124,4 +124,3 @@ func buildFilterString(filter models.SearchFilter) string {
 
 	return strings.Join(parts, " AND ")
 }
-

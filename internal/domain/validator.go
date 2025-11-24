@@ -36,4 +36,3 @@ func (v *Validator) ValidateICAOCode(code string) bool {
 	}
 	return true
 }
-
