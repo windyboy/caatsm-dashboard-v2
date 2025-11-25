@@ -229,3 +229,40 @@ ws.onclose = () => {
 1. 运行 `npm install` 重新安装依赖
 2. 运行 `npm run check` 检查类型错误
 3. 清除 `.svelte-kit` 目录后重试
+
+## WebSocket Handler Tests
+
+### Test File Location
+`internal/handlers/websocket_test.go`
+
+### Test Cases Covered
+- Valid telegram_processed event handling (data field format)
+- Valid telegram_processed event handling (top-level telegram format)
+- Invalid JSON event handling
+- Event missing type field
+- Non-telegram_processed event (stats_update)
+- Stats service error handling
+- WebSocketMessage JSON serialization
+
+### Running Tests
+```bash
+go test ./internal/handlers/... -v
+```
+
+## EventBroadcaster Tests
+
+### Test File Location
+`internal/handlers/broadcaster_test.go`
+
+### Test Cases Covered
+- Subscribe/Unsubscribe functionality
+- Broadcast to multiple clients
+- Channel full handling (capacity 10)
+- Close functionality (all channels closed)
+- PublishStatsUpdate with nil Redis client
+- JSON validation
+
+### Running Tests
+```bash
+go test ./internal/handlers/... -v
+```

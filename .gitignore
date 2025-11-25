@@ -11,8 +11,18 @@ public/css/app.css
 # Go
 *.test
 
+# Test coverage
+coverage.out
+coverage.html
+*.coverprofile
+
 # Node
 node_modules/
+
+# Deno
+.deno/
+deno.lock
+.deno-deploy/
 
 # Editor
 .DS_Store

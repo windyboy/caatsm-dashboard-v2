@@ -129,9 +129,9 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 		Status: "ok",
 	}
 
-	healthCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	if err := c.pool.Ping(healthCtx); err != nil {
+	pgCtx, pgCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer pgCancel()
+	if err := c.pool.Ping(pgCtx); err != nil {
 		result.PostgreSQL = ComponentHealth{
 			Status:  "error",
 			Message: err.Error(),
@@ -141,7 +141,7 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 		result.PostgreSQL = ComponentHealth{Status: "ok"}
 	}
 
-	// Meilisearch Health() doesn't take context, but we use timeout context for cancellation
+	// Meilisearch Health() doesn't take context
 	healthResp, err := c.meiliSvc.Health()
 	if err != nil {
 		result.Meilisearch = ComponentHealth{
@@ -159,9 +159,9 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 		result.Meilisearch = ComponentHealth{Status: "ok"}
 	}
 
-	healthCtx, cancel = context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	if err := c.redisCli.Ping(healthCtx).Err(); err != nil {
+	redisCtx, redisCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer redisCancel()
+	if err := c.redisCli.Ping(redisCtx).Err(); err != nil {
 		result.Redis = ComponentHealth{
 			Status:  "error",
 			Message: err.Error(),

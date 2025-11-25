@@ -130,12 +130,68 @@ test('search functionality', async ({ page }) => {
 
 ### Test Coverage
 
-Current tests cover:
+Current E2E tests cover:
 - Basic page loading
 - Search form interactions
 - Real-time message streaming
 - Statistics display
 - WebSocket connections
+```
+
+## Unit Testing
+
+The frontend includes unit tests using Vitest to test business logic, stores, and services.
+
+### Running Unit Tests
+
+```bash
+# Run all unit tests
+npm run test:unit
+
+# Run tests in watch mode
+npm run test:unit -- --watch
+
+# Run tests with UI
+npm run test:unit:ui
+
+# Run tests with coverage
+npm run test:unit:coverage
+```
+
+### Test Configuration
+
+- **Framework:** Vitest
+- **Environment:** jsdom (for DOM APIs)
+- **Test Files:** `tests/unit/*.test.ts`
+- **Configuration:** `vitest.config.ts`
+- **Setup:** `tests/setup.ts` (mocks WebSocket and logger)
+
+### Writing Unit Tests
+
+Unit tests are located in the `tests/unit/` directory:
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { get } from "svelte/store";
+import { messages } from "../../src/lib/stores/messages";
+
+describe("messages store", () => {
+  it("should add a message", () => {
+    const telegram = { message_id: "TEST-001", /* ... */ };
+    messages.add(telegram);
+    expect(get(messages)).toHaveLength(1);
+  });
+});
+```
+
+### Test Coverage
+
+Current unit tests cover:
+- WebSocketClient: Connection, reconnection, message handling
+- Stores: Messages store (add, limit enforcement, clear)
+- Stores: Stats store (setTotal, setByPriority, setByType, reset)
+- Error handling: Invalid JSON, connection errors
+- Business logic: Message limiting (MAX_MESSAGES = 50), exponential backoff
 ```
 
 ## Building

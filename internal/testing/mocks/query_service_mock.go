@@ -1,0 +1,36 @@
+package mocks
+
+import (
+	"context"
+
+	"github.com/stretchr/testify/mock"
+	"github.com/windy/caatsm-dashboard/internal/application"
+	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/models"
+)
+
+var _ application.QueryService = (*QueryServiceMock)(nil)
+
+// QueryServiceMock is a mock implementation of application.QueryService
+type QueryServiceMock struct {
+	mock.Mock
+}
+
+// Search mocks the Search method
+func (m *QueryServiceMock) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
+	args := m.Called(ctx, filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.SearchResult), args.Error(1)
+}
+
+// Recent mocks the Recent method
+func (m *QueryServiceMock) Recent(ctx context.Context, limit int) ([]*domain.Telegram, error) {
+	args := m.Called(ctx, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Telegram), args.Error(1)
+}
+

@@ -10,7 +10,9 @@ internal/testing/
 │   ├── telegram_store_mock.go
 │   ├── search_index_mock.go
 │   ├── eventbus_mock.go
-│   └── telegram_service_mock.go
+│   ├── telegram_service_mock.go
+│   ├── stats_service_mock.go
+│   └── query_service_mock.go
 ├── integration/        # Test container helpers
 │   ├── postgres_container.go
 │   ├── redis_container.go
@@ -34,6 +36,17 @@ func TestMyService(t *testing.T) {
     storeMock := new(mocks.TelegramStoreMock)
     // Setup expectations
     storeMock.On("Save", mock.Anything, mock.Anything).Return(nil)
+    // Test...
+}
+
+func TestHandler(t *testing.T) {
+    statsMock := new(mocks.StatsServiceMock)
+    queryMock := new(mocks.QueryServiceMock)
+    // Setup expectations
+    statsMock.On("TrafficSummary", mock.Anything, mock.Anything).
+        Return(&models.TrafficSummary{TotalMessages: 100}, nil)
+    queryMock.On("Recent", mock.Anything, mock.Anything).
+        Return([]*domain.Telegram{}, nil)
     // Test...
 }
 ```

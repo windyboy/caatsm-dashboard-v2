@@ -7,13 +7,20 @@
     "vite": "npm:vite@7",
     "@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@6",
     "unocss": "npm:unocss@66",
-    "unocss/vite": "npm:unocss@66/vite"
+    "unocss/vite": "npm:unocss@66/vite",
+    "vitest": "npm:vitest@1",
+    "vitest/config": "npm:vitest@1/config",
+    "@vitest/ui": "npm:@vitest/ui@1",
+    "jsdom": "npm:jsdom@23"
   },
   "tasks": {
     "dev": "deno run -A npm:vite@7 dev",
     "build": "deno run -A npm:vite@7 build",
     "preview": "deno run -A npm:vite@7 preview",
     "check": "deno run -A npm:@sveltejs/kit@2 sync && deno check --allow-read --allow-write src/**/*.ts src/**/*.svelte",
+    "test:unit": "deno run -A npm:vitest@1 --run",
+    "test:unit:ui": "deno run -A npm:vitest@1 --ui",
+    "test:unit:coverage": "deno run -A npm:vitest@1 --coverage",
     "dev:npm": "npm run dev",
     "build:npm": "npm run build",
     "preview:npm": "npm run preview"

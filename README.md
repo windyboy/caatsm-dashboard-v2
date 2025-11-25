@@ -109,8 +109,32 @@ The following development tools and dependencies are required for the dev comman
 
 The frontend supports both **Deno 2.0+** (recommended) and **Node.js 20+**. 
 
-**With Deno (Recommended)**:
+**Quick Setup with Deno (Recommended)**:
 ```bash
+# Install Deno and setup frontend (one command)
+task frontend:setup
+# or
+make frontend-setup
+
+# Then start development
+task frontend:dev
+# or
+make frontend-dev
+```
+
+**Manual Setup with Deno**:
+```bash
+# Install Deno
+task install:deno
+# or
+make install-deno
+
+# Cache frontend dependencies
+task frontend:install
+# or
+make frontend-install
+
+# Start development
 cd frontend
 deno task dev  # No installation needed!
 ```
@@ -122,7 +146,7 @@ npm install
 npm run dev
 ```
 
-> **Note**: Deno is recommended as it matches the original plan and provides zero-configuration development. Dependencies are automatically downloaded by Deno.
+> **Note**: Deno is recommended as it matches the original plan and provides zero-configuration development. Dependencies are automatically downloaded by Deno. Use `task frontend:setup` or `make frontend-setup` for a complete one-command setup.
 
 ### Installation
 
@@ -237,11 +261,27 @@ make run
 
 #### 4. Run the Frontend
 
+**Quick Start (Recommended)**:
+```bash
+# One-command setup and start (uses Deno, falls back to npm)
+task frontend:setup && task frontend:dev
+# or
+make frontend-setup && make frontend-dev
+```
+
 **With Deno (Recommended)**:
 ```bash
-cd frontend
+# Setup Deno and cache dependencies
+task frontend:setup
+# or
+make frontend-setup
 
-# Start development server (no installation needed!)
+# Start development server
+task frontend:dev
+# or
+make frontend-dev
+# or manually:
+cd frontend
 deno task dev
 
 # The frontend will be available at http://localhost:5173
@@ -262,7 +302,7 @@ npm run dev
 # It will proxy API requests to the Go backend at http://localhost:3002
 ```
 
-> **Recommendation**: Use `deno task dev` for development. It requires no installation and automatically downloads dependencies.
+> **Recommendation**: Use `task frontend:setup` or `make frontend-setup` for a complete one-command setup. It installs Deno if needed, caches dependencies, and falls back to npm if Deno is unavailable.
 
 **Note**: 
 - The development compose file (`docker-compose.dev.yml`) only includes dependencies and is compatible with both Docker and Podman.
@@ -364,6 +404,11 @@ make generate      # Generate templ components
 make docker-build  # Build Docker image
 make docker-up     # Start Docker Compose stack
 make docker-down   # Stop Docker Compose stack
+make install-deno  # Install Deno if not available
+make frontend-setup # Full frontend setup (Deno + dependencies)
+make frontend-dev  # Run frontend dev server
+make frontend-build # Build frontend for production
+make frontend-test # Run frontend tests
 ```
 
 ### Taskfile
@@ -375,6 +420,12 @@ task dev            # Start hot reload server
 task build          # Build server binary
 task test           # Run tests
 task lint           # Run linter
+task install:deno   # Install Deno if not available
+task frontend:setup # Full frontend setup (Deno + dependencies)
+task frontend:dev   # Run frontend dev server
+task frontend:build # Build frontend for production
+task frontend:test  # Run frontend tests
+task frontend:install # Pre-cache frontend dependencies with Deno
 task dev:up         # Start development dependencies (Docker/Podman)
 task dev:down       # Stop development dependencies
 task dev:logs       # Show logs from development dependencies
@@ -389,27 +440,33 @@ task docker:down    # Stop Docker Compose stack
 
 ### Frontend Development
 
+**Quick Setup**:
+```bash
+# One-command setup (installs Deno, caches dependencies)
+task frontend:setup
+# or
+make frontend-setup
+```
+
 **With Deno (Recommended)**:
 ```bash
+# Using Taskfile/Makefile (recommended)
+task frontend:dev   # Start development server
+task frontend:build # Build for production
+task frontend:test  # Run tests
+# or
+make frontend-dev
+make frontend-build
+make frontend-test
+
+# Or manually in frontend directory
 cd frontend
-
-# Start development server
-deno task dev
-
-# Build for production
-deno task build
-
-# Preview production build
-deno task preview
-
-# Type check
-deno task check
-
-# Format code
-deno fmt
-
-# Lint code
-deno lint
+deno task dev       # Start development server
+deno task build     # Build for production
+deno task preview   # Preview production build
+deno task check     # Type check
+deno fmt            # Format code
+deno lint           # Lint code
 ```
 
 **With Node.js**:
@@ -435,7 +492,7 @@ npm run format
 npm run test
 ```
 
-> **Recommendation**: Use **Deno** for development. It requires no installation and provides a better developer experience with built-in TypeScript, formatter, and linter.
+> **Recommendation**: Use **Deno** for development. Run `task frontend:setup` or `make frontend-setup` for a complete one-command setup. Deno requires no installation and provides a better developer experience with built-in TypeScript, formatter, and linter.
 
 ## API Endpoints
 
@@ -483,6 +540,16 @@ task migrate
 3. **Build Frontend**:
 
 ```bash
+# Using Taskfile/Makefile (recommended, uses Deno if available)
+task frontend:build
+# or
+make frontend-build
+
+# Or manually with Deno
+cd frontend
+deno task build
+
+# Or manually with Node.js
 cd frontend
 npm install
 npm run build
@@ -544,6 +611,23 @@ go tool cover -html=coverage.out -o coverage.html
 ```
 
 For detailed testing documentation, see [TESTING.md](TESTING.md) and [internal/testing/README.md](internal/testing/README.md).
+
+## Recent Improvements
+
+### Type Safety
+- Improved type safety in WebSocket handler with proper type assertions
+- Enhanced error handling to prevent panics from invalid type conversions
+- Better validation of event data structures
+
+### Test Coverage
+- Added comprehensive tests for WebSocket handler (`internal/handlers/websocket_test.go`)
+- Added EventBroadcaster tests (`internal/handlers/broadcaster_test.go`)
+- Created service mocks for StatsService and QueryService
+- Test coverage for handlers layer targeting ≥80%
+
+### Linting Configuration
+- Updated linting rules for better code quality
+- Consistent use of `any` type instead of `interface{}` in mocks
 
 ## Contributing
 

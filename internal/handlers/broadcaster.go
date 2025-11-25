@@ -114,7 +114,11 @@ func (b *EventBroadcaster) StartRedisListener() {
 		case <-b.ctx.Done():
 			b.logger.Info("redis listener stopped")
 			return
-		case msg := <-ch:
+		case msg, ok := <-ch:
+			if !ok {
+				b.logger.Info("redis pubsub channel closed, stopping listener")
+				return
+			}
 			if msg != nil {
 				// Process messages from the subscribed channel
 				if msg.Channel == "stats:update" && msg.Payload != "" {

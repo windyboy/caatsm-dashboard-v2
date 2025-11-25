@@ -24,6 +24,15 @@
   - `worker.go` - Worker message handling
   - `errors.go` - Error classification
 
+### Handlers Layer
+- **Coverage: TBD** (Target: ≥80%)
+- Files:
+  - `websocket.go` - WebSocket handler and message processing
+  - `broadcaster.go` - EventBroadcaster for client management
+- Test Files:
+  - `websocket_test.go` - WebSocket handler tests
+  - `broadcaster_test.go` - EventBroadcaster tests
+
 ## Test Files
 
 ### Unit Tests
@@ -35,6 +44,8 @@
 6. `internal/application/query_service_test.go` - QueryService tests
 7. `internal/sync/worker_test.go` - Worker tests
 8. `internal/infrastructure/event/redis_eventbus_test.go` - EventBus tests
+9. `internal/handlers/websocket_test.go` - WebSocket handler tests
+10. `internal/handlers/broadcaster_test.go` - EventBroadcaster tests
 
 ### Integration Tests
 1. `internal/application/telegram_service_integration_test.go` - Application integration
@@ -47,6 +58,8 @@
 - `internal/testing/mocks/search_index_mock.go`
 - `internal/testing/mocks/eventbus_mock.go`
 - `internal/testing/mocks/telegram_service_mock.go`
+- `internal/testing/mocks/stats_service_mock.go`
+- `internal/testing/mocks/query_service_mock.go`
 
 ### Test Containers
 - `internal/testing/integration/postgres_container.go`
@@ -69,6 +82,10 @@ go tool cover -html=domain_coverage.out -o domain_coverage.html
 go test ./internal/application/... -short -coverprofile=app_coverage.out
 go tool cover -html=app_coverage.out -o app_coverage.html
 
+# Handlers layer coverage
+go test ./internal/handlers/... -short -coverprofile=handlers_coverage.out
+go tool cover -html=handlers_coverage.out -o handlers_coverage.html
+
 # Overall coverage
 go test ./internal/... -short -coverprofile=coverage.out
 go tool cover -html=coverage.out -o coverage.html
@@ -79,5 +96,6 @@ go tool cover -html=coverage.out -o coverage.html
 - ✅ Domain layer: 100.0% (Target: ≥90%)
 - ✅ Application layer: 83.1% (Target: ≥80%)
 - ⚠️ Worker layer: 57.1% (Target: ≥60%) - Needs improvement
+- ⏳ Handlers layer: TBD (Target: ≥80%) - Pending measurement
 - Overall: TBD (Target: ≥60%)
 

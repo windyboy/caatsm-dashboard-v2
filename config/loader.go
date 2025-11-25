@@ -83,6 +83,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.connection_max_lifetime", "30m")
 
 	v.SetDefault("meilisearch.host", "http://localhost:7700")
+	v.SetDefault("meilisearch.api_key", "masterKey")
 	v.SetDefault("meilisearch.index", "telegrams")
 
 	v.SetDefault("redis.addr", "localhost:6379")

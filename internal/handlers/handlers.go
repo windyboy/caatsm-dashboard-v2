@@ -217,11 +217,6 @@ func (h *Handler) StatsType(ctx echo.Context) error {
 }
 
 func (h *Handler) Export(ctx echo.Context) error {
-	// Require authentication for export
-	if !h.container.Config.Auth.EnableBasic {
-		return echo.NewHTTPError(http.StatusUnauthorized, "authentication required for export")
-	}
-
 	format := models.ExportFormat(ctx.QueryParam("format"))
 	if format == "" {
 		format = models.ExportFormatCSV

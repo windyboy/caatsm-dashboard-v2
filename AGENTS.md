@@ -12,9 +12,12 @@
 - Dev server: `make dev` or `task dev`
 
 **Frontend (Deno/Svelte):**
-- Dev: `task frontend:dev` (prefers Deno, falls back to npm)
-- Test: `task frontend:test`
-- Build: `task frontend:build`
+- Setup: `task frontend:setup` or `make frontend-setup` (installs Deno, caches dependencies)
+- Install Deno: `task install:deno` or `make install-deno`
+- Dev: `task frontend:dev` or `make frontend-dev` (prefers Deno, falls back to npm)
+- Test: `task frontend:test` or `make frontend-test`
+- Build: `task frontend:build` or `make frontend-build`
+- Install deps: `task frontend:install` or `make frontend-install` (pre-cache with Deno)
 
 ## Code Style Guidelines
 

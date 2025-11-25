@@ -29,6 +29,12 @@
 - ✅ EventBus tests
   - Event publishing logic
 
+- ✅ Handlers layer tests (targeting ≥80% coverage)
+  - WebSocket handler event processing
+  - EventBroadcaster subscribe/unsubscribe
+  - Broadcast functionality
+  - Channel management
+
 ### Integration Tests
 - ✅ Application integration tests
   - SaveTelegram with real database
@@ -41,7 +47,7 @@
 
 ## Test Files Created
 
-### Unit Tests (10 files)
+### Unit Tests (12 files)
 1. `internal/domain/telegram_test.go`
 2. `internal/domain/validator_test.go`
 3. `internal/domain/parser_test.go`
@@ -50,13 +56,15 @@
 6. `internal/application/query_service_test.go`
 7. `internal/sync/worker_test.go`
 8. `internal/infrastructure/event/redis_eventbus_test.go`
+9. `internal/handlers/websocket_test.go`
+10. `internal/handlers/broadcaster_test.go`
 
 ### Integration Tests (2 files)
 1. `internal/application/telegram_service_integration_test.go`
 2. `internal/sync/worker_integration_test.go`
 
 ### Test Utilities
-- `internal/testing/mocks/` - 4 mock files
+- `internal/testing/mocks/` - 6 mock files
 - `internal/testing/integration/` - 3 container files
 - `internal/testing/helpers.go` - Environment setup
 - `internal/testing/fixtures.go` - Data generators
@@ -69,6 +77,7 @@
 | Domain | 100.0% | ≥90% | ✅ Exceeded |
 | Application | 83.1% | ≥80% | ✅ Met |
 | Worker | 57.1% | ≥60% | ⚠️ Below target |
+| Handlers | TBD | ≥80% | ⏳ Pending |
 | Overall | TBD | ≥60% | ⏳ Pending |
 
 ## Running Tests
