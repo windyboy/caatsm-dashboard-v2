@@ -1,111 +1,137 @@
-# 测试指南
+# Testing Guide
 
-本文档描述如何测试 Deno + Svelte 前端改造后的功能。
+This document describes how to test the CAATSM Dashboard functionality, including the Deno + Svelte frontend.
 
-## 前置条件
+## Prerequisites
 
-1. 确保所有依赖服务正在运行：
+1. Ensure all dependency services are running:
    ```bash
+   task dev:up
+   # or
    docker compose -f docker-compose.dev.yml up -d
    ```
 
-2. 启动 Go 后端：
+2. Start the Go backend:
    ```bash
    make dev
-   # 或
+   # or
+   task dev
+   # or
    ./bin/caatsm -config config/config.local.toml
    ```
 
-3. 启动前端开发服务器：
+3. Start the frontend development server:
    ```bash
+   # Using Deno (recommended)
+   task frontend:dev
+   # or
+   cd frontend && deno task dev
+   
+   # Using Node.js
    cd frontend
    npm install
    npm run dev
    ```
 
-## WebSocket 测试
+## WebSocket Testing
 
-### 手动测试步骤
+### Manual Testing Steps
 
-1. **打开 Dashboard 页面**
-   - 访问 `http://localhost:5173`
-   - 应该看到 "Live Stream" 组件和统计卡片
+1. **Open Dashboard Page**
+   - Visit `http://localhost:5173`
+   - You should see "Live Stream" component and statistics cards
 
-2. **检查 WebSocket 连接**
-   - 打开浏览器开发者工具 (F12)
-   - 切换到 Network 标签
-   - 过滤 "WS" (WebSocket)
-   - 应该看到到 `ws://localhost:3002/ws` 的连接
+2. **Check WebSocket Connection**
+   - Open browser developer tools (F12)
+   - Switch to Network tab
+   - Filter for "WS" (WebSocket)
+   - You should see a connection to `ws://localhost:3002/ws`
 
-3. **验证实时消息接收**
-   - 如果有消息通过 NATS 流入系统
-   - 应该能在 Live Stream 中看到新消息出现
-   - 统计数字应该实时更新
+3. **Verify Real-time Message Reception**
+   - If messages are flowing through NATS
+   - You should see new messages appear in Live Stream
+   - Statistics numbers should update in real-time
 
-4. **测试连接重连**
-   - 在开发者工具的 Console 中，应该看到 "WebSocket connected" 日志
-   - 如果断开连接，应该看到重连尝试的日志
+4. **Test Connection Reconnection**
+   - In developer console, you should see "WebSocket connected" logs
+   - If connection drops, you should see reconnection attempt logs
 
-### 自动化测试
+### Automated Testing
 
-运行 Playwright 测试：
+Run Playwright E2E tests:
 
 ```bash
+# Using Taskfile/Makefile
+task frontend:test
+# or
+make frontend-test
+
+# Or manually
 cd frontend
 npm run test
+# or with Deno
+deno task test
 ```
 
-## REST API 测试
-
-### 手动测试步骤
-
-1. **测试搜索功能**
-   - 访问 `http://localhost:5173/search`
-   - 输入搜索关键词
-   - 点击 "Search" 按钮
-   - 应该看到搜索结果
-
-2. **测试自动补全**
-   - 在搜索框中输入至少 2 个字符
-   - 应该看到自动补全建议下拉菜单
-
-3. **测试统计接口**
-   - 访问 Dashboard 页面
-   - 统计卡片应该显示数据
-   - 可以通过浏览器开发者工具的 Network 标签查看 API 请求
-
-4. **测试导出功能**
-   - 在搜索页面执行搜索
-   - 应该有导出选项（如果实现了）
-
-### API 端点测试
-
-使用 curl 或 Postman 测试 API：
+Run unit tests:
 
 ```bash
-# 测试搜索
+task frontend:test:unit
+# or
+make frontend-test-unit
+```
+
+## REST API Testing
+
+### Manual Testing Steps
+
+1. **Test Search Functionality**
+   - Visit `http://localhost:5173/search`
+   - Enter search keywords
+   - Click "Search" button
+   - You should see search results
+
+2. **Test Autocomplete**
+   - Type at least 2 characters in the search box
+   - You should see autocomplete suggestion dropdown
+
+3. **Test Statistics Endpoints**
+   - Visit Dashboard page
+   - Statistics cards should display data
+   - Check API requests in browser developer tools Network tab
+
+4. **Test Export Functionality**
+   - Execute a search on the search page
+   - Export options should be available (if implemented)
+
+### API Endpoint Testing
+
+Use curl or Postman to test APIs:
+
+```bash
+# Test search
 curl "http://localhost:3002/api/search?query=test"
 
-# 测试统计总数
+# Test total statistics
 curl "http://localhost:3002/api/stats/total"
 
-# 测试优先级统计
+# Test priority statistics
 curl "http://localhost:3002/api/stats/priority"
 
-# 测试类型统计
+# Test type statistics
 curl "http://localhost:3002/api/stats/type"
 
-# 测试自动补全
+# Test autocomplete
 curl "http://localhost:3002/api/autocomplete?term=test&size=5"
 ```
 
-所有 API 应该返回 JSON 格式的响应。
+All APIs should return JSON responses.
 
-## WebSocket 消息格式测试
+## WebSocket Message Format Testing
 
-### 消息类型
+### Message Types
 
-WebSocket 消息应该遵循以下格式：
+WebSocket messages should follow this format:
 
 ```json
 {
@@ -114,12 +140,12 @@ WebSocket 消息应该遵循以下格式：
 }
 ```
 
-### 测试消息接收
+### Test Message Reception
 
-在浏览器 Console 中运行：
+Run in browser console:
 
 ```javascript
-// 连接到 WebSocket
+// Connect to WebSocket
 const ws = new WebSocket('ws://localhost:3002/ws');
 
 ws.onmessage = (event) => {
@@ -140,95 +166,95 @@ ws.onclose = () => {
 };
 ```
 
-## 集成测试
+## Integration Testing
 
-### 完整流程测试
+### Complete Flow Testing
 
-1. **启动所有服务**
+1. **Start All Services**
    ```bash
-   # 终端 1: 启动依赖服务
-   docker compose -f docker-compose.dev.yml up -d
+   # Terminal 1: Start dependencies
+   task dev:up
    
-   # 终端 2: 启动 Go 后端
-   make dev
+   # Terminal 2: Start Go backend
+   task dev
    
-   # 终端 3: 启动前端
-   cd frontend && npm run dev
+   # Terminal 3: Start frontend
+   task frontend:dev
    ```
 
-2. **测试实时数据流**
-   - 如果有消息发布工具，发布一些测试消息到 NATS
-   - 观察 Dashboard 是否实时更新
-   - 检查统计数字是否正确更新
+2. **Test Real-time Data Flow**
+   - If you have a message publisher, publish test messages to NATS
+   - Observe if Dashboard updates in real-time
+   - Check if statistics numbers update correctly
 
-3. **测试搜索和实时更新的组合**
-   - 在搜索页面执行搜索
-   - 同时观察 Dashboard 的实时更新
-   - 两者应该互不干扰
+3. **Test Search and Real-time Updates Together**
+   - Execute a search on the search page
+   - Simultaneously observe Dashboard real-time updates
+   - Both should work independently
 
-## 性能测试
+## Performance Testing
 
-### WebSocket 连接数
+### WebSocket Connection Count
 
-测试多个客户端同时连接：
+Test multiple clients connecting simultaneously:
 
 ```bash
-# 使用多个浏览器标签或窗口
-# 每个标签都应该能独立接收消息
+# Use multiple browser tabs or windows
+# Each tab should independently receive messages
 ```
 
-### 消息处理性能
+### Message Processing Performance
 
-- 观察大量消息流入时的性能
-- 检查前端是否限制消息列表长度（应该最多 50 条）
-- 检查内存使用情况
+- Observe performance when large volumes of messages flow in
+- Check if frontend limits message list length (should be max 50 messages)
+- Check memory usage
 
-## 错误处理测试
+## Error Handling Testing
 
-### 网络断开
+### Network Disconnection
 
-1. 断开网络连接
-2. WebSocket 应该尝试重连
-3. 恢复网络后应该自动重连成功
+1. Disconnect network connection
+2. WebSocket should attempt to reconnect
+3. After network restoration, should automatically reconnect
 
-### 后端服务停止
+### Backend Service Stop
 
-1. 停止 Go 后端服务
-2. WebSocket 应该检测到断开
-3. 应该显示重连尝试
-4. 重启后端后应该自动重连
+1. Stop Go backend service
+2. WebSocket should detect disconnection
+3. Should show reconnection attempts
+4. After restarting backend, should automatically reconnect
 
-## 浏览器兼容性
+## Browser Compatibility
 
-测试以下浏览器：
+Test on the following browsers:
 - Chrome/Edge (Chromium)
 - Firefox
 - Safari
 
-## 已知问题
+## Known Issues
 
-- 如果遇到类型错误，可能是 TypeScript 配置问题，不影响运行时功能
-- WebSocket 重连可能需要几秒钟
+- If you encounter type errors, it may be a TypeScript configuration issue, doesn't affect runtime functionality
+- WebSocket reconnection may take a few seconds
 
-## 故障排除
+## Troubleshooting
 
-### WebSocket 连接失败
+### WebSocket Connection Failure
 
-1. 检查 Go 后端是否运行在 `localhost:3002`
-2. 检查防火墙设置
-3. 检查浏览器控制台的错误信息
+1. Check if Go backend is running on `localhost:3002`
+2. Check firewall settings
+3. Check browser console error messages
 
-### API 请求失败
+### API Request Failure
 
-1. 检查 Vite 代理配置
-2. 检查 CORS 设置
-3. 检查后端日志
+1. Check Vite proxy configuration
+2. Check CORS settings
+3. Check backend logs
 
-### 前端构建失败
+### Frontend Build Failure
 
-1. 运行 `npm install` 重新安装依赖
-2. 运行 `npm run check` 检查类型错误
-3. 清除 `.svelte-kit` 目录后重试
+1. Run `npm install` to reinstall dependencies (or use Deno)
+2. Run `npm run check` to check type errors (or `deno task check`)
+3. Clear `.svelte-kit` directory and retry
 
 ## WebSocket Handler Tests
 

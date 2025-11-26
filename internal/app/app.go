@@ -10,6 +10,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/application"
+	"github.com/windy/caatsm-dashboard/internal/application/export"
+	"github.com/windy/caatsm-dashboard/internal/application/health"
+	"github.com/windy/caatsm-dashboard/internal/application/search"
+	"github.com/windy/caatsm-dashboard/internal/application/stats"
 	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
 	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
 	redisClient "github.com/windy/caatsm-dashboard/internal/platform/redis"
@@ -28,6 +32,13 @@ type Container struct {
 	StatsService  services.StatsService
 	ExportService services.ExportService
 	QueryService  application.QueryService
+
+	// New application layer services (clean architecture)
+	SearchServiceV2 *search.Service
+	StatsServiceV2  *stats.Service
+	ExportServiceV2 *export.Service
+	HealthService   *health.Service
+	PolicyManager   *health.PolicyManager
 
 	// Client references for health checks
 	pool     *pgxpool.Pool
@@ -86,10 +97,42 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	// Initialize QueryService
 	queryService := application.NewQueryService(store, meiliIndex)
 
+	// Initialize new application layer services (using same repositories - compatible due to type aliases)
+	searchServiceV2 := search.NewService(
+		meiliIndex, // repository.SearchIndex - compatible
+		store,      // repository.TelegramStore - compatible (implements both TelegramStore and AnalyticsStore)
+		cacheStore, // cache.Store
+		logger,
+	)
+
+	statsServiceV2 := stats.NewService(
+		store, // repository.AnalyticsStore - store implements this
+		logger,
+	)
+
+	exportServiceV2 := export.NewService(
+		searchServiceV2, // Uses the new search service
+		logger,
+	)
+
+	// Set old services (for backward compatibility)
 	container.SearchService = searchService
 	container.StatsService = statsService
 	container.ExportService = exportService
 	container.QueryService = queryService
+
+	// Set new services
+	container.SearchServiceV2 = searchServiceV2
+	container.StatsServiceV2 = statsServiceV2
+	container.ExportServiceV2 = exportServiceV2
+
+	// Initialize health service
+	healthService := health.NewService(pool, meiliSvc, redisCli, logger)
+	container.HealthService = healthService
+
+	// Initialize policy manager
+	policyManager := health.NewPolicyManager(logger)
+	container.PolicyManager = policyManager
 
 	// Store client references for health checks
 	container.pool = pool
@@ -125,6 +168,23 @@ type HealthCheckResult struct {
 
 // HealthCheck verifies connectivity to all external components.
 func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
+	return c.HealthCheckInternal(ctx)
+}
+
+// HealthCheckInternal is the internal implementation that can be called directly.
+func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
+	// Use new health service if available, otherwise fall back to old implementation
+	if c.HealthService != nil {
+		healthResult := c.HealthService.Check(ctx)
+		return HealthCheckResult{
+			Status:      healthResult.Status,
+			PostgreSQL:  ComponentHealth{Status: string(healthResult.PostgreSQL.Status), Message: healthResult.PostgreSQL.Message},
+			Meilisearch: ComponentHealth{Status: string(healthResult.Meilisearch.Status), Message: healthResult.Meilisearch.Message},
+			Redis:       ComponentHealth{Status: string(healthResult.Redis.Status), Message: healthResult.Redis.Message},
+		}
+	}
+
+	// Fallback to old implementation
 	result := HealthCheckResult{
 		Status: "ok",
 	}

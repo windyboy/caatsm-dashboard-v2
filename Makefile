@@ -44,9 +44,10 @@ docker-up: ## Start Docker Compose stack
 docker-down: ## Stop Docker Compose stack
 	docker compose down
 
-migrate: ## Run database migrations
+migrate: ## Run database migrations (uses Taskfile)
 	@echo "Running database migrations..."
-	@echo "Please implement migration script in scripts/migrate.sh"
+	@echo "Use 'task migrate' for full migration support (goose or psql)"
+	@task migrate
 
 
 tidy: ## Run go mod tidy

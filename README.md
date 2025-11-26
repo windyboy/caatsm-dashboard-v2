@@ -15,48 +15,42 @@
 
 ## Architecture
 
+The CAATSM Dashboard follows **Clean Architecture** principles with clear layer separation.
+
 ```
-┌───────────────────────────────────────┐
-│                前端层                  │
-│ Deno + Svelte + SvelteKit              │
-│  ├─ Dashboard 仪表盘 (WebSocket 实时)   │
-│  ├─ 搜索结果视图 (REST API)             │
-│  └─ 历史记录 / 导出页面 (分页)            │
-└───────────┬───────────────────────────┘
-            │ REST + WebSocket
-┌───────────▼───────────────────────────┐
-│              应用服务层                │
-│ Go Echo + Clean Architecture           │
-│  ├─ Handler 层：HTTP 控制器             │
-│  ├─ WebSocket 处理器                   │
-│  ├─ Service 层：业务逻辑/集成            │
-│  ├─ Repository 层：数据抽象             │
-│  └─ Metrics/Tracing：Prom + OTEL        │
-└──────────────┬──────────────┬──────────────┘
-               │              │
-     ┌─────────▼─────────┐    │
-     │  消息流 & 同步服务   │    │
-     │ NATS JetStream +    │    │
-     │ SyncWorker/Indexer  │    │
-     └─────────┬──────────┘    │
-               │                │
-     ┌─────────▼────────┐ ┌────▼───────────┐
-     │ PostgreSQL/       │ │ Meilisearch     │
-     │ TimescaleDB        │ │ (全文检索 & 排序) │
-     │ (结构化存储)        │ └─────────────────┘
-     └─────────┬─────────┘
-               │
-        ┌──────▼──────┐
-        │ Valkey Cache│
-        │ Pub/Sub     │
-        └──────┬──────┘
-               │
-    ┌──────────▼──────────┐
-    │ Observability Stack │
-    │ Prometheus/Grafana  │
-    │ Loki/Tempo (可选)    │
-    └──────────────────────┘
+┌─────────────────────────────────────────┐
+│         Transport Layer                 │
+│   HTTP/WebSocket Handlers               │
+└───────────────┬─────────────────────────┘
+                │
+┌───────────────▼─────────────────────────┐
+│      Application Layer                  │
+│   Use Cases (Search, Stats, Export)     │
+└───────────────┬─────────────────────────┘
+                │
+┌───────────────▼─────────────────────────┐
+│         Domain Layer                    │
+│   Business Logic & Domain Events        │
+└───────────────┬─────────────────────────┘
+                │
+┌───────────────▼─────────────────────────┐
+│      Infrastructure Layer               │
+│   PostgreSQL, Meilisearch, Valkey, WS   │
+└─────────────────────────────────────────┘
 ```
+
+**Key Components**:
+- **Frontend**: Deno + Svelte + SvelteKit (real-time dashboard via WebSocket)
+- **Transport**: HTTP REST API + WebSocket handlers
+- **Application**: Use case services (search, stats, export, health)
+- **Domain**: Business entities, events, validation rules
+- **Infrastructure**: PostgreSQL, Meilisearch, Valkey cache, WebSocket hub
+
+**Data Flow**:
+- NATS JetStream → Worker → Domain Events → Handlers (Persistence, Indexing)
+- HTTP Request → Transport → Application → Domain → Infrastructure
+
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Getting Started
 
@@ -81,10 +75,6 @@ The following development tools and dependencies are required for the dev comman
   go install github.com/air-verse/air@latest
   ```
 
-- **templ** - Templating tool (automatically installed via `go run`)
-  - Used via: `go run github.com/a-h/templ/cmd/templ@v0.3.960 generate`
-  - Required for: `make generate`, `task generate`, and `task dev`
-  - Note: Still used for legacy pages, new frontend uses Svelte
 
 - **golangci-lint** - Go linter (optional but recommended)
   ```bash
@@ -194,14 +184,14 @@ addr = "localhost:6379"  # Valkey (Redis-compatible)
 Run database migrations:
 
 ```bash
-# Using goose (recommended)
-goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
-
-# Or using task
+# Using Taskfile (recommended - supports goose and psql fallback)
 task migrate
 
+# Or using goose directly
+goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
+
 # Note: Migration files use goose annotations (-- +goose Up/Down)
-# If using psql directly, you'll need to extract the "Up" portion manually
+# Taskfile automatically extracts DSN from config file or environment variables
 ```
 
 ### Run Locally
@@ -246,9 +236,6 @@ task dev:up
 #### 3. Run the Backend
 
 ```bash
-# Generate templ components (for legacy pages)
-make generate
-
 # Run with hot reload (uses default config or .env.local)
 make dev
 
@@ -354,24 +341,34 @@ caatsm/
 │   └── config.toml         # Default configuration
 ├── internal/
 │   ├── app/                # Dependency injection container
-│   ├── domain/             # Domain layer (business entities & rules)
-│   ├── application/        # Application layer (use cases)
-│   ├── infrastructure/      # Infrastructure layer (external adapters)
-│   ├── handlers/           # HTTP controllers
-│   │   ├── websocket.go    # WebSocket handler
-│   │   └── handlers.go     # REST API handlers
-│   ├── services/           # Business logic layer
-│   ├── repository/         # Data access layer
-│   │   ├── postgres/        # PostgreSQL implementation
-│   │   ├── meili/           # Meilisearch implementation
-│   │   ├── nats/            # NATS consumer implementation
-│   │   └── cache/           # Valkey cache implementation
+│   ├── domain/             # Domain layer (business entities, events, validation)
+│   ├── application/        # Application layer (use cases, handlers, events)
+│   │   ├── search/         # Search use cases
+│   │   ├── stats/          # Statistics use cases
+│   │   ├── export/         # Export use cases
+│   │   ├── health/         # Health checks & degradation policies
+│   │   ├── handlers/       # Event handlers (persistence, indexing)
+│   │   ├── events/         # Event dispatcher
+│   │   └── ports/          # Repository interfaces
+│   ├── infrastructure/     # Infrastructure layer (external adapters)
+│   │   ├── persistence/    # PostgreSQL repository
+│   │   ├── search/         # Meilisearch indexing
+│   │   ├── cache/          # Valkey cache
+│   │   ├── events/         # Event bus implementations
+│   │   ├── ws/             # WebSocket hub
+│   │   └── resilience/     # Circuit breakers
+│   ├── transport/          # Transport layer (HTTP/WebSocket)
+│   │   ├── http/           # HTTP handlers
+│   │   └── ws/             # WebSocket handlers
+│   ├── handlers/           # Legacy HTTP controllers (being migrated)
+│   ├── services/           # Legacy services (being migrated)
+│   ├── repository/         # Legacy repositories (being migrated)
 │   ├── platform/           # External client wrappers
 │   ├── sync/               # Message sync worker
 │   ├── metrics/            # Prometheus metrics
-│   ├── observability/      # Logging, tracing, middleware
+│   ├── observability/      # Logging, correlation IDs, middleware
 │   ├── auth/               # Authentication middleware
-│   ├── models/             # Data models
+│   ├── models/             # Data models (type aliases for compatibility)
 │   └── testing/            # Test utilities & mocks
 ├── frontend/               # Deno + Svelte frontend
 │   ├── src/
@@ -383,7 +380,6 @@ caatsm/
 │   │   └── routes/          # SvelteKit routes
 │   ├── deno.json            # Deno configuration
 │   └── svelte.config.js     # SvelteKit configuration
-├── views/                   # Legacy templ templates (for old pages)
 ├── assets/                  # Legacy UnoCSS sources
 ├── public/                   # Generated static assets
 ├── migrations/               # Database migrations
@@ -400,7 +396,6 @@ make test          # Run tests
 make lint          # Run linter
 make run           # Run the application
 make dev           # Run with hot reload (air)
-make generate      # Generate templ components
 make docker-build  # Build Docker image
 make docker-up     # Start Docker Compose stack
 make docker-down   # Stop Docker Compose stack

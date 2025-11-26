@@ -1,21 +1,26 @@
 # Code Review: CAATSM Dashboard
 
+> **Status Update**: This review reflects the codebase state. Several critical issues have been addressed:
+> - ✅ **F1, F6**: SQL injection in `sortBy` field - **FIXED** with whitelist validation
+> - ✅ **F3**: Rate limiting - **FIXED** (10 req/s implemented)
+> - ⚠️ **F4, F5, F8**: Security concerns remain (default secrets, export auth, config secrets)
+
 ## 1) Executive Summary
 
-The CAATSM Dashboard is a Go-based web application for searching and analyzing aviation telegram messages, using PostgreSQL, Meilisearch, Redis, and NATS. The codebase demonstrates solid architectural patterns with clear separation of concerns, but several critical security vulnerabilities, correctness issues, and performance concerns need immediate attention. The top three risks are: (1) **SQL injection vulnerability** in the `sortBy` field which is directly interpolated into SQL queries without validation, (2) **DoS risk** from unlimited export query limits combined with the absence of rate limiting, and (3) **insecure default secrets and optional authentication** that weaken the deployment security posture. The codebase would benefit from input validation, defensive configuration defaults, proper error handling, and resource management improvements.
+The CAATSM Dashboard is a Go-based web application for searching and analyzing aviation telegram messages, using PostgreSQL, Meilisearch, Redis, and NATS. The codebase demonstrates solid architectural patterns with clear separation of concerns following Clean Architecture principles. **Recent improvements have addressed critical security vulnerabilities**: (1) **SQL injection vulnerability** in the `sortBy` field has been fixed with whitelist validation in both domain and repository layers, (2) **Rate limiting** has been implemented to protect against DoS attacks, and (3) **Input validation** is now enforced at the domain layer. Remaining concerns include insecure default secrets, optional authentication, and some performance optimizations. The codebase continues to benefit from defensive configuration defaults, proper error handling, and resource management improvements.
 
 ## 2) Findings Table
 
 | ID | Severity | Category | Symptom | Why it matters | Evidence (line refs) | Fix summary |
 |----|----------|----------|---------|----------------|---------------------|-------------|
-| F1 | High | Security | SQL injection in `sortBy` field | User-controlled `sort_by` parameter is directly interpolated into SQL query without validation, allowing SQL injection | `internal/repository/postgres/store.go:195-222` | Whitelist allowed sort columns or use parameterized column names |
-| F3 | High | Security | No rate limiting | All endpoints are unprotected from DoS attacks | `internal/server/server.go:110-121` | Add rate limiting middleware |
+| F1 | ✅ Fixed | Security | SQL injection in `sortBy` field | ~~User-controlled `sort_by` parameter is directly interpolated into SQL query without validation, allowing SQL injection~~ | `internal/repository/postgres/store.go:202-214`, `internal/domain/filters.go:44-57` | ✅ Fixed: Whitelist validation implemented in both domain and repository layers |
+| F3 | ✅ Fixed | Security | No rate limiting | ~~All endpoints are unprotected from DoS attacks~~ | `internal/server/server.go:137-141` | ✅ Fixed: Rate limiting middleware added (10 req/s) |
 | F4 | High | Security | Hardcoded default secrets | Default Meilisearch API key "masterKey" in config | `config/loader.go:86` | Remove default secrets, require explicit configuration |
 | F5 | High | Security | Export endpoint allows unlimited data extraction | Export has hardcoded 10,000 limit but no authentication/authorization checks | `internal/handlers/handlers.go:211-256`, `internal/services/export.go:32` | Add authentication, enforce reasonable limits, add pagination |
-| F6 | High | Correctness | SQL injection in ORDER BY clause | `sortBy` and `order` are interpolated directly into SQL | `internal/repository/postgres/store.go:218-224` | Validate against whitelist |
+| F6 | ✅ Fixed | Correctness | SQL injection in ORDER BY clause | ~~`sortBy` and `order` are interpolated directly into SQL~~ | `internal/repository/postgres/store.go:202-223`, `internal/domain/filters.go:44-60` | ✅ Fixed: Whitelist validation and order validation implemented |
 | F7 | High | Correctness | Meilisearch filter injection | User input in filter strings is quoted but not validated for filter syntax injection | `internal/services/search.go:71,79,87,95` | Use Meilisearch's structured filter API instead of string concatenation |
 | F8 | Medium | Security | Basic auth credentials in config file | Passwords stored in plaintext config files | `config/config.go:73-78` | Use environment variables or secrets manager |
-| F9 | Medium | Security | No input validation on query parameters | No length limits, format validation, or sanitization on user inputs | `internal/handlers/handlers.go:41-96` | Add validation layer with length limits and format checks |
+| F9 | ⚠️ Partial | Security | No input validation on query parameters | Basic validation exists at domain layer, but length limits and format checks could be enhanced | `internal/domain/filters.go:32-62` | Domain validation implemented; consider adding length limits for query strings |
 | F10 | Medium | Security | CORS enabled without restrictions | CORS middleware has no origin restrictions | `internal/server/server.go:37` | Configure allowed origins |
 | F11 | Medium | Security | Sensitive data in logs | Request logging may include sensitive query parameters | `internal/observability/middleware.go:12-65` | Redact sensitive fields from logs |
 | F13 | Medium | Correctness | Timezone handling | Time parsing/formatting doesn't explicitly handle timezones | `internal/handlers/handlers.go:87-95` | Use UTC consistently and document timezone assumptions |
@@ -249,14 +254,14 @@ internal/handlers/handlers.go
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Inputs validated? | ❌ | No length limits, format validation, or sanitization on most inputs |
+| Inputs validated? | ⚠️ | Domain layer validation implemented for filters; length limits for query strings could be enhanced |
 | Output encoded? | ✅ | templ components auto-escape dynamic content |
 | Secrets sourced from vault? | ❌ | Secrets in config files, default values in code |
 | Least privilege? | ⚠️ | Basic auth exists but not enforced on all endpoints |
 | Safe defaults? | ❌ | Default Meilisearch key "masterKey" is insecure |
-| Rate limiting? | ❌ | No rate limiting implemented |
+| Rate limiting? | ✅ | Rate limiting implemented (10 req/s) |
 | Logging PII redaction? | ⚠️ | Query parameters logged, may contain sensitive data |
-| SQL injection protected? | ❌ | `sortBy` field vulnerable (F1, F6) |
+| SQL injection protected? | ✅ | `sortBy` field protected with whitelist validation (F1, F6 fixed) |
 | XSS protected? | ✅ | HTMX responses rendered via templ, which escapes user-provided data |
 | CSRF protection? | ⚠️ | Echo middleware may provide, but not explicitly configured |
 | Path traversal protected? | ✅ | Static file serving uses relative paths, should be safe |
@@ -333,5 +338,5 @@ internal/handlers/handlers.go
 | **Readability** | 4/5 | Clear naming, good structure, idiomatic Go. Some magic numbers and incomplete implementations reduce score |
 | **Testability** | 3/5 | Interfaces enable testing, but lack of unit tests, no test utilities, and tight coupling to external services make testing difficult |
 
-**Overall**: 3.2/5 - Solid foundation with critical security issues that need immediate attention.
+**Overall**: 3.8/5 - Solid foundation with Clean Architecture. Critical SQL injection and rate limiting issues have been addressed. Remaining concerns: default secrets, authentication enforcement, and performance optimizations.
 

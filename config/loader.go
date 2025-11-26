@@ -98,7 +98,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("nats.consumer", "dashboard-sync")
 	v.SetDefault("nats.connect_timeout", "5s")
 
-	v.SetDefault("metrics.enabled", true)
+	v.SetDefault("metrics.enabled", false)
 	v.SetDefault("metrics.path", "/metrics")
 
 	v.SetDefault("auth.enable_basic", false)

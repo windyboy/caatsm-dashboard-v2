@@ -1,6 +1,6 @@
 # CAATSM Dashboard Frontend
 
-SvelteKit frontend for the CAATSM Dashboard, built with Node.js + npm.
+SvelteKit frontend for the CAATSM Dashboard, built with **Deno 2.0+** (recommended) or **Node.js 20+**.
 
 ## Development
 
@@ -95,7 +95,15 @@ The frontend includes end-to-end tests using Playwright to ensure functionality 
 ### Running Tests
 
 ```bash
-# Run all E2E tests
+# Run all E2E tests (using Taskfile/Makefile - recommended)
+task frontend:test
+# or
+make frontend-test
+
+# Or manually with Deno
+deno task test
+
+# Or manually with Node.js
 npm run test
 
 # Run tests in headed mode (visible browser)
@@ -145,7 +153,15 @@ The frontend includes unit tests using Vitest to test business logic, stores, an
 ### Running Unit Tests
 
 ```bash
-# Run all unit tests
+# Run all unit tests (using Taskfile/Makefile - recommended)
+task frontend:test:unit
+# or
+make frontend-test-unit
+
+# Or manually with Deno
+deno task test:unit
+
+# Or manually with Node.js
 npm run test:unit
 
 # Run tests in watch mode

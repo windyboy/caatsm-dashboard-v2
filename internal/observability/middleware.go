@@ -41,6 +41,13 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 				zap.Int("status", status),
 				zap.Duration("latency", latency),
 			}
+			
+			// Add correlation ID if available
+			if correlationID := CorrelationIDFromContext(req.Context()); correlationID != "" {
+				fields = append(fields, zap.String("correlation_id", correlationID))
+			}
+			
+			// Add request ID if available
 			if requestID != "" {
 				fields = append(fields, zap.String("request_id", requestID))
 			}
@@ -65,14 +72,7 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 }
 
 // Correlation enriches request context with correlation identifiers.
+// Deprecated: Use CorrelationIDMiddleware instead for better correlation ID support.
 func Correlation() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			req := c.Request()
-			if req.Header.Get(echo.HeaderXRequestID) == "" {
-				req.Header.Set(echo.HeaderXRequestID, c.Response().Header().Get(echo.HeaderXRequestID))
-			}
-			return next(c)
-		}
-	}
+	return CorrelationIDMiddleware()
 }

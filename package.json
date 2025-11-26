@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "unocss:dev": "unocss \"views/**/*.templ\" \"assets/css/**/*.css\" --watch -o ./public/css/app.css",
-    "unocss:build": "unocss \"views/**/*.templ\" \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
+    "unocss:dev": "unocss \"assets/css/**/*.css\" --watch -o ./public/css/app.css",
+    "unocss:build": "unocss \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
   },
   "devDependencies": {
     "@unocss/cli": "^66.5.6",

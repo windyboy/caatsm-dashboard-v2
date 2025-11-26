@@ -14,6 +14,7 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/auth"
 	"github.com/windy/caatsm-dashboard/internal/handlers"
 	"github.com/windy/caatsm-dashboard/internal/observability"
+	transporthttp "github.com/windy/caatsm-dashboard/internal/transport/http"
 	"go.uber.org/zap"
 )
 
@@ -49,7 +50,14 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	metricsExporter := observability.NewMetricsExporter()
+	// Only create metrics exporter if metrics are enabled
+	var metricsExporter *observability.MetricsExporter
+	if cfg.Metrics.Enabled {
+		metricsExporter = observability.NewMetricsExporter()
+		logger.Info("metrics enabled", zap.String("path", cfg.Metrics.Path))
+	} else {
+		logger.Info("metrics disabled")
+	}
 
 	// Create event broadcaster for WebSocket
 	redisCli := container.RedisClient()
@@ -136,7 +144,22 @@ func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())
 	}
-	handlers.Register(s.e, s.container, broadcaster)
+	
+	// Use new transport layer handlers (clean architecture)
+	transportHandlers := s.createTransportHandlers()
+	if transportHandlers != nil {
+		transporthttp.Register(s.e, transportHandlers)
+		s.logger.Info("using new transport layer handlers")
+		
+		// Register WebSocket handler separately (using legacy handler)
+		// TODO: Migrate WebSocket to transport layer in future
+		wsH := &handlers.Handler{}
+		handlers.RegisterWebSocketOnly(s.e, wsH, s.container, broadcaster)
+	} else {
+		// Fallback to legacy handlers if new handlers fail to initialize
+		s.logger.Warn("falling back to legacy handlers")
+		handlers.Register(s.e, s.container, broadcaster)
+	}
 
 	// Serve static files from Svelte frontend build directory
 	// This should be registered last to catch all non-API routes
@@ -173,4 +196,24 @@ func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 			})
 		})
 	}
+}
+
+// createTransportHandlers creates the new transport layer handlers.
+func (s *Server) createTransportHandlers() *transporthttp.Handler {
+	// Ensure we have V2 services available
+	if s.container.SearchServiceV2 == nil || s.container.StatsServiceV2 == nil || s.container.ExportServiceV2 == nil {
+		s.logger.Warn("V2 services not available, cannot create transport handlers")
+		return nil
+	}
+
+	// Create health check adapter
+	healthAdapter := transporthttp.NewContainerHealthAdapter(s.container)
+
+	// Create new transport handlers
+	return transporthttp.NewHandler(
+		s.container.SearchServiceV2,
+		s.container.StatsServiceV2,
+		s.container.ExportServiceV2,
+		healthAdapter,
+	)
 }
