@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 )
 
@@ -17,13 +17,13 @@ type SearchIndexMock struct {
 var _ repository.SearchIndex = (*SearchIndexMock)(nil)
 
 // Index mocks the Index method
-func (m *SearchIndexMock) Index(ctx context.Context, telegram *models.Telegram) error {
+func (m *SearchIndexMock) Index(ctx context.Context, telegram *persistence.Telegram) error {
 	args := m.Called(ctx, telegram)
 	return args.Error(0)
 }
 
 // BulkIndex mocks the BulkIndex method
-func (m *SearchIndexMock) BulkIndex(ctx context.Context, telegrams []*models.Telegram) error {
+func (m *SearchIndexMock) BulkIndex(ctx context.Context, telegrams []*persistence.Telegram) error {
 	args := m.Called(ctx, telegrams)
 	return args.Error(0)
 }

@@ -20,20 +20,16 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/repository/cache"
 	meiliRepo "github.com/windy/caatsm-dashboard/internal/repository/meili"
 	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
-	"github.com/windy/caatsm-dashboard/internal/services"
 	"go.uber.org/zap"
 )
 
 // Container wires together dependencies required by handlers and background workers.
 type Container struct {
-	Config        *config.AppConfig
-	Logger        *zap.Logger
-	SearchService services.SearchService
-	StatsService  services.StatsService
-	ExportService services.ExportService
-	QueryService  application.QueryService
+	Config       *config.AppConfig
+	Logger       *zap.Logger
+	QueryService application.QueryService
 
-	// New application layer services (clean architecture)
+	// Application layer services (clean architecture)
 	SearchServiceV2 *search.Service
 	StatsServiceV2  *stats.Service
 	ExportServiceV2 *export.Service
@@ -83,21 +79,10 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	// Initialize cache
 	cacheStore := cache.New(redisCli, 5*time.Minute)
 
-	// Initialize services
-	searchService := services.NewSearchService(
-		meiliIndex,
-		store,
-		cacheStore,
-		logger,
-	)
-
-	statsService := services.NewStatsService(store, logger)
-	exportService := services.NewExportService(searchService, logger)
-
 	// Initialize QueryService
 	queryService := application.NewQueryService(store, meiliIndex)
 
-	// Initialize new application layer services (using same repositories - compatible due to type aliases)
+	// Initialize application layer services (clean architecture)
 	searchServiceV2 := search.NewService(
 		meiliIndex, // repository.SearchIndex - compatible
 		store,      // repository.TelegramStore - compatible (implements both TelegramStore and AnalyticsStore)
@@ -115,13 +100,8 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 		logger,
 	)
 
-	// Set old services (for backward compatibility)
-	container.SearchService = searchService
-	container.StatsService = statsService
-	container.ExportService = exportService
+	// Set services
 	container.QueryService = queryService
-
-	// Set new services
 	container.SearchServiceV2 = searchServiceV2
 	container.StatsServiceV2 = statsServiceV2
 	container.ExportServiceV2 = exportServiceV2

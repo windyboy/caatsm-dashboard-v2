@@ -6,12 +6,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 func TestToDomain(t *testing.T) {
 	t.Run("valid conversion", func(t *testing.T) {
-		model := &models.Telegram{
+		model := &persistence.Telegram{
 			MessageID:    "TEST-001",
 			Type:         "aftn",
 			Time:         time.Now(),
@@ -77,7 +77,7 @@ func TestFromDomain(t *testing.T) {
 	})
 
 	t.Run("round trip conversion", func(t *testing.T) {
-		original := &models.Telegram{
+		original := &persistence.Telegram{
 			MessageID:    "TEST-001",
 			Type:         "aftn",
 			Time:         time.Now(),

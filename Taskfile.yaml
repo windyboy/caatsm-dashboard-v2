@@ -449,3 +449,29 @@ tasks:
       - rm -rf node_modules/
       - rm -rf frontend/node_modules/
       - 'echo "✓ Cleaned all artifacts including dependencies"'
+  
+  # OpenAPI / Swagger
+  swagger:generate:
+    desc: "Generate OpenAPI 3.1 specification from code annotations"
+    cmds:
+      - mkdir -p api
+      - |
+        if command -v swag >/dev/null 2>&1; then
+          swag init -g internal/transport/http/docs.go -o api --parseDependency --parseInternal
+          echo "✓ Generated OpenAPI spec in api/swagger.json and api/swagger.yaml"
+        else
+          echo "⚠ swag not found. Install with: go install github.com/swaggo/swag/cmd/swag@latest"
+          echo "  Manual OpenAPI spec already available at api/openapi.yaml"
+        fi
+  
+  swagger:serve:
+    desc: "Serve OpenAPI specification with Swagger UI"
+    cmds:
+      - |
+        echo "OpenAPI specification available at:"
+        echo "  - YAML: api/openapi.yaml"
+        echo "  - View online: https://editor.swagger.io/?url=file://$(pwd)/api/openapi.yaml"
+        echo ""
+        echo "To view locally, you can:"
+        echo "  1. Use Swagger UI Docker: docker run -p 8080:8080 -e SWAGGER_JSON=/api/openapi.yaml -v $(pwd)/api:/api swaggerapi/swagger-ui"
+        echo "  2. Use VS Code extension: 'OpenAPI (Swagger) Editor'"

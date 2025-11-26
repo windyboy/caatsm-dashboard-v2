@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 // Store implements repository interfaces backed by PostgreSQL/TimescaleDB.
@@ -21,7 +21,7 @@ func New(pool *pgxpool.Pool) *Store {
 }
 
 // Save persists a single telegram.
-func (s *Store) Save(ctx context.Context, telegram *models.Telegram) error {
+func (s *Store) Save(ctx context.Context, telegram *persistence.Telegram) error {
 	query := `INSERT INTO telegrams (message_id, type, time, flight_number, source, destination, content, priority, raw_data)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (message_id) DO UPDATE SET
@@ -53,7 +53,7 @@ func (s *Store) Save(ctx context.Context, telegram *models.Telegram) error {
 }
 
 // BulkSave persists multiple telegrams in a single transaction.
-func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) error {
+func (s *Store) BulkSave(ctx context.Context, telegrams []*persistence.Telegram) error {
 	if len(telegrams) == 0 {
 		return nil
 	}
@@ -118,7 +118,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*models.Telegram) erro
 }
 
 // Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
+func (s *Store) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
 	var conditions []string
 	var args []any
 	argPos := 1
@@ -247,9 +247,9 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 	}
 	defer rows.Close()
 
-	var telegrams []models.Telegram
+	var telegrams []persistence.Telegram
 	for rows.Next() {
-		var t models.Telegram
+		var t persistence.Telegram
 		err := rows.Scan(
 			&t.MessageID,
 			&t.Type,
@@ -271,7 +271,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	return &models.SearchResult{
+	return &persistence.SearchResult{
 		Telegrams: telegrams,
 		Total:     total,
 		Page:      filter.Page,
@@ -279,7 +279,7 @@ func (s *Store) Search(ctx context.Context, filter models.SearchFilter) (*models
 }
 
 // TrafficSummary returns aggregated data for dashboards.
-func (s *Store) TrafficSummary(ctx context.Context, window models.TimeWindow) (*models.TrafficSummary, error) {
+func (s *Store) TrafficSummary(ctx context.Context, window persistence.TimeWindow) (*persistence.TrafficSummary, error) {
 	var whereClause string
 	var args []any
 
@@ -352,7 +352,7 @@ func (s *Store) TrafficSummary(ctx context.Context, window models.TimeWindow) (*
 		byPriority[p] = count
 	}
 
-	return &models.TrafficSummary{
+	return &persistence.TrafficSummary{
 		TotalMessages: total,
 		ByType:        byType,
 		ByPriority:    byPriority,
@@ -360,7 +360,7 @@ func (s *Store) TrafficSummary(ctx context.Context, window models.TimeWindow) (*
 }
 
 // RouteStats returns top routes.
-func (s *Store) RouteStats(ctx context.Context, limit int) ([]models.RouteStat, error) {
+func (s *Store) RouteStats(ctx context.Context, limit int) ([]persistence.RouteStat, error) {
 	if limit <= 0 {
 		limit = DefaultRouteStatsLimit
 	}
@@ -380,9 +380,9 @@ func (s *Store) RouteStats(ctx context.Context, limit int) ([]models.RouteStat, 
 	}
 	defer rows.Close()
 
-	var stats []models.RouteStat
+	var stats []persistence.RouteStat
 	for rows.Next() {
-		var stat models.RouteStat
+		var stat persistence.RouteStat
 		if err := rows.Scan(&stat.Source, &stat.Destination, &stat.Count); err != nil {
 			return nil, fmt.Errorf("scan route stat: %w", err)
 		}

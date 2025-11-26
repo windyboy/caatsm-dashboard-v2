@@ -83,6 +83,27 @@ func Register(e *echo.Echo, h *Handler) {
 	e.GET("/", h.Root)
 }
 
+// Search godoc
+// @Summary Search telegrams
+// @Description Search aviation telegrams with full-text search and filters
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param query query string false "Search query text"
+// @Param limit query int false "Number of results per page (max 1000)" default(50)
+// @Param offset query int false "Pagination offset (max 100000)" default(0)
+// @Param sort_by query string false "Sort field (time, priority, message_id, type, flight_number, source, destination)" default(time)
+// @Param order query string false "Sort order (asc, desc)" default(desc)
+// @Param type query string false "Filter by telegram type"
+// @Param source query string false "Filter by source airport (ICAO code)"
+// @Param destination query string false "Filter by destination airport (ICAO code)"
+// @Param priority query int false "Filter by priority (1-3)"
+// @Param start_time query string false "Filter start time (RFC3339 format)"
+// @Param end_time query string false "Filter end time (RFC3339 format, max 90 days range)"
+// @Success 200 {object} map[string]interface{} "Search results with telegrams array, total count, and pagination"
+// @Failure 400 {object} map[string]string "Bad request (invalid parameters)"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /search [get]
 func (h *Handler) Search(ctx echo.Context) error {
 	filter := persistence.SearchFilter{
 		Query: sanitizeQuery(ctx.FormValue("query")),
@@ -165,6 +186,17 @@ func (h *Handler) Search(ctx echo.Context) error {
 	})
 }
 
+// Autocomplete godoc
+// @Summary Get autocomplete suggestions
+// @Description Get search term suggestions for autocomplete
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param term query string true "Search term"
+// @Param size query int false "Number of suggestions (max 50)" default(5)
+// @Success 200 {object} map[string]interface{} "Autocomplete suggestions"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /autocomplete [get]
 func (h *Handler) Autocomplete(ctx echo.Context) error {
 	sizeStr := ctx.QueryParam("size")
 	size, _ := strconv.Atoi(sizeStr)
@@ -188,6 +220,15 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 	})
 }
 
+// StatsTotal godoc
+// @Summary Get total telegram count
+// @Description Get total number of telegrams in the system
+// @Tags stats
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Total telegram count"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /stats/total [get]
 func (h *Handler) StatsTotal(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
@@ -203,6 +244,15 @@ func (h *Handler) StatsTotal(ctx echo.Context) error {
 	})
 }
 
+// StatsPriority godoc
+// @Summary Get telegram statistics by priority
+// @Description Get breakdown of telegrams by priority level
+// @Tags stats
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Telegram count by priority"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /stats/priority [get]
 func (h *Handler) StatsPriority(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
@@ -219,6 +269,15 @@ func (h *Handler) StatsPriority(ctx echo.Context) error {
 	})
 }
 
+// StatsType godoc
+// @Summary Get telegram statistics by type
+// @Description Get breakdown of telegrams by message type (AFTN, SITA, ACARS, CPDLC)
+// @Tags stats
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Telegram count by type"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /stats/type [get]
 func (h *Handler) StatsType(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
@@ -235,6 +294,21 @@ func (h *Handler) StatsType(ctx echo.Context) error {
 	})
 }
 
+// Export godoc
+// @Summary Export telegrams
+// @Description Export search results to CSV format with streaming support (handles 50k+ records without OOM)
+// @Tags export
+// @Accept json
+// @Produce text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf
+// @Param format query string false "Export format (csv, xlsx, pdf)" default(csv)
+// @Param query query string false "Search query text"
+// @Param type query string false "Filter by telegram type"
+// @Param source query string false "Filter by source airport (ICAO code)"
+// @Param destination query string false "Filter by destination airport (ICAO code)"
+// @Success 200 {file} file "Exported file"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /export [get]
 func (h *Handler) Export(ctx echo.Context) error {
 	format := persistence.ExportFormat(ctx.QueryParam("format"))
 	if format == "" {
@@ -260,14 +334,7 @@ func (h *Handler) Export(ctx echo.Context) error {
 		filter.Destination = []string{dstStr}
 	}
 
-	payload, err := h.exportService.Export(ctx.Request().Context(), filter, format)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotImplemented) {
-			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": err.Error()})
-		}
-		return err
-	}
-
+	// Determine content type
 	contentType := "application/octet-stream"
 	switch format {
 	case persistence.ExportFormatCSV:
@@ -278,10 +345,32 @@ func (h *Handler) Export(ctx echo.Context) error {
 		contentType = "application/pdf"
 	}
 
+	// Set headers for streaming download
+	ctx.Response().Header().Set(echo.HeaderContentType, contentType)
 	ctx.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=telegrams.%s", format))
-	return ctx.Blob(http.StatusOK, contentType, payload)
+	ctx.Response().WriteHeader(http.StatusOK)
+
+	// Stream directly to response writer to avoid memory issues
+	if err := h.exportService.ExportStream(ctx.Request().Context(), filter, format, ctx.Response().Writer); err != nil {
+		if errors.Is(err, repository.ErrNotImplemented) {
+			// Note: Can't change status code after WriteHeader, log error instead
+			return fmt.Errorf("export not implemented: %w", err)
+		}
+		return err
+	}
+
+	return nil
 }
 
+// Health godoc
+// @Summary Health check
+// @Description Check health status of all system components (PostgreSQL, Meilisearch, Redis, NATS, WebSocket)
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "System is healthy"
+// @Failure 503 {object} map[string]interface{} "System is degraded"
+// @Router /health [get]
 func (h *Handler) Health(ctx echo.Context) error {
 	if h.healthCheck == nil {
 		return ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})

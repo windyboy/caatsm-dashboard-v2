@@ -1,11 +1,20 @@
 <script lang="ts">
   import SearchForm from "$lib/components/SearchForm.svelte";
   import SearchResults from "$lib/components/SearchResults.svelte";
+  import LoadingSpinner from "$lib/components/LoadingSpinner.svelte";
   import { search, type SearchParams } from "$lib/services/api";
   import type { Telegram } from "$lib/utils/types";
   import { createLogger } from "$lib/utils/logger.ts";
+  import { onMount } from "svelte";
+
 
   const logger = createLogger("SearchPage");
+
+  let mounted = false;
+
+  onMount(() => {
+    mounted = true;
+  });
 
   let telegrams: Telegram[] = [];
   let total = 0;
@@ -36,22 +45,43 @@
   }
 </script>
 
-<div class="min-h-screen text-slate-900 antialiased" style="background: linear-gradient(135deg, rgb(238, 242, 247) 0%, rgb(235, 239, 245) 50%, rgb(237, 241, 246) 100%); background-attachment: fixed;">
-
-  <header class="bg-white/95 backdrop-blur-lg shadow-sm border-b border-slate-200/60 sticky top-0 z-50">
+{#if mounted}
+  <div
+    class="min-h-screen text-slate-900 antialiased"
+    style="background: linear-gradient(135deg, rgb(239, 246, 255) 0%, rgb(219, 234, 254) 25%, rgb(191, 219, 254) 50%, rgb(147, 197, 253) 75%, rgb(96, 165, 250) 100%); background-attachment: fixed;"
+  >
+  <header
+    class="bg-white/95 backdrop-blur-lg shadow-lg border-b border-brand-200/30 sticky top-0 z-50"
+  >
     <div class="mx-auto max-w-7xl px-6 py-5">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 shadow-md border border-sky-600/20"></div>
-          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
-            CAATSM Dashboard
-          </h1>
+          <div
+            class="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 via-accent-500 to-success-500 shadow-lg border border-brand-400/30 flex items-center justify-center"
+          >
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent">CAATSM Dashboard</h1>
         </div>
         <nav class="flex items-center gap-2">
-          <a href="/" class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-sky-600 hover:bg-sky-50/80 rounded-lg transition-all duration-200 border border-transparent hover:border-sky-200/60">
+          <a
+            href="/"
+            class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 hover:shadow-md hover:scale-105 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
             Dashboard
           </a>
-          <a href="/search" class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-sky-600 hover:bg-sky-50/80 rounded-lg transition-all duration-200 border border-transparent hover:border-sky-200/60">
+          <a
+            href="/search"
+            class="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 hover:shadow-md hover:scale-105 flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
             Search
           </a>
         </nav>
@@ -61,27 +91,30 @@
 
   <main class="mx-auto max-w-7xl px-6 py-8">
     <section class="space-y-8">
-      <SearchForm on:search={handleSearch} on:reset={handleReset} />
+      <div>
+        <SearchForm on:search={handleSearch} on:reset={handleReset} />
+      </div>
 
       {#if loading}
-        <div class="rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
-          <div class="flex items-center justify-center py-12">
-            <div class="skeleton w-full h-8 rounded-md"></div>
-          </div>
+        <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
+          <LoadingSpinner size="lg" variant="gradient" message="Searching telegrams..." />
         </div>
       {:else if error}
-        <div class="rounded-lg bg-white/90 backdrop-blur-sm border-0 p-8 card-glow">
+        <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
           <div class="text-center py-12">
-            <p class="text-sm font-semibold text-red-600 mb-1">Error</p>
-            <p class="text-xs text-slate-400">{error}</p>
+            <p class="text-sm font-semibold text-danger-600 mb-1">Error</p>
+            <p class="text-xs text-slate-500">{error}</p>
           </div>
         </div>
       {:else}
-        <SearchResults {telegrams} {total} />
+        <div>
+          <SearchResults {telegrams} {total} />
+        </div>
       {/if}
     </section>
   </main>
 </div>
+{/if}
 
 <style>
   .card-glow {
@@ -98,10 +131,12 @@
 
   .skeleton {
     animation: pulse 1.5s ease-in-out infinite;
-    background: linear-gradient(90deg,
+    background: linear-gradient(
+      90deg,
       rgba(226, 232, 240, 0.8) 0%,
       rgba(241, 245, 249, 0.9) 50%,
-      rgba(226, 232, 240, 0.8) 100%);
+      rgba(226, 232, 240, 0.8) 100%
+    );
     background-size: 200% 100%;
   }
 
@@ -114,4 +149,3 @@
     }
   }
 </style>
-

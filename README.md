@@ -10,7 +10,7 @@
 - 📊 **Analytics**: PostgreSQL + TimescaleDB for time-series data
 - 🚀 **Scalable**: Valkey caching, connection pooling, and async processing
 - 📈 **Observability**: Prometheus + Grafana for metrics and monitoring
-- 🔒 **Security**: Optional Basic Auth middleware with planned JWT, rate limiting, and audit logging enhancements
+- 🔒 **Security**: Auth & rate limiting with production config validation, time range limits (90 days max)
 - 🌐 **WebSocket**: Real-time updates via WebSocket (replacing SSE)
 
 ## Architecture
@@ -41,14 +41,21 @@ The CAATSM Dashboard follows **Clean Architecture** principles with clear layer 
 
 **Key Components**:
 - **Frontend**: Deno + Svelte + SvelteKit (real-time dashboard via WebSocket)
-- **Transport**: HTTP REST API + WebSocket handlers
-- **Application**: Use case services (search, stats, export, health)
-- **Domain**: Business entities, events, validation rules
-- **Infrastructure**: PostgreSQL, Meilisearch, Valkey cache, WebSocket hub
+- **Transport**: HTTP REST API + WebSocket handlers (fully migrated to clean architecture)
+- **Application**: Use case services (search, stats, streaming export, health)
+- **Domain**: Business entities, events, validation rules (with time range limits)
+- **Infrastructure**: PostgreSQL, Meilisearch, Valkey cache, WebSocket hub with backpressure
 
 **Data Flow**:
 - NATS JetStream → Worker → Domain Events → Handlers (Persistence, Indexing)
 - HTTP Request → Transport → Application → Domain → Infrastructure
+
+**Production Features**:
+- ✅ Streaming CSV export (handles 50k+ records without OOM)
+- ✅ Time range validation (max 90 days to prevent unbounded queries)
+- ✅ Production config guards (prevents insecure defaults in prod)
+- ✅ Rate limiting (10 req/sec, configurable)
+- ✅ WebSocket backpressure handling (auto-disconnects slow clients)
 
 For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -360,15 +367,12 @@ caatsm/
 │   ├── transport/          # Transport layer (HTTP/WebSocket)
 │   │   ├── http/           # HTTP handlers
 │   │   └── ws/             # WebSocket handlers
-│   ├── handlers/           # Legacy HTTP controllers (being migrated)
-│   ├── services/           # Legacy services (being migrated)
-│   ├── repository/         # Legacy repositories (being migrated)
+│   ├── repository/         # Data repositories (postgres, meilisearch, nats)
 │   ├── platform/           # External client wrappers
 │   ├── sync/               # Message sync worker
 │   ├── metrics/            # Prometheus metrics
 │   ├── observability/      # Logging, correlation IDs, middleware
 │   ├── auth/               # Authentication middleware
-│   ├── models/             # Data models (type aliases for compatibility)
 │   └── testing/            # Test utilities & mocks
 ├── frontend/               # Deno + Svelte frontend
 │   ├── src/
@@ -380,7 +384,7 @@ caatsm/
 │   │   └── routes/          # SvelteKit routes
 │   ├── deno.json            # Deno configuration
 │   └── svelte.config.js     # SvelteKit configuration
-├── assets/                  # Legacy UnoCSS sources
+├── assets/                  # Static assets & UnoCSS sources
 ├── public/                   # Generated static assets
 ├── migrations/               # Database migrations
 ├── scripts/                  # Utility scripts
@@ -615,10 +619,11 @@ For detailed testing documentation, see [TESTING.md](TESTING.md) and [internal/t
 - Better validation of event data structures
 
 ### Test Coverage
-- Added comprehensive tests for WebSocket handler (`internal/handlers/websocket_test.go`)
-- Added EventBroadcaster tests (`internal/handlers/broadcaster_test.go`)
+- Added comprehensive tests for WebSocket handler in transport layer
+- Added EventBroadcaster tests in transport/ws package
 - Created service mocks for StatsService and QueryService
-- Test coverage for handlers layer targeting ≥80%
+- Test coverage targeting ≥80% across all layers
+- Completed clean architecture migration (all legacy code removed)
 
 ### Linting Configuration
 - Updated linting rules for better code quality

@@ -425,12 +425,9 @@ describe("WebSocketClient", () => {
       }
 
       expect(handler).toHaveBeenCalledTimes(2);
-      expect(handler).not.toHaveBeenCalledWith(
-        expect.objectContaining({ type: "invalid-type" })
-      );
+      expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "invalid-type" }));
     } finally {
       vi.useRealTimers();
     }
   });
 });
-

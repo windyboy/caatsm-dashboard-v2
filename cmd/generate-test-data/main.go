@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
 	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 	"go.uber.org/zap"
@@ -33,8 +33,8 @@ var (
 	}
 )
 
-func generateTestData(count int) []*models.Telegram {
-	telegrams := make([]*models.Telegram, count)
+func generateTestData(count int) []*persistence.Telegram {
+	telegrams := make([]*persistence.Telegram, count)
 	now := time.Now()
 
 	for i := 0; i < count; i++ {
@@ -54,7 +54,7 @@ func generateTestData(count int) []*models.Telegram {
 			dst = airports[rand.Intn(len(airports))]
 		}
 
-		telegrams[i] = &models.Telegram{
+		telegrams[i] = &persistence.Telegram{
 			MessageID:    fmt.Sprintf("MSG%06d", i+1),
 			Type:         messageTypes[rand.Intn(len(messageTypes))],
 			Time:         timestamp,

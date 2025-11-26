@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 // TelegramService defines the interface for telegram command operations
@@ -16,7 +16,7 @@ type TelegramService interface {
 // QueryService defines the interface for query operations
 type QueryService interface {
 	// Search performs a search query
-	Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error)
+	Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error)
 	// Recent retrieves recent telegrams
 	Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
 }

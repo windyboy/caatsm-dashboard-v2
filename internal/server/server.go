@@ -12,9 +12,9 @@ import (
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/auth"
-	"github.com/windy/caatsm-dashboard/internal/handlers"
 	"github.com/windy/caatsm-dashboard/internal/observability"
 	transporthttp "github.com/windy/caatsm-dashboard/internal/transport/http"
+	transportws "github.com/windy/caatsm-dashboard/internal/transport/ws"
 	"go.uber.org/zap"
 )
 
@@ -66,7 +66,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	} else {
 		logger.Info("redis client available for WebSocket")
 	}
-	broadcaster := handlers.NewEventBroadcaster(redisCli, logger)
+	broadcaster := transportws.NewEventBroadcaster(redisCli, logger)
 	go broadcaster.StartRedisListener()
 	logger.Info("started Redis listener goroutine")
 
@@ -120,18 +120,51 @@ func (s *Server) Start(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("shutdown: %w", err)
-		}
-		return nil
+		s.logger.Info("graceful shutdown initiated")
+		return s.gracefulShutdown(httpServer)
 	case err := <-errCh:
 		return err
 	}
 }
 
-func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
+// gracefulShutdown performs a graceful shutdown of the server and all dependencies
+func (s *Server) gracefulShutdown(httpServer *http.Server) error {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Step 1: Stop accepting new HTTP connections
+	s.logger.Info("stopping HTTP server (no new connections)")
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		s.logger.Error("HTTP server shutdown error", zap.Error(err))
+		return fmt.Errorf("http shutdown: %w", err)
+	}
+	s.logger.Info("HTTP server stopped")
+
+	// Step 2: Flush metrics (before closing connections)
+	if s.metrics != nil {
+		s.logger.Info("flushing metrics")
+		// Metrics are pushed via Prometheus pull model, no explicit flush needed
+	}
+
+	// Step 3: Close Redis connections
+	if s.container.RedisClient() != nil {
+		s.logger.Info("closing Redis connections")
+		if err := s.container.RedisClient().Close(); err != nil {
+			s.logger.Warn("Redis close error", zap.Error(err))
+		} else {
+			s.logger.Info("Redis connections closed")
+		}
+	}
+
+	// Note: WebSocket hub, database pool, and NATS connections
+	// are managed by the container and will be closed when the context is cancelled
+	s.logger.Info("additional cleanup: WebSocket connections, database pool, NATS (via container lifecycle)")
+
+	s.logger.Info("graceful shutdown complete")
+	return nil
+}
+
+func (s *Server) registerRoutes(broadcaster *transportws.EventBroadcaster) {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
 
 	// Add rate limiting
@@ -147,19 +180,17 @@ func (s *Server) registerRoutes(broadcaster *handlers.EventBroadcaster) {
 	
 	// Use new transport layer handlers (clean architecture)
 	transportHandlers := s.createTransportHandlers()
-	if transportHandlers != nil {
-		transporthttp.Register(s.e, transportHandlers)
-		s.logger.Info("using new transport layer handlers")
-		
-		// Register WebSocket handler separately (using legacy handler)
-		// TODO: Migrate WebSocket to transport layer in future
-		wsH := &handlers.Handler{}
-		handlers.RegisterWebSocketOnly(s.e, wsH, s.container, broadcaster)
-	} else {
-		// Fallback to legacy handlers if new handlers fail to initialize
-		s.logger.Warn("falling back to legacy handlers")
-		handlers.Register(s.e, s.container, broadcaster)
+	if transportHandlers == nil {
+		s.logger.Fatal("failed to initialize transport handlers - required services not available")
 	}
+	
+	transporthttp.Register(s.e, transportHandlers)
+	s.logger.Info("registered HTTP handlers in transport layer")
+	
+	// Register WebSocket handler using transport layer
+	wsHandler := transportws.NewSimpleHandler(s.container, broadcaster)
+	wsHandler.Register(s.e)
+	s.logger.Info("registered WebSocket handler in transport layer")
 
 	// Serve static files from Svelte frontend build directory
 	// This should be registered last to catch all non-API routes

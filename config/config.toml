@@ -52,3 +52,9 @@ username = ""
 password = ""
 jwt_secret = ""
 
+[tracing]
+enabled = false
+service_name = "caatsm-dashboard"
+otlp_endpoint = "localhost:4318"
+sampling_ratio = 1.0
+

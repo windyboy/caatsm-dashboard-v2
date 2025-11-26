@@ -1,4 +1,4 @@
-package handlers
+package ws
 
 import (
 	"context"
@@ -185,3 +185,4 @@ func (b *EventBroadcaster) Close() {
 	}
 	b.clients = make(map[chan []byte]bool)
 }
+

@@ -5,7 +5,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	"github.com/windy/caatsm-dashboard/internal/models"
 	oldpostgres "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 )
 
@@ -13,7 +12,7 @@ import (
 // This is the new infrastructure layer implementation.
 // It wraps the old postgres store and adapts types.
 type Store struct {
-	// Delegate to old store (models.Telegram is aliased to persistence.Telegram, so compatible)
+	// Delegate to old store (persistence.Telegram is aliased to persistence.Telegram, so compatible)
 	oldStore *oldpostgres.Store
 }
 
@@ -25,18 +24,18 @@ func New(pool *pgxpool.Pool) *Store {
 }
 
 // Save persists a single telegram.
-// Since models.Telegram is a type alias for persistence.Telegram, types are identical.
+// Since persistence.Telegram is a type alias for persistence.Telegram, types are identical.
 func (s *Store) Save(ctx context.Context, telegram *persistence.Telegram) error {
-	// Type alias means *persistence.Telegram and *models.Telegram are the same type
-	return s.oldStore.Save(ctx, (*models.Telegram)(telegram))
+	// Type alias means *persistence.Telegram and *persistence.Telegram are the same type
+	return s.oldStore.Save(ctx, (*persistence.Telegram)(telegram))
 }
 
 // BulkSave persists multiple telegrams.
 func (s *Store) BulkSave(ctx context.Context, telegrams []*persistence.Telegram) error {
 	// Convert slice - since types are aliased, we can convert element-by-element
-	modelTelegrams := make([]*models.Telegram, len(telegrams))
+	modelTelegrams := make([]*persistence.Telegram, len(telegrams))
 	for i := range telegrams {
-		modelTelegrams[i] = (*models.Telegram)(telegrams[i])
+		modelTelegrams[i] = (*persistence.Telegram)(telegrams[i])
 	}
 	return s.oldStore.BulkSave(ctx, modelTelegrams)
 }
@@ -44,14 +43,14 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*persistence.Telegram)
 // Search performs a structured query over telegram records.
 func (s *Store) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
 	// Convert filter - create new struct with same values
-	modelFilter := models.SearchFilter{
+	modelFilter := persistence.SearchFilter{
 		Query:       filter.Query,
 		Type:        filter.Type,
 		Source:      filter.Source,
 		Destination: filter.Destination,
 		Priority:    filter.Priority,
-		TimeRange:   models.TimeWindow(filter.TimeRange),
-		Page:        models.Pagination(filter.Page),
+		TimeRange:   persistence.TimeWindow(filter.TimeRange),
+		Page:        persistence.Pagination(filter.Page),
 	}
 	
 	result, err := s.oldStore.Search(ctx, modelFilter)
@@ -74,7 +73,7 @@ func (s *Store) Search(ctx context.Context, filter persistence.SearchFilter) (*p
 
 // TrafficSummary returns aggregated data for dashboards.
 func (s *Store) TrafficSummary(ctx context.Context, window persistence.TimeWindow) (*persistence.TrafficSummary, error) {
-	modelWindow := models.TimeWindow(window)
+	modelWindow := persistence.TimeWindow(window)
 	result, err := s.oldStore.TrafficSummary(ctx, modelWindow)
 	if err != nil {
 		return nil, err

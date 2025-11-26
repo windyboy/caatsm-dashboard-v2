@@ -26,8 +26,7 @@ class MockWebSocket {
     }, 10);
   }
 
-  send(data: string) {
-  }
+  send(data: string) {}
 
   close() {
     if (this.openTimer) {
@@ -51,4 +50,3 @@ vi.mock("../src/lib/utils/logger.ts", () => ({
     error: vi.fn(),
   }),
 }));
-

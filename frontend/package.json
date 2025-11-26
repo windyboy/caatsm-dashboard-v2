@@ -18,6 +18,9 @@
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest --coverage"
   },
+  "dependencies": {
+    "lucide-svelte": "0.460.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@deno/svelte-adapter": "^0.1.0",
@@ -39,4 +42,3 @@
     "jsdom": "^23.0.0"
   }
 }
-

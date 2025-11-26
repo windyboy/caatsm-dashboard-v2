@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	meilisearch "github.com/meilisearch/meilisearch-go"
+	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -36,6 +37,8 @@ type HealthResult struct {
 	PostgreSQL  ComponentHealth            `json:"postgresql"`
 	Meilisearch ComponentHealth            `json:"meilisearch"`
 	Redis       ComponentHealth            `json:"redis"`
+	NATS        ComponentHealth            `json:"nats,omitempty"`
+	WebSocket   ComponentHealth            `json:"websocket,omitempty"`
 	Degraded    []string                   `json:"degraded,omitempty"` // List of degraded component names
 }
 
@@ -44,8 +47,15 @@ type Service struct {
 	pool     *pgxpool.Pool
 	meiliSvc meilisearch.ServiceManager
 	redisCli redis.UniversalClient
+	natsConn *nats.Conn
+	wsHub    WSHub
 	logger   *zap.Logger
 	timeout  time.Duration
+}
+
+// WSHub interface for WebSocket hub health checking
+type WSHub interface {
+	GetClientCount() int
 }
 
 // NewService creates a new health service.
@@ -59,9 +69,21 @@ func NewService(
 		pool:     pool,
 		meiliSvc: meiliSvc,
 		redisCli: redisCli,
+		natsConn: nil, // Optional - set via SetNATS
+		wsHub:    nil, // Optional - set via SetWSHub
 		logger:   logger,
 		timeout:  2 * time.Second,
 	}
+}
+
+// SetNATS sets the NATS connection for health checks (optional).
+func (s *Service) SetNATS(conn *nats.Conn) {
+	s.natsConn = conn
+}
+
+// SetWSHub sets the WebSocket hub for health checks (optional).
+func (s *Service) SetWSHub(hub WSHub) {
+	s.wsHub = hub
 }
 
 // Check performs a comprehensive health check of all components.
@@ -100,8 +122,31 @@ func (s *Service) Check(ctx context.Context) HealthResult {
 		result.Degraded = append(result.Degraded, "redis")
 	}
 
-	// If all components are down, system is in error state
-	if len(result.Degraded) >= 3 {
+	// Check NATS (optional)
+	if s.natsConn != nil {
+		natsHealth := s.checkNATS()
+		result.NATS = natsHealth
+		if natsHealth.Status == StatusError {
+			if result.Status == string(StatusOK) {
+				result.Status = string(StatusDegraded)
+			}
+			result.Degraded = append(result.Degraded, "nats")
+		}
+	}
+
+	// Check WebSocket Hub (optional)
+	if s.wsHub != nil {
+		wsHealth := s.checkWebSocket()
+		result.WebSocket = wsHealth
+		// WebSocket is not critical, so we don't mark system as degraded
+	}
+
+	// If most critical components are down, system is in error state
+	criticalCount := 3 // PostgreSQL, Meilisearch, Redis
+	if s.natsConn != nil {
+		criticalCount++
+	}
+	if len(result.Degraded) >= criticalCount-1 {
 		result.Status = "error"
 	}
 

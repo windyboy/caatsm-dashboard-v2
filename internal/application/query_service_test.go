@@ -10,23 +10,23 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/testing/mocks"
 )
 
 func TestQueryService_Search(t *testing.T) {
 	tests := []struct {
 		name        string
-		filter      models.SearchFilter
+		filter      persistence.SearchFilter
 		indexError  error
 		indexResult interface{}
 		expectError bool
 	}{
 		{
 			name: "valid search",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Query: "test",
-				Page: models.Pagination{
+				Page: persistence.Pagination{
 					Limit:  10,
 					Offset: 0,
 					SortBy: "time",
@@ -37,10 +37,10 @@ func TestQueryService_Search(t *testing.T) {
 		},
 		{
 			name: "search with filters",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Query: "test",
 				Type:  []string{"aftn"},
-				Page: models.Pagination{
+				Page: persistence.Pagination{
 					Limit:  10,
 					Offset: 0,
 				},
@@ -49,9 +49,9 @@ func TestQueryService_Search(t *testing.T) {
 		},
 		{
 			name: "index error",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Query: "test",
-				Page: models.Pagination{
+				Page: persistence.Pagination{
 					Limit:  10,
 					Offset: 0,
 				},
@@ -108,15 +108,15 @@ func TestQueryService_Recent(t *testing.T) {
 		name        string
 		limit       int
 		storeError  error
-		storeResult *models.SearchResult
+		storeResult *persistence.SearchResult
 		expectError bool
 		expectCount int
 	}{
 		{
 			name:  "valid recent query",
 			limit: 10,
-			storeResult: &models.SearchResult{
-				Telegrams: []models.Telegram{
+			storeResult: &persistence.SearchResult{
+				Telegrams: []persistence.Telegram{
 					{MessageID: "TEST-001", Type: "aftn", Time: time.Now(), Priority: 2},
 					{MessageID: "TEST-002", Type: "sita", Time: time.Now(), Priority: 2},
 				},
@@ -134,8 +134,8 @@ func TestQueryService_Recent(t *testing.T) {
 		{
 			name:  "empty result",
 			limit: 10,
-			storeResult: &models.SearchResult{
-				Telegrams: []models.Telegram{},
+			storeResult: &persistence.SearchResult{
+				Telegrams: []persistence.Telegram{},
 				Total:     0,
 			},
 			expectError: false,
@@ -151,8 +151,8 @@ func TestQueryService_Recent(t *testing.T) {
 			service := NewQueryService(storeMock, indexMock)
 
 			// Setup expectations
-			expectedFilter := models.SearchFilter{
-				Page: models.Pagination{
+			expectedFilter := persistence.SearchFilter{
+				Page: persistence.Pagination{
 					Limit:  tt.limit,
 					Offset: 0,
 					SortBy: "time",
@@ -186,38 +186,38 @@ func TestQueryService_Recent(t *testing.T) {
 func TestBuildFilterString(t *testing.T) {
 	tests := []struct {
 		name   string
-		filter models.SearchFilter
+		filter persistence.SearchFilter
 		want   string
 	}{
 		{
 			name:   "empty filter",
-			filter: models.SearchFilter{},
+			filter: persistence.SearchFilter{},
 			want:   "",
 		},
 		{
 			name: "type filter",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Type: []string{"aftn", "sita"},
 			},
 			want: `(type = "aftn" OR type = "sita")`,
 		},
 		{
 			name: "source filter",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Source: []string{"ZBAA", "ZSPD"},
 			},
 			want: `(source = "ZBAA" OR source = "ZSPD")`,
 		},
 		{
 			name: "priority filter",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Priority: []int{1, 2},
 			},
 			want: `(priority = 1 OR priority = 2)`,
 		},
 		{
 			name: "multiple filters",
-			filter: models.SearchFilter{
+			filter: persistence.SearchFilter{
 				Type:     []string{"aftn"},
 				Priority: []int{1},
 			},

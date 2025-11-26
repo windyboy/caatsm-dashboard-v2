@@ -13,7 +13,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	natsClient "github.com/windy/caatsm-dashboard/internal/platform/nats"
 	"go.uber.org/zap"
 )
@@ -37,7 +37,7 @@ var (
 	}
 )
 
-func generateTelegram(counter int) *models.Telegram {
+func generateTelegram(counter int) *persistence.Telegram {
 	now := time.Now()
 
 	// Generate random flight number
@@ -51,7 +51,7 @@ func generateTelegram(counter int) *models.Telegram {
 		dst = airports[rand.Intn(len(airports))]
 	}
 
-	return &models.Telegram{
+	return &persistence.Telegram{
 		MessageID:    fmt.Sprintf("LIVE-%d-%d", now.Unix(), counter),
 		Type:         messageTypes[rand.Intn(len(messageTypes))],
 		Time:         now,
@@ -64,7 +64,7 @@ func generateTelegram(counter int) *models.Telegram {
 	}
 }
 
-func publishTelegram(js nats.JetStreamContext, telegram *models.Telegram, logger *zap.Logger) error {
+func publishTelegram(js nats.JetStreamContext, telegram *persistence.Telegram, logger *zap.Logger) error {
 	// Marshal telegram to JSON
 	data, err := json.Marshal(telegram)
 	if err != nil {

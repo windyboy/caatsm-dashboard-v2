@@ -1,4 +1,4 @@
-package handlers
+package ws
 
 import (
 	"context"
@@ -9,26 +9,18 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"go.uber.org/zap"
 )
 
 const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
-
 	// Maximum message size allowed from peer.
 	maxMessageSize = 512
 )
 
-var upgrader = websocket.Upgrader{
+var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
@@ -44,10 +36,24 @@ type WebSocketMessage struct {
 	Data any    `json:"data"`
 }
 
-// WebSocket handles WebSocket connections for real-time updates.
-func (h *Handler) WebSocket(c echo.Context) error {
+// SimpleHandler handles WebSocket connections using the EventBroadcaster pattern.
+type SimpleHandler struct {
+	container   *app.Container
+	broadcaster *EventBroadcaster
+}
+
+// NewSimpleHandler creates a new simple WebSocket handler.
+func NewSimpleHandler(container *app.Container, broadcaster *EventBroadcaster) *SimpleHandler {
+	return &SimpleHandler{
+		container:   container,
+		broadcaster: broadcaster,
+	}
+}
+
+// HandleWebSocket handles WebSocket connections for real-time updates.
+func (h *SimpleHandler) HandleWebSocket(c echo.Context) error {
 	// Upgrade HTTP connection to WebSocket
-	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	ws, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		h.container.Logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
@@ -132,9 +138,9 @@ func (h *Handler) WebSocket(c echo.Context) error {
 }
 
 // sendInitialStats sends initial statistics to the WebSocket client.
-func (h *Handler) sendInitialStats(ctx context.Context, ws *websocket.Conn) error {
-	window := models.TimeWindow{}
-	summary, err := h.container.StatsService.TrafficSummary(ctx, window)
+func (h *SimpleHandler) sendInitialStats(ctx context.Context, ws *websocket.Conn) error {
+	window := persistence.TimeWindow{}
+	summary, err := h.container.StatsServiceV2.TrafficSummary(ctx, window)
 	if err != nil {
 		return fmt.Errorf("get traffic summary: %w", err)
 	}
@@ -176,7 +182,7 @@ func (h *Handler) sendInitialStats(ctx context.Context, ws *websocket.Conn) erro
 }
 
 // sendRecentMessages loads and sends recent messages to the WebSocket client.
-func (h *Handler) sendRecentMessages(ctx context.Context, ws *websocket.Conn) error {
+func (h *SimpleHandler) sendRecentMessages(ctx context.Context, ws *websocket.Conn) error {
 	recentTelegrams, err := h.container.QueryService.Recent(ctx, 50)
 	if err != nil {
 		return fmt.Errorf("get recent telegrams: %w", err)
@@ -214,7 +220,7 @@ func (h *Handler) sendRecentMessages(ctx context.Context, ws *websocket.Conn) er
 }
 
 // handleBroadcastEvent processes events from the broadcaster and sends them to the WebSocket client.
-func (h *Handler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, event []byte) error {
+func (h *SimpleHandler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, event []byte) error {
 	// Parse event JSON to determine event type
 	var eventData map[string]any
 	if err := json.Unmarshal(event, &eventData); err != nil {
@@ -250,7 +256,7 @@ func (h *Handler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, 
 		}
 
 		if found {
-			var telegram models.Telegram
+			var telegram persistence.Telegram
 			telegramBytes, err := json.Marshal(telegramData)
 			if err != nil {
 				h.container.Logger.Warn("failed to marshal telegram data", zap.Error(err))
@@ -274,8 +280,8 @@ func (h *Handler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, 
 	}
 
 	// Always update stats when we receive any event
-	window := models.TimeWindow{}
-	summary, err := h.container.StatsService.TrafficSummary(ctx, window)
+	window := persistence.TimeWindow{}
+	summary, err := h.container.StatsServiceV2.TrafficSummary(ctx, window)
 	if err != nil {
 		h.container.Logger.Warn("failed to get traffic summary", zap.Error(err))
 		return nil // Don't fail on stats error
@@ -321,7 +327,13 @@ func (h *Handler) handleBroadcastEvent(ctx context.Context, ws *websocket.Conn, 
 }
 
 // writeWebSocketMessage writes a WebSocket message to the client.
-func (h *Handler) writeWebSocketMessage(ws *websocket.Conn, msg WebSocketMessage) error {
+func (h *SimpleHandler) writeWebSocketMessage(ws *websocket.Conn, msg WebSocketMessage) error {
 	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
 	return ws.WriteJSON(msg)
 }
+
+// Register registers the WebSocket route.
+func (h *SimpleHandler) Register(e *echo.Echo) {
+	e.GET("/ws", h.HandleWebSocket)
+}
+

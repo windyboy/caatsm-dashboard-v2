@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/windy/caatsm-dashboard/internal/application"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 var _ application.QueryService = (*QueryServiceMock)(nil)
@@ -17,12 +17,12 @@ type QueryServiceMock struct {
 }
 
 // Search mocks the Search method
-func (m *QueryServiceMock) Search(ctx context.Context, filter models.SearchFilter) (*models.SearchResult, error) {
+func (m *QueryServiceMock) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
 	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*models.SearchResult), args.Error(1)
+	return args.Get(0).(*persistence.SearchResult), args.Error(1)
 }
 
 // Recent mocks the Recent method

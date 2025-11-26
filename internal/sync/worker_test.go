@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/testing/mocks"
 	"go.uber.org/zap/zaptest"
 )
@@ -18,7 +18,7 @@ import (
 func TestWorker_Handle(t *testing.T) {
 	tests := []struct {
 		name             string
-		telegram         *models.Telegram
+		telegram         *persistence.Telegram
 		serviceError     error
 		expectError      bool
 		expectBadData    bool
@@ -26,7 +26,7 @@ func TestWorker_Handle(t *testing.T) {
 	}{
 		{
 			name: "valid telegram - success",
-			telegram: &models.Telegram{
+			telegram: &persistence.Telegram{
 				MessageID: "TEST-001",
 				Type:      "aftn",
 				Time:      time.Now(),
@@ -36,7 +36,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "invalid telegram - empty message_id",
-			telegram: &models.Telegram{
+			telegram: &persistence.Telegram{
 				MessageID: "",
 				Type:      "aftn",
 				Time:      time.Now(),
@@ -47,7 +47,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "service error - app failure",
-			telegram: &models.Telegram{
+			telegram: &persistence.Telegram{
 				MessageID: "TEST-001",
 				Type:      "aftn",
 				Time:      time.Now(),

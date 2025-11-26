@@ -1,6 +1,14 @@
 package domain
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
+
+const (
+	// MaxTimeRangeDays is the maximum allowed time range for queries to prevent unbounded scans
+	MaxTimeRangeDays = 90
+)
 
 // SearchFilters represents domain-level search criteria for telegrams.
 // This is the domain concept, separate from infrastructure concerns like JSON tags.
@@ -39,6 +47,16 @@ func (f *SearchFilters) Validate() error {
 	if !f.TimeRange.Start.IsZero() && !f.TimeRange.End.IsZero() {
 		if f.TimeRange.Start.After(f.TimeRange.End) {
 			return ErrInvalidFilter{Field: "time_range", Reason: "start must be before end"}
+		}
+		
+		// Check maximum time range duration
+		duration := f.TimeRange.End.Sub(f.TimeRange.Start)
+		maxDuration := time.Duration(MaxTimeRangeDays) * 24 * time.Hour
+		if duration > maxDuration {
+			return ErrInvalidFilter{
+				Field:  "time_range",
+				Reason: fmt.Sprintf("range cannot exceed %d days", MaxTimeRangeDays),
+			}
 		}
 	}
 	if f.Pagination.SortBy != "" {

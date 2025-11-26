@@ -2,13 +2,20 @@
 
 ## Architecture
 
-The project follows **Clean Architecture** with four layers:
-- **Transport Layer** (`internal/transport/`) - HTTP/WebSocket handlers
+The project follows **Clean Architecture** with four layers (fully migrated, no legacy code):
+- **Transport Layer** (`internal/transport/`) - HTTP/WebSocket handlers with streaming export
 - **Application Layer** (`internal/application/`) - Use cases, event handlers, ports
-- **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation
+- **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation (with time range limits)
 - **Infrastructure Layer** (`internal/infrastructure/`) - PostgreSQL, Meilisearch, Valkey, WebSocket hub
 
 Dependencies flow inward: outer layers depend on inner layers, never the reverse.
+
+**Production Features**:
+- Time range validation: Max 90 days to prevent unbounded queries
+- Streaming CSV export: Handles 50k+ records without OOM via chunking
+- Production config guards: Prevents insecure defaults in production environment
+- Rate limiting: 10 req/sec (configurable)
+- WebSocket backpressure: Auto-disconnects slow clients
 
 ## Build/Lint/Test Commands
 
@@ -134,9 +141,10 @@ go test ./internal/application -v -run TestTelegramService
 - No comments unless explaining complex business logic
 - Use dependency injection pattern
 - Follow clean architecture: domain → application → infrastructure → transport
-- Domain layer must have no external dependencies
-- Application layer depends only on domain and port interfaces
-- Infrastructure implements application ports
+- Domain layer must have no external dependencies (✅ enforced)
+- Application layer depends only on domain and port interfaces (✅ enforced)
+- Infrastructure implements application ports (✅ enforced)
+- All legacy handlers/services/models have been removed (✅ complete)
 
 ## Project Structure
 

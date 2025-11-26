@@ -1,11 +1,11 @@
 package domain
 
 import (
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
-// ToDomain converts a models.Telegram to a domain.Telegram
-func ToDomain(m *models.Telegram) *Telegram {
+// ToDomain converts a persistence.Telegram to a domain.Telegram
+func ToDomain(m *persistence.Telegram) *Telegram {
 	if m == nil {
 		return nil
 	}
@@ -22,12 +22,12 @@ func ToDomain(m *models.Telegram) *Telegram {
 	}
 }
 
-// FromDomain converts a domain.Telegram to a models.Telegram
-func FromDomain(d *Telegram) *models.Telegram {
+// FromDomain converts a domain.Telegram to a persistence.Telegram
+func FromDomain(d *Telegram) *persistence.Telegram {
 	if d == nil {
 		return nil
 	}
-	return &models.Telegram{
+	return &persistence.Telegram{
 		MessageID:    d.MessageID,
 		Type:         d.Type,
 		Time:         d.Time,

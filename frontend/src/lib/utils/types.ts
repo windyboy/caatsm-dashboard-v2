@@ -47,4 +47,3 @@ export interface SearchFilter {
   sort_by?: string;
   order?: string;
 }
-

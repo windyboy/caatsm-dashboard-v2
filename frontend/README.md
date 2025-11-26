@@ -66,7 +66,7 @@ deno lint            # Lint code with Deno linter
 
 ### Using Node.js/npm
 
-```bash
+````bash
 # Development
 npm run dev          # Start development server with hot reload
 # or
@@ -114,7 +114,7 @@ npx playwright test tests/example.spec.ts
 
 # Generate test report
 npx playwright show-report
-```
+````
 
 ### Test Configuration
 
@@ -128,10 +128,10 @@ npx playwright show-report
 Tests are located in the `tests/` directory and follow Playwright's test structure:
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('search functionality', async ({ page }) => {
-  await page.goto('/');
+test("search functionality", async ({ page }) => {
+  await page.goto("/");
   // Test implementation
 });
 ```
@@ -139,12 +139,14 @@ test('search functionality', async ({ page }) => {
 ### Test Coverage
 
 Current E2E tests cover:
+
 - Basic page loading
 - Search form interactions
 - Real-time message streaming
 - Statistics display
 - WebSocket connections
-```
+
+````
 
 ## Unit Testing
 
@@ -172,7 +174,7 @@ npm run test:unit:ui
 
 # Run tests with coverage
 npm run test:unit:coverage
-```
+````
 
 ### Test Configuration
 
@@ -193,7 +195,7 @@ import { messages } from "../../src/lib/stores/messages";
 
 describe("messages store", () => {
   it("should add a message", () => {
-    const telegram = { message_id: "TEST-001", /* ... */ };
+    const telegram = { message_id: "TEST-001" /* ... */ };
     messages.add(telegram);
     expect(get(messages)).toHaveLength(1);
   });
@@ -203,12 +205,14 @@ describe("messages store", () => {
 ### Test Coverage
 
 Current unit tests cover:
+
 - WebSocketClient: Connection, reconnection, message handling
 - Stores: Messages store (add, limit enforcement, clear)
 - Stores: Stats store (setTotal, setByPriority, setByType, reset)
 - Error handling: Invalid JSON, connection errors
 - Business logic: Message limiting (MAX_MESSAGES = 50), exponential backoff
-```
+
+````
 
 ## Building
 
@@ -216,7 +220,7 @@ Current unit tests cover:
 
 ```bash
 deno task build
-```
+````
 
 ### With Node.js
 
@@ -231,6 +235,7 @@ The built files will be in the `build/` directory. The Go backend can serve thes
 ### Production Build
 
 1. **Build the frontend:**
+
    ```bash
    cd frontend
    deno task build  # or npm run build
@@ -334,7 +339,9 @@ frontend/
 ## Components
 
 ### MessageItem.svelte
+
 Displays individual telegram messages with a modern card design featuring:
+
 - **Message ID** and flight number
 - **Timestamp** formatted as local time
 - **Message content** with proper text wrapping
@@ -343,12 +350,15 @@ Displays individual telegram messages with a modern card design featuring:
 - **Route information** (source → destination) when available
 
 **Props:**
+
 - `telegram: Telegram` - The telegram data object
 
 **Styling:** Glassmorphism effects with hover animations and responsive design.
 
 ### SearchForm.svelte
+
 Interactive search form component with autocomplete functionality:
+
 - **Query input** with real-time autocomplete suggestions (debounced 500ms)
 - **Type filter** dropdown (AFTN, SITA, ACARS, CPDLC)
 - **Priority filter** dropdown (Urgent, Operational, Routine)
@@ -356,12 +366,14 @@ Interactive search form component with autocomplete functionality:
 - **Search and Reset buttons**
 
 **Events:**
+
 - `search` - Dispatched with search parameters
 - `reset` - Dispatched when reset button is clicked
 
 **Features:** Autocomplete API integration, form validation, keyboard navigation.
 
 #### Autocomplete Functionality
+
 The query input provides intelligent search suggestions as users type:
 
 - **Trigger**: Activates after typing 2+ characters
@@ -373,29 +385,37 @@ The query input provides intelligent search suggestions as users type:
 - **Performance**: Cancels pending requests on new input
 
 ### SearchResults.svelte
+
 Displays paginated search results:
+
 - **Result count** display with formatted numbers
 - **Message list** using MessageItem components
 - **Empty state** with helpful messaging when no results found
 
 **Props:**
+
 - `telegrams: Telegram[]` - Array of telegram results
 - `total: number` - Total number of matching results
 
 ### StatsCard.svelte
+
 Flexible statistics display component supporting multiple data types:
+
 - **Total count** - Single number display
 - **Priority breakdown** - List of counts by priority level
 - **Type breakdown** - List of counts by message type
 
 **Props:**
+
 - `title: string` - Card title
 - `type: "total" | "priority" | "type"` - Display mode
 
 **Reactive:** Automatically updates from the stats store.
 
 ### LiveStream.svelte
+
 Real-time telegram streaming component:
+
 - **WebSocket connection** for live updates
 - **Auto-scroll** to newest messages
 - **Real-time indicator** with animated pulse
@@ -431,13 +451,17 @@ The frontend communicates with the Go backend through REST API calls and WebSock
 ### Services
 
 #### api.ts
+
 Handles REST API communication:
+
 - `search(params)` - Execute search queries
 - `autocomplete(term, size)` - Get suggestions
 - `getStats()` - Fetch statistics
 
 #### websocket.ts
+
 Manages WebSocket connection:
+
 - Connection lifecycle management
 - Message parsing and routing
 - Reconnection logic
@@ -446,19 +470,25 @@ Manages WebSocket connection:
 ### Stores
 
 #### messages.ts
+
 Manages live telegram stream:
+
 - Reactive message array
 - Auto-cleanup of old messages
 - WebSocket integration
 
 #### stats.ts
+
 Handles statistics data:
+
 - Total, priority, and type breakdowns
 - Real-time updates via WebSocket
 - Reactive state management
 
 #### websocket.ts
+
 WebSocket connection state:
+
 - Connection status
 - Reconnection attempts
 - Error states
@@ -485,6 +515,7 @@ WebSocket connection state:
 ## Development Workflow
 
 1. **Start the Go backend** (in project root):
+
    ```bash
    make dev
    # or
@@ -494,11 +525,13 @@ WebSocket connection state:
 2. **Start the frontend** (in frontend directory):
 
    **With Deno (Recommended)**:
+
    ```bash
    deno task dev
    ```
 
    **With Node.js**:
+
    ```bash
    npm install  # First time only
    npm run dev
@@ -516,6 +549,7 @@ This project supports both Deno and Node.js for development:
 ### Using Deno (Recommended)
 
 **Advantages**:
+
 - ✅ No `npm install` needed - dependencies are downloaded automatically
 - ✅ Built-in TypeScript support
 - ✅ Built-in formatter and linter
@@ -524,6 +558,7 @@ This project supports both Deno and Node.js for development:
 - ✅ Matches the original plan's intent
 
 **Usage**:
+
 ```bash
 deno task dev      # Start dev server
 deno task build   # Build for production
@@ -535,11 +570,13 @@ deno lint         # Lint code
 ### Using Node.js
 
 **Advantages**:
+
 - ✅ More familiar to most developers
 - ✅ Larger ecosystem
 - ✅ Better IDE support in some cases
 
 **Usage**:
+
 ```bash
 npm install        # Install dependencies
 npm run dev        # Start dev server
@@ -549,4 +586,3 @@ npm run format     # Format code
 ```
 
 **Recommendation**: Use **Deno** for this project as it aligns with the original plan and provides a better development experience with zero configuration.
-

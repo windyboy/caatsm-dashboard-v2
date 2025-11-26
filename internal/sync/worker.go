@@ -6,7 +6,7 @@ import (
 
 	"github.com/windy/caatsm-dashboard/internal/application"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	natsrepo "github.com/windy/caatsm-dashboard/internal/repository/nats"
 	"go.uber.org/zap"
@@ -29,7 +29,7 @@ func NewWorker(consumer repository.StreamConsumer, telegramService application.T
 }
 
 // Handle processes a telegram message.
-func (w *Worker) Handle(ctx context.Context, telegram *models.Telegram) error {
+func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) error {
 	w.logger.Info("worker received telegram",
 		zap.String("message_id", telegram.MessageID),
 		zap.String("type", telegram.Type),

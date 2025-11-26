@@ -80,11 +80,14 @@ class Logger {
     if (this.shouldLog("error")) {
       const errorContext = {
         ...context,
-        error: error instanceof Error ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        } : error,
+        error:
+          error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message,
+                stack: error.stack,
+              }
+            : error,
       };
       console.error(this.formatMessage("error", message, errorContext));
     }
@@ -100,4 +103,3 @@ export const createLogger = (prefix: string): Logger => {
 
 // Export default logger for general use
 export const logger = createLogger("App");
-

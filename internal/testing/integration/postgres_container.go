@@ -63,7 +63,15 @@ func (c *PostgresContainer) Pool(ctx context.Context) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// Terminate stops and removes the container
+// Close stops and removes the container
+func (c *PostgresContainer) Close(ctx context.Context) error {
+	if c.container != nil {
+		return c.container.Terminate(ctx)
+	}
+	return nil
+}
+
+// Terminate is an alias for Close for backward compatibility
 func (c *PostgresContainer) Terminate(ctx context.Context) error {
-	return c.container.Terminate(ctx)
+	return c.Close(ctx)
 }

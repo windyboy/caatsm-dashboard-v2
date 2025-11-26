@@ -1,0 +1,512 @@
+openapi: 3.1.0
+info:
+  title: CAATSM Dashboard API
+  version: 1.0.0
+  description: |
+    Civil Aviation Aerogram Traffic Stream Monitor Dashboard API provides realtime monitoring, 
+    search, and analytics for aviation telegram traffic across AFTN, SITA, ACARS, and CPDLC networks.
+    
+    Features:
+    - Full-text search with Meilisearch
+    - Real-time analytics and statistics
+    - Streaming CSV export (handles 50k+ records)
+    - Time range validation (max 90 days)
+    - WebSocket real-time updates
+    - Production-ready with rate limiting and security
+  contact:
+    name: API Support
+    email: support@caatsm.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3002/api
+    description: Development server
+  - url: https://api.caatsm.example.com/api
+    description: Production server
+
+tags:
+  - name: search
+    description: Search and autocomplete operations
+  - name: stats
+    description: Statistics and analytics
+  - name: export
+    description: Data export operations
+  - name: health
+    description: Health check endpoints
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication (configurable via auth.enable_basic)
+    
+  schemas:
+    Telegram:
+      type: object
+      properties:
+        message_id:
+          type: string
+          description: Unique message identifier
+          example: "MSG-20241126-001"
+        type:
+          type: string
+          enum: [aftn, sita, acars, cpdlc]
+          description: Telegram message type
+          example: "aftn"
+        time:
+          type: string
+          format: date-time
+          description: Telegram timestamp (RFC3339)
+          example: "2024-11-26T10:00:00Z"
+        flight_number:
+          type: string
+          description: Associated flight number
+          example: "CA1234"
+        source:
+          type: string
+          description: Source airport (ICAO code)
+          pattern: ^[A-Z]{4}$
+          example: "ZBAA"
+        destination:
+          type: string
+          description: Destination airport (ICAO code)
+          pattern: ^[A-Z]{4}$
+          example: "ZSPD"
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: Message priority level
+          example: 2
+        content:
+          type: string
+          description: Telegram message content
+          example: "Flight information update"
+        raw_data:
+          type: string
+          description: Raw telegram data
+          example: "RAW AFTN MESSAGE DATA"
+    
+    SearchResult:
+      type: object
+      properties:
+        telegrams:
+          type: array
+          items:
+            $ref: '#/components/schemas/Telegram'
+        total:
+          type: integer
+          description: Total number of matching telegrams
+          example: 1500
+        page:
+          $ref: '#/components/schemas/Pagination'
+    
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Number of results per page
+          minimum: 1
+          maximum: 1000
+          default: 50
+        offset:
+          type: integer
+          description: Number of results to skip
+          minimum: 0
+          maximum: 100000
+          default: 0
+        sort_by:
+          type: string
+          enum: [time, priority, message_id, type, flight_number, source, destination]
+          default: time
+        order:
+          type: string
+          enum: [asc, desc]
+          default: desc
+    
+    TrafficSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of telegrams
+          example: 15000
+    
+    TrafficByPriority:
+      type: object
+      properties:
+        byPriority:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            "1": 5000
+            "2": 8000
+            "3": 2000
+    
+    TrafficByType:
+      type: object
+      properties:
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            "aftn": 10000
+            "sita": 3000
+            "acars": 1500
+            "cpdlc": 500
+    
+    AutocompleteResult:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: string
+          example: ["ZBAA", "ZSPD", "ZSSS"]
+    
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error]
+          description: Overall system health status
+        timestamp:
+          type: string
+          format: date-time
+        postgresql:
+          $ref: '#/components/schemas/ComponentHealth'
+        meilisearch:
+          $ref: '#/components/schemas/ComponentHealth'
+        redis:
+          $ref: '#/components/schemas/ComponentHealth'
+        nats:
+          $ref: '#/components/schemas/ComponentHealth'
+        websocket:
+          $ref: '#/components/schemas/ComponentHealth'
+        degraded:
+          type: array
+          items:
+            type: string
+          description: List of degraded component names
+    
+    ComponentHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error, unknown]
+        message:
+          type: string
+          description: Status message or error details
+        last_checked:
+          type: string
+          format: date-time
+        latency_ms:
+          type: integer
+          description: Component response latency in milliseconds
+    
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "invalid parameters"
+
+paths:
+  /search:
+    get:
+      summary: Search telegrams
+      description: |
+        Search aviation telegrams with full-text search and filters.
+        Time range is limited to maximum 90 days to prevent unbounded queries.
+      tags:
+        - search
+      parameters:
+        - name: query
+          in: query
+          description: Search query text (max 500 characters)
+          schema:
+            type: string
+            maxLength: 500
+        - name: limit
+          in: query
+          description: Number of results per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+        - name: sort_by
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [time, priority, message_id, type, flight_number, source, destination]
+            default: time
+        - name: order
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: type
+          in: query
+          description: Filter by telegram type
+          schema:
+            type: string
+            enum: [aftn, sita, acars, cpdlc]
+        - name: source
+          in: query
+          description: Filter by source airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+        - name: destination
+          in: query
+          description: Filter by destination airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+        - name: start_time
+          in: query
+          description: Filter start time (RFC3339 format)
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: Filter end time (RFC3339 format, max 90 days from start_time)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Bad request (invalid parameters, time range > 90 days, query too long)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /autocomplete:
+    get:
+      summary: Get autocomplete suggestions
+      description: Get search term suggestions for autocomplete functionality
+      tags:
+        - search
+      parameters:
+        - name: term
+          in: query
+          required: true
+          description: Search term to get suggestions for
+          schema:
+            type: string
+        - name: size
+          in: query
+          description: Number of suggestions to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+      responses:
+        '200':
+          description: Autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutocompleteResult'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/total:
+    get:
+      summary: Get total telegram count
+      description: Get the total number of telegrams in the system
+      tags:
+        - stats
+      responses:
+        '200':
+          description: Total telegram count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficSummary'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/priority:
+    get:
+      summary: Get telegram statistics by priority
+      description: Get breakdown of telegram counts by priority level (1-3)
+      tags:
+        - stats
+      responses:
+        '200':
+          description: Telegram count by priority
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficByPriority'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /stats/type:
+    get:
+      summary: Get telegram statistics by type
+      description: Get breakdown of telegram counts by message type (AFTN, SITA, ACARS, CPDLC)
+      tags:
+        - stats
+      responses:
+        '200':
+          description: Telegram count by type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrafficByType'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /export:
+    get:
+      summary: Export telegrams
+      description: |
+        Export search results to CSV, Excel, or PDF format with streaming support.
+        CSV exports use chunked streaming to handle 50k+ records without memory issues.
+        Maximum export limit is 10,000 records.
+      tags:
+        - export
+      parameters:
+        - name: format
+          in: query
+          description: Export format
+          schema:
+            type: string
+            enum: [csv, xlsx, pdf]
+            default: csv
+        - name: query
+          in: query
+          description: Search query text
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by telegram type
+          schema:
+            type: string
+            enum: [aftn, sita, acars, cpdlc]
+        - name: source
+          in: query
+          description: Filter by source airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+        - name: destination
+          in: query
+          description: Filter by destination airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+      responses:
+        '200':
+          description: Exported file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /health:
+    get:
+      summary: Health check
+      description: Check health status of all system components (PostgreSQL, Meilisearch, Redis, NATS, WebSocket)
+      tags:
+        - health
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: System is degraded or in error state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+security:
+  - BasicAuth: []
+

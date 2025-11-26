@@ -74,12 +74,16 @@ export class WebSocketClient {
       this.ws.onmessage = (event) => {
         try {
           // Check message size before parsing
-          const dataLength = typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0;
+          const dataLength =
+            typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0;
           if (dataLength > MAX_MESSAGE_SIZE) {
             logger.warn("Message exceeds size limit", {
               dataLength,
               maxSize: MAX_MESSAGE_SIZE,
-              preview: typeof event.data === "string" ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH) : undefined,
+              preview:
+                typeof event.data === "string"
+                  ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                  : undefined,
             });
             return;
           }
@@ -88,7 +92,10 @@ export class WebSocketClient {
           if (!this.validateMessage(parsed)) {
             logger.warn("Invalid message structure", {
               dataLength,
-              preview: typeof event.data === "string" ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH) : undefined,
+              preview:
+                typeof event.data === "string"
+                  ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                  : undefined,
             });
             return;
           }
@@ -114,8 +121,12 @@ export class WebSocketClient {
           });
         } catch (error) {
           logger.error("Failed to parse message", error, {
-            dataLength: typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0,
-            preview: typeof event.data === "string" ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH) : undefined,
+            dataLength:
+              typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0,
+            preview:
+              typeof event.data === "string"
+                ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                : undefined,
           });
         }
       };
@@ -271,4 +282,3 @@ export class WebSocketClient {
 
 // Singleton instance
 export const wsClient = new WebSocketClient();
-

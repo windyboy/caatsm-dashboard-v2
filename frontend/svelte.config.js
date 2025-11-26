@@ -1,5 +1,5 @@
-import adapter from '@deno/svelte-adapter';
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import adapter from "@deno/svelte-adapter";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -11,4 +11,3 @@ const config = {
 };
 
 export default config;
-

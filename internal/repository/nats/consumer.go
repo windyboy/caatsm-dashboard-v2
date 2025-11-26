@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 // Consumer wraps a JetStream consumer for telegram ingestion.
@@ -17,7 +17,7 @@ type Consumer struct {
 	stream   string
 	consumer string
 	sub      *nats.Subscription
-	handler  func(context.Context, *models.Telegram) error
+	handler  func(context.Context, *persistence.Telegram) error
 }
 
 // New creates a Consumer from JetStream context.
@@ -26,7 +26,7 @@ func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
 }
 
 // SetHandler sets the message handler.
-func (c *Consumer) SetHandler(handler func(context.Context, *models.Telegram) error) {
+func (c *Consumer) SetHandler(handler func(context.Context, *persistence.Telegram) error) {
 	c.handler = handler
 }
 
@@ -132,7 +132,7 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			}
 
 			for _, msg := range msgs {
-				var telegram models.Telegram
+				var telegram persistence.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
 					_ = msg.Ack()
 					continue

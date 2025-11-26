@@ -172,4 +172,3 @@ describe("stats store", () => {
     expect(storeStats.byType).toEqual({ aftn: 50 });
   });
 });
-

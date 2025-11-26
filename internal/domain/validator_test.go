@@ -2,8 +2,10 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidator_ValidateType(t *testing.T) {
@@ -72,6 +74,133 @@ func TestValidator_ValidateICAOCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, v.ValidateICAOCode(tt.code))
+		})
+	}
+}
+
+func TestSearchFilters_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		filters SearchFilters
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid filters",
+			filters: SearchFilters{
+				Query: "test",
+				Pagination: Pagination{
+					Limit:  50,
+					Offset: 0,
+					SortBy: "time",
+					Order:  "desc",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative limit",
+			filters: SearchFilters{
+				Pagination: Pagination{
+					Limit:  -1,
+					Offset: 0,
+				},
+			},
+			wantErr: true,
+			errMsg:  "limit",
+		},
+		{
+			name: "negative offset",
+			filters: SearchFilters{
+				Pagination: Pagination{
+					Limit:  50,
+					Offset: -1,
+				},
+			},
+			wantErr: true,
+			errMsg:  "offset",
+		},
+		{
+			name: "invalid sort field",
+			filters: SearchFilters{
+				Pagination: Pagination{
+					Limit:  50,
+					Offset: 0,
+					SortBy: "invalid_field",
+				},
+			},
+			wantErr: true,
+			errMsg:  "sort_by",
+		},
+		{
+			name: "invalid order",
+			filters: SearchFilters{
+				Pagination: Pagination{
+					Limit:  50,
+					Offset: 0,
+					Order:  "invalid",
+				},
+			},
+			wantErr: true,
+			errMsg:  "order",
+		},
+		{
+			name: "time range start after end",
+			filters: SearchFilters{
+				TimeRange: TimeWindow{
+					Start: time.Now().Add(24 * time.Hour),
+					End:   time.Now(),
+				},
+				Pagination: DefaultPagination(),
+			},
+			wantErr: true,
+			errMsg:  "start must be before end",
+		},
+		{
+			name: "time range too large",
+			filters: SearchFilters{
+				TimeRange: TimeWindow{
+					Start: time.Now().Add(-180 * 24 * time.Hour), // 180 days ago
+					End:   time.Now(),
+				},
+				Pagination: DefaultPagination(),
+			},
+			wantErr: true,
+			errMsg:  "cannot exceed",
+		},
+		{
+			name: "time range at maximum limit (90 days)",
+			filters: SearchFilters{
+				TimeRange: TimeWindow{
+					Start: time.Now().Add(-90*24*time.Hour + time.Minute), // Slightly less than 90 days to avoid floating point issues
+					End:   time.Now(),
+				},
+				Pagination: DefaultPagination(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "time range within limit (30 days)",
+			filters: SearchFilters{
+				TimeRange: TimeWindow{
+					Start: time.Now().Add(-30 * 24 * time.Hour),
+					End:   time.Now(),
+				},
+				Pagination: DefaultPagination(),
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.filters.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

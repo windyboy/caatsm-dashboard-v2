@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/windy/caatsm-dashboard/internal/models"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 // NewTelegram creates a test telegram with default values
-func NewTelegram(messageID string) *models.Telegram {
-	return &models.Telegram{
+func NewTelegram(messageID string) *persistence.Telegram {
+	return &persistence.Telegram{
 		MessageID:    messageID,
 		Type:         "aftn",
 		Time:         time.Now(),
@@ -23,21 +23,21 @@ func NewTelegram(messageID string) *models.Telegram {
 }
 
 // NewTelegramWithType creates a test telegram with specific type
-func NewTelegramWithType(messageID, telegramType string) *models.Telegram {
+func NewTelegramWithType(messageID, telegramType string) *persistence.Telegram {
 	tg := NewTelegram(messageID)
 	tg.Type = telegramType
 	return tg
 }
 
 // NewTelegramWithPriority creates a test telegram with specific priority
-func NewTelegramWithPriority(messageID string, priority int) *models.Telegram {
+func NewTelegramWithPriority(messageID string, priority int) *persistence.Telegram {
 	tg := NewTelegram(messageID)
 	tg.Priority = priority
 	return tg
 }
 
 // NewTelegramWithRoute creates a test telegram with specific route
-func NewTelegramWithRoute(messageID, source, destination string) *models.Telegram {
+func NewTelegramWithRoute(messageID, source, destination string) *persistence.Telegram {
 	tg := NewTelegram(messageID)
 	tg.Source = source
 	tg.Destination = destination
@@ -45,15 +45,15 @@ func NewTelegramWithRoute(messageID, source, destination string) *models.Telegra
 }
 
 // NewTelegramWithTime creates a test telegram with specific time
-func NewTelegramWithTime(messageID string, t time.Time) *models.Telegram {
+func NewTelegramWithTime(messageID string, t time.Time) *persistence.Telegram {
 	tg := NewTelegram(messageID)
 	tg.Time = t
 	return tg
 }
 
 // NewTelegrams creates multiple test telegrams
-func NewTelegrams(count int) []*models.Telegram {
-	telegrams := make([]*models.Telegram, count)
+func NewTelegrams(count int) []*persistence.Telegram {
+	telegrams := make([]*persistence.Telegram, count)
 	baseTime := time.Now()
 	for i := 0; i < count; i++ {
 		telegrams[i] = NewTelegramWithTime(
@@ -65,10 +65,10 @@ func NewTelegrams(count int) []*models.Telegram {
 }
 
 // NewSearchFilter creates a test search filter
-func NewSearchFilter() models.SearchFilter {
-	return models.SearchFilter{
+func NewSearchFilter() persistence.SearchFilter {
+	return persistence.SearchFilter{
 		Query: "",
-		Page: models.Pagination{
+		Page: persistence.Pagination{
 			Limit:  10,
 			Offset: 0,
 			SortBy: "time",
@@ -78,31 +78,31 @@ func NewSearchFilter() models.SearchFilter {
 }
 
 // NewSearchFilterWithQuery creates a test search filter with query
-func NewSearchFilterWithQuery(query string) models.SearchFilter {
+func NewSearchFilterWithQuery(query string) persistence.SearchFilter {
 	filter := NewSearchFilter()
 	filter.Query = query
 	return filter
 }
 
 // NewSearchFilterWithType creates a test search filter with type filter
-func NewSearchFilterWithType(telegramType string) models.SearchFilter {
+func NewSearchFilterWithType(telegramType string) persistence.SearchFilter {
 	filter := NewSearchFilter()
 	filter.Type = []string{telegramType}
 	return filter
 }
 
 // NewTimeWindow creates a test time window
-func NewTimeWindow(start, end time.Time) models.TimeWindow {
-	return models.TimeWindow{
+func NewTimeWindow(start, end time.Time) persistence.TimeWindow {
+	return persistence.TimeWindow{
 		Start: start,
 		End:   end,
 	}
 }
 
 // NewTimeWindowLast24h creates a time window for last 24 hours
-func NewTimeWindowLast24h() models.TimeWindow {
+func NewTimeWindowLast24h() persistence.TimeWindow {
 	now := time.Now()
-	return models.TimeWindow{
+	return persistence.TimeWindow{
 		Start: now.Add(-24 * time.Hour),
 		End:   now,
 	}

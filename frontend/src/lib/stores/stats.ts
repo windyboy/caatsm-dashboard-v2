@@ -35,4 +35,3 @@ function createStatsStore() {
 }
 
 export const stats = createStatsStore();
-

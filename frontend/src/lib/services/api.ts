@@ -1,5 +1,7 @@
 // REST API client for Go backend
 
+import type { Telegram, SearchResult } from "../utils/types.ts";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
 
 export interface SearchParams {
@@ -14,29 +16,6 @@ export interface SearchParams {
   offset?: number;
   sort_by?: string;
   order?: string;
-}
-
-export interface SearchResult {
-  telegrams: Telegram[];
-  total: number;
-  page: {
-    limit: number;
-    offset: number;
-    sort_by: string;
-    order: string;
-  };
-}
-
-export interface Telegram {
-  message_id: string;
-  type: string;
-  time: string;
-  flight_number: string;
-  source: string;
-  destination: string;
-  priority: number;
-  content: string;
-  raw_data?: string;
 }
 
 export interface StatsTotal {
@@ -75,7 +54,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 export async function search(params: SearchParams): Promise<SearchResult> {
   const searchParams = new URLSearchParams();
-  
+
   if (params.query) searchParams.set("query", params.query);
   if (params.type) searchParams.set("type", params.type);
   if (params.source) searchParams.set("source", params.source);
@@ -113,7 +92,7 @@ export async function exportData(
   params: SearchParams
 ): Promise<Blob> {
   const searchParams = new URLSearchParams();
-  
+
   if (params.query) searchParams.set("query", params.query);
   if (params.type) searchParams.set("type", params.type);
   if (params.source) searchParams.set("source", params.source);
@@ -130,4 +109,3 @@ export async function exportData(
 
   return response.blob();
 }
-
