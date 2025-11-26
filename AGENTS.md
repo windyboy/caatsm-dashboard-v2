@@ -12,30 +12,103 @@ Dependencies flow inward: outer layers depend on inner layers, never the reverse
 
 ## Build/Lint/Test Commands
 
+### Quick Reference (Makefile)
+
+For everyday development, use simple `make` commands:
+
+**Core Development:**
+- `make build` - Build the application
+- `make test` - Run all tests with coverage
+- `make test-unit` - Run unit tests only
+- `make test-integration` - Run integration tests only
+- `make test-race` - Run tests with race detector
+- `make lint` - Run golangci-lint
+- `make dev` - Run backend with hot reload (air)
+- `make clean` - Clean build artifacts
+
+**Frontend:**
+- `make frontend-dev` - Run frontend dev server (Deno/npm)
+- `make frontend-build` - Build frontend for production
+- `make frontend-test` - Run E2E tests (Playwright)
+- `make frontend-test-unit` - Run unit tests (Vitest)
+
+**Development Environment:**
+- `make dev-up` - Start development dependencies (Docker)
+- `make dev-down` - Stop development dependencies
+- `make migrate` - Run database migrations
+
+**Setup:**
+- `make install` - Install all dependencies (one-time setup)
+- `make help` - Show all available commands
+
+### Complete Reference (Taskfile)
+
+For advanced features and full control, use `task` commands:
+
 **Go Backend:**
-- Build: `make build` or `task build`
-- Test all: `make test` or `task test`
-- Test unit only: `make test-unit`
-- Test integration: `make test-integration`
-- Test single: `go test ./internal/domain -v -run TestValidateTelegram`
-- Lint: `make lint` or `task lint`
-- Dev server: `make dev` or `task dev`
-- Migrate: `task migrate` (uses goose or psql, extracts DSN from config)
+```bash
+task build                # Build server binary
+task test                 # Run all tests with race detection and coverage
+task test:unit            # Run unit tests only (short mode)
+task test:integration     # Run integration tests only
+task test:race            # Run tests with race detector
+task test:coverage        # Run tests with coverage report
+task lint                 # Run golangci-lint
+task dev                  # Run backend with hot reload
+task dev:run              # Run with local config file
+task tidy                 # Run go mod tidy
+task install-deps         # Install Go tools (goose, air)
+```
 
 **Frontend (Deno/Svelte):**
-- Setup: `task frontend:setup` or `make frontend-setup` (installs Deno, caches dependencies)
-- Install Deno: `task install:deno` or `make install-deno`
-- Dev: `task frontend:dev` or `make frontend-dev` (prefers Deno, falls back to npm)
-- Test E2E: `task frontend:test` or `make frontend-test` (Playwright)
-- Test unit: `task frontend:test:unit` or `make frontend-test-unit` (Vitest)
-- Build: `task frontend:build` or `make frontend-build`
-- Install deps: `task frontend:install` or `make frontend-install` (pre-cache with Deno)
+```bash
+task frontend:setup       # Full setup: install Deno + cache dependencies
+task frontend:install-deno # Install Deno if not available
+task frontend:install     # Pre-cache dependencies with Deno
+task frontend:dev         # Run dev server (Deno, fallback to npm)
+task frontend:build       # Build for production
+task frontend:test        # Run E2E tests (Playwright)
+task frontend:test:unit   # Run unit tests (Vitest)
+```
 
-**Development:**
-- Start dependencies: `task dev:up` (Docker/Podman compatible)
-- Stop dependencies: `task dev:down`
-- View logs: `task dev:logs`
-- Setup config: `task dev:config` (creates .env.local from example)
+**Development Environment:**
+```bash
+task dev:up               # Start dependencies (Postgres, Redis, NATS, Meilisearch)
+task dev:down             # Stop dependencies
+task dev:logs             # Show logs from dependencies
+task dev:config           # Create .env.local from example
+task dev:meili-key        # Extract Meilisearch master key
+```
+
+**Database & Testing:**
+```bash
+task migrate              # Run database migrations (goose/psql)
+task generate-test-data   # Generate test telegram data (50 records)
+task publish-stream       # Publish live messages to NATS for testing
+task publish-stream:fast  # Publish quickly (1/sec, 50 total)
+task publish-stream:slow  # Publish slowly (5 sec interval)
+```
+
+**Docker:**
+```bash
+task docker:build         # Build Docker image
+task docker:up            # Start docker-compose stack
+task docker:down          # Stop docker-compose stack
+```
+
+**Cleanup:**
+```bash
+task clean                # Clean build artifacts
+task clean:all            # Clean all including node_modules
+```
+
+### Running Single Tests
+
+To run a specific test:
+```bash
+go test ./internal/domain -v -run TestValidateTelegram
+go test ./internal/application -v -run TestTelegramService
+```
 
 ## Code Style Guidelines
 
@@ -45,7 +118,7 @@ Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - Unexported: camelCase (e.g., `messageID`)
 - Error handling: Return errors, use custom error types like `ErrInvalidTelegram`
 - Imports: stdlib → third-party → internal
-- Structs: Clear field names, use time.Time for timestamps
+- Structs: Clear field names, use `time.Time` for timestamps
 - Functions: Descriptive names, early returns for errors
 - Security: Always validate user input, use whitelists for SQL column names
 - Architecture: Keep layers separate, dependencies point inward
@@ -54,7 +127,7 @@ Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - Use Prettier for formatting (2 spaces, semicolons, double quotes)
 - TypeScript strict mode
 - Component naming: PascalCase (e.g., `LiveStream.svelte`)
-- Store naming: camelCase with $ prefix for reactive
+- Store naming: camelCase with `$` prefix for reactive
 - Error handling: Try/catch blocks, proper typing
 
 **General:**
@@ -64,3 +137,112 @@ Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - Domain layer must have no external dependencies
 - Application layer depends only on domain and port interfaces
 - Infrastructure implements application ports
+
+## Project Structure
+
+```
+caatsm-dashboard/
+├── cmd/                    # Entry points
+│   ├── server/            # Main API server
+│   ├── sync/              # NATS sync worker
+│   ├── generate-test-data/
+│   ├── publish-stream/
+│   └── extract-dsn/
+├── internal/
+│   ├── transport/         # HTTP/WebSocket handlers (外层)
+│   ├── application/       # Use cases, event handlers
+│   ├── domain/            # Business logic, entities
+│   └── infrastructure/    # DB, cache, search, events
+├── frontend/              # SvelteKit frontend
+│   ├── src/
+│   │   ├── routes/       # Pages
+│   │   └── lib/          # Components, stores, services
+│   └── tests/            # E2E and unit tests
+├── migrations/            # Database migrations (goose)
+├── config/               # TOML configuration
+└── Taskfile.yaml         # Task automation
+```
+
+## Quick Start Guide
+
+1. **Initial Setup:**
+   ```bash
+   make install          # Install all dependencies
+   task dev:config       # Create .env.local
+   ```
+
+2. **Start Development Environment:**
+   ```bash
+   make dev-up          # Start Postgres, Redis, NATS, Meilisearch
+   make migrate         # Run database migrations
+   ```
+
+3. **Start Development Servers:**
+   ```bash
+   # Terminal 1 - Backend
+   make dev
+   
+   # Terminal 2 - Frontend
+   make frontend-dev
+   ```
+
+4. **Generate Test Data (Optional):**
+   ```bash
+   task generate-test-data
+   task publish-stream:fast
+   ```
+
+5. **Run Tests:**
+   ```bash
+   make test            # All tests
+   make frontend-test   # E2E tests
+   ```
+
+## Common Workflows
+
+**Adding a New Feature:**
+1. Write domain logic in `internal/domain/`
+2. Add use case in `internal/application/`
+3. Implement infrastructure in `internal/infrastructure/`
+4. Add HTTP/WS handlers in `internal/transport/`
+5. Write tests at each layer
+6. Run `make lint` and `make test`
+
+**Database Changes:**
+1. Create migration: `goose -dir migrations create <name> sql`
+2. Edit migration file (add Up and Down sections)
+3. Run: `make migrate`
+
+**Frontend Changes:**
+1. Edit components in `frontend/src/lib/components/`
+2. Edit routes in `frontend/src/routes/`
+3. Test with: `make frontend-test-unit`
+4. E2E test with: `make frontend-test`
+
+## Environment Variables
+
+Key environment variables (set in `.env.local` or config file):
+- `CAATSM_DATABASE_DSN` - PostgreSQL connection string
+- `CAATSM_CONFIG` - Path to config file (default: `config/config.local.toml`)
+- `CLI_ARGS` - Arguments for CLI commands (used with task)
+
+## Dependencies
+
+**Backend:**
+- Go 1.21+
+- PostgreSQL 14+
+- Redis/Valkey 7+
+- NATS 2.10+
+- Meilisearch 1.5+
+
+**Frontend:**
+- Deno 1.40+ (preferred) or Node.js 20+
+- SvelteKit 2.x
+- UnoCSS for styling
+
+**Tools:**
+- `air` - Hot reload for Go
+- `goose` - Database migrations
+- `golangci-lint` - Go linting
+- `task` - Task automation
+- `make` - Quick commands
