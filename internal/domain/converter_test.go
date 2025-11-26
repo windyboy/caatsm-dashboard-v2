@@ -13,7 +13,7 @@ func TestToDomain(t *testing.T) {
 	t.Run("valid conversion", func(t *testing.T) {
 		model := &persistence.Telegram{
 			MessageID:    "TEST-001",
-			Type:         "aftn",
+			Type:         "AFTN",
 			Time:         time.Now(),
 			FlightNumber: "TEST123",
 			Source:       "ZBAA",
@@ -47,7 +47,7 @@ func TestFromDomain(t *testing.T) {
 	t.Run("valid conversion", func(t *testing.T) {
 		domain := &Telegram{
 			MessageID:    "TEST-001",
-			Type:         "aftn",
+			Type:         "AFTN",
 			Time:         time.Now(),
 			FlightNumber: "TEST123",
 			Source:       "ZBAA",
@@ -79,7 +79,7 @@ func TestFromDomain(t *testing.T) {
 	t.Run("round trip conversion", func(t *testing.T) {
 		original := &persistence.Telegram{
 			MessageID:    "TEST-001",
-			Type:         "aftn",
+			Type:         "AFTN",
 			Time:         time.Now(),
 			FlightNumber: "TEST123",
 			Source:       "ZBAA",

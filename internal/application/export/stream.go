@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -18,11 +18,11 @@ const (
 
 // ExportStream exports search results in streaming fashion to avoid loading all data into memory.
 // This is the preferred method for large exports.
-func (s *Service) ExportStream(ctx context.Context, filter persistence.SearchFilter, format persistence.ExportFormat, w io.Writer) error {
+func (s *Service) ExportStream(ctx context.Context, filter domain.SearchFilter, format domain.ExportFormat, w io.Writer) error {
 	switch format {
-	case persistence.ExportFormatCSV:
+	case domain.ExportFormatCSV:
 		return s.exportCSVStream(ctx, filter, w)
-	case persistence.ExportFormatExcel:
+	case domain.ExportFormatExcel:
 		// Excel requires full buffering, so fall back to buffered export
 		data, err := s.Export(ctx, filter, format)
 		if err != nil {
@@ -30,7 +30,7 @@ func (s *Service) ExportStream(ctx context.Context, filter persistence.SearchFil
 		}
 		_, err = w.Write(data)
 		return err
-	case persistence.ExportFormatPDF:
+	case domain.ExportFormatPDF:
 		// PDF requires full buffering, so fall back to buffered export
 		data, err := s.Export(ctx, filter, format)
 		if err != nil {
@@ -44,7 +44,7 @@ func (s *Service) ExportStream(ctx context.Context, filter persistence.SearchFil
 }
 
 // exportCSVStream streams CSV export in chunks to avoid memory issues
-func (s *Service) exportCSVStream(ctx context.Context, filter persistence.SearchFilter, w io.Writer) error {
+func (s *Service) exportCSVStream(ctx context.Context, filter domain.SearchFilter, w io.Writer) error {
 	csvWriter := csv.NewWriter(w)
 	defer csvWriter.Flush()
 
@@ -63,11 +63,12 @@ func (s *Service) exportCSVStream(ctx context.Context, filter persistence.Search
 		}
 
 		// Prepare filter for this chunk
-		filter.Page.Limit = ChunkSize
-		filter.Page.Offset = offset
+		chunkFilter := filter
+		chunkFilter.Page.Limit = ChunkSize
+		chunkFilter.Page.Offset = offset
 
 		// Fetch chunk
-		result, err := s.searchService.Search(ctx, filter)
+		result, err := s.searchService.Search(ctx, chunkFilter)
 		if err != nil {
 			return fmt.Errorf("search chunk at offset %d: %w", offset, err)
 		}

@@ -20,13 +20,14 @@ const (
 	maxMessageSize = 512
 )
 
+// In production, configure allowed origins from environment/config
 var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Allow connections from any origin in development
-		// In production, you should validate the origin
-		return true
+		// TODO: Replace with production-safe origin validation
+		// Example: return r.Header.Get("Origin") == "https://your-domain.com"
+		return true // SECURITY: Only safe for development
 	},
 }
 
@@ -336,4 +337,3 @@ func (h *SimpleHandler) writeWebSocketMessage(ws *websocket.Conn, msg WebSocketM
 func (h *SimpleHandler) Register(e *echo.Echo) {
 	e.GET("/ws", h.HandleWebSocket)
 }
-

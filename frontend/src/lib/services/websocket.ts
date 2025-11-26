@@ -54,7 +54,7 @@ export class WebSocketClient {
    * If already connected, this is a no-op.
    */
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       logger.debug("Already connected, skipping connection attempt");
       return; // Already connected
     }

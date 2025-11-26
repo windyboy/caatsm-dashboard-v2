@@ -26,12 +26,11 @@
   }
 
   function formatTime(timeStr: string): string {
-    try {
-      const date = new Date(timeStr);
-      return date.toLocaleTimeString("en-US", { hour12: false });
-    } catch {
+    const date = new Date(timeStr);
+    if (isNaN(date.getTime())) {
       return timeStr;
     }
+    return date.toLocaleTimeString("en-US", { hour12: false });
   }
 </script>
 

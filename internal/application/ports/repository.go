@@ -4,24 +4,23 @@ import (
 	"context"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
 // TelegramRepository defines persistence operations for telegrams.
 // This is a port interface that the application layer depends on.
 // Infrastructure implementations (PostgreSQL, etc.) implement this interface.
 type TelegramRepository interface {
-	Save(ctx context.Context, telegram *persistence.Telegram) error
-	BulkSave(ctx context.Context, telegrams []*persistence.Telegram) error
-	Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error)
-	FindByID(ctx context.Context, messageID string) (*persistence.Telegram, error)
+	Save(ctx context.Context, telegram *domain.Telegram) error
+	BulkSave(ctx context.Context, telegrams []*domain.Telegram) error
+	Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error)
+	FindByID(ctx context.Context, messageID string) (*domain.Telegram, error)
 }
 
 // SearchIndex defines indexing operations for search engines.
 // Implementations include Meilisearch, Elasticsearch, etc.
 type SearchIndex interface {
-	Index(ctx context.Context, telegram *persistence.Telegram) error
-	BulkIndex(ctx context.Context, telegrams []*persistence.Telegram) error
+	Index(ctx context.Context, telegram *domain.Telegram) error
+	BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error
 	Delete(ctx context.Context, messageID string) error
 	Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (any, error)
 	SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error)
@@ -45,8 +44,8 @@ type EventBus interface {
 
 // AnalyticsRepository defines analytics and aggregation operations.
 type AnalyticsRepository interface {
-	TrafficSummary(ctx context.Context, window persistence.TimeWindow) (*persistence.TrafficSummary, error)
-	RouteStats(ctx context.Context, limit int) ([]persistence.RouteStat, error)
+	TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error)
+	RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error)
 }
 
 // DomainEventBus defines domain event publishing operations.
@@ -54,4 +53,3 @@ type AnalyticsRepository interface {
 type DomainEventBus interface {
 	PublishDomainEvent(ctx context.Context, event domain.Event) error
 }
-

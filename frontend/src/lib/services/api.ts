@@ -1,6 +1,6 @@
 // REST API client for Go backend
 
-import type { Telegram, SearchResult } from "../utils/types.ts";
+import type { SearchResult } from "../utils/types.ts";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
 
@@ -62,8 +62,8 @@ export async function search(params: SearchParams): Promise<SearchResult> {
   if (params.priority !== undefined) searchParams.set("priority", params.priority.toString());
   if (params.start_time) searchParams.set("start_time", params.start_time);
   if (params.end_time) searchParams.set("end_time", params.end_time);
-  if (params.limit) searchParams.set("limit", params.limit.toString());
-  if (params.offset) searchParams.set("offset", params.offset.toString());
+  if (params.limit !== undefined) searchParams.set("limit", params.limit.toString());
+  if (params.offset !== undefined) searchParams.set("offset", params.offset.toString());
   if (params.sort_by) searchParams.set("sort_by", params.sort_by);
   if (params.order) searchParams.set("order", params.order);
 

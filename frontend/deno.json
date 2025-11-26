@@ -17,7 +17,7 @@
     "dev": "deno run -A npm:vite@7 dev",
     "build": "deno run -A npm:vite@7 build",
     "preview": "deno run -A npm:vite@7 preview",
-    "check": "deno run -A npm:@sveltejs/kit@2 sync && deno check --allow-read --allow-write src/**/*.ts src/**/*.svelte",
+    "check": "deno run -A npm:@sveltejs/kit@2 sync && deno check src/**/*.ts src/**/*.svelte",
     "test:unit": "deno run -A npm:vitest@1 --run",
     "test:unit:ui": "deno run -A npm:vitest@1 --ui",
     "test:unit:coverage": "deno run -A npm:vitest@1 --coverage",
@@ -38,8 +38,5 @@
       "recommended": true
     }
   },
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
-  }
+
 }

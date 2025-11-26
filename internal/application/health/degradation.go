@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"go.uber.org/zap"
 )
@@ -47,6 +48,7 @@ const (
 
 // PolicyManager manages degradation policies and provides policy lookup.
 type PolicyManager struct {
+	mu       sync.RWMutex
 	policies map[string]DegradationPolicy
 	logger   *zap.Logger
 }
@@ -63,6 +65,9 @@ func NewPolicyManager(logger *zap.Logger) *PolicyManager {
 
 // setDefaultPolicies sets up default degradation policies.
 func (pm *PolicyManager) setDefaultPolicies() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
 	pm.policies["meilisearch"] = DegradationPolicy{
 		Component:     "meilisearch",
 		Action:        ActionFallbackToDB,
@@ -89,13 +94,24 @@ func (pm *PolicyManager) setDefaultPolicies() {
 }
 
 // GetPolicy returns the degradation policy for a component.
-func (pm *PolicyManager) GetPolicy(component string) (DegradationPolicy, bool) {
-	policy, ok := pm.policies[component]
-	return policy, ok
+// SetPolicy sets a custom degradation policy for a component.
+func (pm *PolicyManager) SetPolicy(policy DegradationPolicy) error {
+	if err := ValidatePolicy(policy); err != nil {
+		return err
+	}
+	pm.policies[policy.Component] = policy
+	pm.logger.Info("degradation policy set",
+		zap.String("component", policy.Component),
+		zap.String("action", string(policy.Action)),
+	)
+	return nil
 }
 
 // SetPolicy sets a custom degradation policy for a component.
 func (pm *PolicyManager) SetPolicy(policy DegradationPolicy) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
 	pm.policies[policy.Component] = policy
 	pm.logger.Info("degradation policy set",
 		zap.String("component", policy.Component),
@@ -143,11 +159,11 @@ func (pm *PolicyManager) GetBannerMessages(degradedComponents []string) []string
 
 // DegradationContext provides context about system degradation for handlers.
 type DegradationContext struct {
-	IsDegraded        bool
+	IsDegraded         bool
 	DegradedComponents []string
-	Policies          map[string]DegradationPolicy
-	BannerMessages    []string
-	ShouldFallback    bool // Whether to use fallback strategies
+	Policies           map[string]DegradationPolicy
+	BannerMessages     []string
+	ShouldFallback     bool // Whether to use fallback strategies
 }
 
 // GetDegradationContext creates a degradation context from health check results.
@@ -167,11 +183,11 @@ func (pm *PolicyManager) GetDegradationContext(ctx context.Context, healthServic
 	}
 
 	return DegradationContext{
-		IsDegraded:        healthResult.Status == string(StatusDegraded),
+		IsDegraded:         healthResult.Status == string(StatusDegraded),
 		DegradedComponents: degraded,
-		Policies:          policies,
-		BannerMessages:    bannerMessages,
-		ShouldFallback:    shouldFallback,
+		Policies:           policies,
+		BannerMessages:     bannerMessages,
+		ShouldFallback:     shouldFallback,
 	}
 }
 
@@ -195,4 +211,3 @@ func ValidatePolicy(policy DegradationPolicy) error {
 
 	return nil
 }
-

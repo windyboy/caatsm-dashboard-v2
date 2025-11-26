@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ type Service struct {
 
 // SearchService defines the interface for search operations needed by export.
 type SearchService interface {
-	Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error)
+	Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error)
 }
 
 // NewService creates a new export service.
@@ -36,29 +36,30 @@ func NewService(searchService SearchService, logger *zap.Logger) *Service {
 }
 
 // Export exports search results in the specified format.
-func (e *Service) Export(ctx context.Context, filter persistence.SearchFilter, format persistence.ExportFormat) ([]byte, error) {
-	// Set a higher limit for export
-	filter.Page.Limit = MaxExportLimit
-	filter.Page.Offset = 0
+func (e *Service) Export(ctx context.Context, filter domain.SearchFilter, format domain.ExportFormat) ([]byte, error) {
+	// Create a copy to avoid mutating caller's filter
+	exportFilter := filter
+	exportFilter.Page.Limit = MaxExportLimit
+	exportFilter.Page.Offset = 0
 
-	result, err := e.searchService.Search(ctx, filter)
+	result, err := e.searchService.Search(ctx, exportFilter)
 	if err != nil {
 		return nil, fmt.Errorf("search for export: %w", err)
 	}
 
 	switch format {
-	case persistence.ExportFormatCSV:
+	case domain.ExportFormatCSV:
 		return e.exportCSV(result)
-	case persistence.ExportFormatExcel:
+	case domain.ExportFormatExcel:
 		return e.exportExcel(result)
-	case persistence.ExportFormatPDF:
+	case domain.ExportFormatPDF:
 		return e.exportPDF(result)
 	default:
 		return nil, fmt.Errorf("unsupported export format: %s", format)
 	}
 }
 
-func (e *Service) exportCSV(result *persistence.SearchResult) ([]byte, error) {
+func (e *Service) exportCSV(result *domain.SearchResult) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 
@@ -93,19 +94,18 @@ func (e *Service) exportCSV(result *persistence.SearchResult) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (e *Service) exportExcel(result *persistence.SearchResult) ([]byte, error) {
+func (e *Service) exportExcel(result *domain.SearchResult) ([]byte, error) {
 	// For Excel export, we'll use JSON for now
 	// In production, you'd use a library like excelize
 	return e.exportJSON(result)
 }
 
-func (e *Service) exportPDF(result *persistence.SearchResult) ([]byte, error) {
+func (e *Service) exportPDF(result *domain.SearchResult) ([]byte, error) {
 	// For PDF export, we'll use JSON for now
 	// In production, you'd use a library like go-pdf
 	return e.exportJSON(result)
 }
 
-func (e *Service) exportJSON(result *persistence.SearchResult) ([]byte, error) {
+func (e *Service) exportJSON(result *domain.SearchResult) ([]byte, error) {
 	return json.Marshal(result)
 }
-

@@ -14,7 +14,7 @@ type MetricsExporter struct {
 }
 
 // NewMetricsExporter constructs a MetricsExporter with the application's collectors.
-// Only creates metrics if enabled is true.
+// Constructs a MetricsExporter with a fresh Prometheus registry and metrics collectors.
 func NewMetricsExporter() *MetricsExporter {
 	reg := prometheus.NewRegistry()
 	collectors := metrics.NewRegistry(reg)

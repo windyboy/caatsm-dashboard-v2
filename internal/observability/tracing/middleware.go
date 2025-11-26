@@ -40,12 +40,20 @@ func Middleware(enabled bool) echo.MiddlewareFunc {
 			spanName := req.Method + " " + c.Path()
 			ctx, span := tracer.Start(ctx, spanName,
 				trace.WithSpanKind(trace.SpanKindServer),
+			// Derive scheme from TLS state
+			scheme := "http"
+			if req.TLS != nil {
+				scheme = "https"
+			}
+
+			ctx, span := tracer.Start(ctx, spanName,
+				trace.WithSpanKind(trace.SpanKindServer),
 				trace.WithAttributes(
 					semconv.HTTPMethod(req.Method),
 					semconv.HTTPRoute(c.Path()),
-					semconv.HTTPScheme(req.URL.Scheme),
+					semconv.HTTPScheme(scheme),
 					semconv.HTTPTarget(req.URL.Path),
-					semconv.HTTPURL(req.URL.String()),
+					semconv.HTTPURL(scheme+"://"+req.Host+req.RequestURI),
 					semconv.HTTPUserAgent(req.UserAgent()),
 					semconv.NetHostName(req.Host),
 				),

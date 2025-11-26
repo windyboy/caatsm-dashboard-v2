@@ -47,14 +47,8 @@ func (h *IndexingHandler) HandleTelegramPersisted(ctx context.Context, evt domai
 		return fmt.Errorf("telegram is nil in TelegramPersisted event")
 	}
 
-	// Convert domain telegram to persistence model
-	modelTelegram := domain.FromDomain(evt.Telegram)
-	if modelTelegram == nil {
-		return fmt.Errorf("failed to convert domain telegram to model")
-	}
-
 	// Index to search engine
-	if err := h.index.Index(ctx, modelTelegram); err != nil {
+	if err := h.index.Index(ctx, evt.Telegram); err != nil {
 		h.logger.Warn("failed to index telegram",
 			zap.String("message_id", evt.Telegram.MessageID),
 			zap.Error(err),

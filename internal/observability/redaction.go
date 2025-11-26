@@ -28,8 +28,9 @@ var (
 	emailRegex = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
 
 	// IP address pattern (both IPv4 and IPv6)
-	ipv4Regex = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
-	ipv6Regex = regexp.MustCompile(`\b(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}\b`)
+	ipv4Regex = regexp.MustCompile(`\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b`)
+	// Comprehensive IPv6 pattern (supports compression, link-local, etc.)
+	ipv6Regex = regexp.MustCompile(`(?i)\b(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}\b|(?:[0-9a-f]{1,4}:)*:(?:[0-9a-f]{1,4}:)*[0-9a-f]{1,4}\b`)
 
 	// Phone number patterns (various formats)
 	phoneRegex = regexp.MustCompile(`\+?1?[-.]?\(?\d{3}\)?[-.]?\d{3}[-.]?\d{4}\b`)
@@ -43,9 +44,28 @@ func RedactTelegramContent(content string, policy RedactionPolicy) string {
 
 	redacted := content
 
-	// Truncate to max length if specified
+	redacted := content
+
+	// Redact emails
+	if policy.RedactEmails {
+		redacted = emailRegex.ReplaceAllString(redacted, "[EMAIL_REDACTED]")
+	}
+
+	// Redact IP addresses
+	if policy.RedactIPs {
+		redacted = ipv4Regex.ReplaceAllString(redacted, "[IP_REDACTED]")
+		redacted = ipv6Regex.ReplaceAllString(redacted, "[IPv6_REDACTED]")
+	}
+
+	// Redact phone numbers
+	if policy.RedactPhones {
+		redacted = phoneRegex.ReplaceAllString(redacted, "[PHONE_REDACTED]")
+	}
+
+	// Truncate to max length after redaction
 	if policy.MaxContentLength > 0 && len(redacted) > policy.MaxContentLength {
 		redacted = redacted[:policy.MaxContentLength] + "...[REDACTED]"
+	}
 	}
 
 	// Redact emails

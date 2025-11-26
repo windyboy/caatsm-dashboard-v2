@@ -11,10 +11,10 @@ func NewValidator() *Validator {
 // ValidateType checks if the telegram type is valid
 func (v *Validator) ValidateType(telegramType string) bool {
 	validTypes := map[string]bool{
-		"aftn":  true,
-		"sita":  true,
-		"acars": true,
-		"cpdlc": true,
+		"AFTN":  true,
+		"SITA":  true,
+		"ACARS": true,
+		"CPDLC": true,
 	}
 	return validTypes[telegramType]
 }

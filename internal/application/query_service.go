@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 )
 
@@ -28,7 +27,7 @@ func NewQueryService(
 }
 
 // Search performs a search query using the search index
-func (s *queryService) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+func (s *queryService) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 	filterStr := buildFilterString(filter)
 
 	var sort []string
@@ -47,8 +46,8 @@ func (s *queryService) Search(ctx context.Context, filter persistence.SearchFilt
 		return nil, fmt.Errorf("search index query: %w", err)
 	}
 
-	result := &persistence.SearchResult{
-		Telegrams: []persistence.Telegram{},
+	result := &domain.SearchResult{
+		Telegrams: []domain.Telegram{},
 		Total:     0,
 		Page:      filter.Page,
 	}
@@ -60,8 +59,8 @@ func (s *queryService) Search(ctx context.Context, filter persistence.SearchFilt
 
 // Recent retrieves recent telegrams from the store
 func (s *queryService) Recent(ctx context.Context, limit int) ([]*domain.Telegram, error) {
-	filter := persistence.SearchFilter{
-		Page: persistence.Pagination{
+	filter := domain.SearchFilter{
+		Page: domain.Pagination{
 			Limit:  limit,
 			Offset: 0,
 			SortBy: "time",
@@ -76,14 +75,14 @@ func (s *queryService) Recent(ctx context.Context, limit int) ([]*domain.Telegra
 
 	telegrams := make([]*domain.Telegram, len(result.Telegrams))
 	for i, tg := range result.Telegrams {
-		telegrams[i] = domain.ToDomain(&tg)
+		telegrams[i] = &tg
 	}
 
 	return telegrams, nil
 }
 
 // buildFilterString builds a Meilisearch filter string from SearchFilter
-func buildFilterString(filter persistence.SearchFilter) string {
+func buildFilterString(filter domain.SearchFilter) string {
 	var parts []string
 
 	if len(filter.Type) > 0 {

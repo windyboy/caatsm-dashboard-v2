@@ -82,7 +82,7 @@ func TestTelegramService_Integration_ErrorHandling(t *testing.T) {
 	// Test invalid telegram (should return validation error)
 	invalidTelegram := &domain.Telegram{
 		MessageID: "", // Invalid: empty message_id
-		Type:      "aftn",
+		Type:      "AFTN",
 		Time:      testhelpers.NewTimeWindowLast24h().Start, // Use time window start as test time
 		Priority:  2,
 	}

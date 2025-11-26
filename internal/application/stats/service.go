@@ -2,9 +2,10 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	"go.uber.org/zap"
 )
@@ -30,11 +31,20 @@ func NewService(store repository.AnalyticsStore, logger *zap.Logger) *Service {
 
 // TrafficSummary returns aggregated traffic metrics.
 // If no time window is provided, defaults to the last 24 hours.
-func (s *Service) TrafficSummary(ctx context.Context, window persistence.TimeWindow) (*persistence.TrafficSummary, error) {
+func (s *Service) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error) {
 	// If no time window is provided, default to last 24 hours
 	if window.Start.IsZero() && window.End.IsZero() {
 		window.End = time.Now()
 		window.Start = window.End.Add(-DefaultTimeWindow)
+	}
+
+	// Validate time window doesn't exceed max range
+	if !window.Start.IsZero() && !window.End.IsZero() {
+		duration := window.End.Sub(window.Start)
+		maxDuration := 90 * 24 * time.Hour
+		if duration > maxDuration {
+			return nil, fmt.Errorf("time window cannot exceed 90 days")
+		}
 	}
 
 	summary, err := s.store.TrafficSummary(ctx, window)
@@ -49,7 +59,7 @@ func (s *Service) TrafficSummary(ctx context.Context, window persistence.TimeWin
 }
 
 // TopRoutes returns the top routes by message count.
-func (s *Service) TopRoutes(ctx context.Context, limit int) ([]persistence.RouteStat, error) {
+func (s *Service) TopRoutes(ctx context.Context, limit int) ([]domain.RouteStat, error) {
 	if limit <= 0 {
 		limit = DefaultStatsLimit
 	}

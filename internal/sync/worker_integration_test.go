@@ -68,7 +68,7 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	// Test invalid telegram (should return ErrBadData)
 	invalidTelegram := &domain.Telegram{
 		MessageID: "", // Invalid: empty message_id
-		Type:      "aftn",
+		Type:      "AFTN",
 		Time:      time.Now(),
 		Priority:  2,
 	}

@@ -56,7 +56,7 @@ func TestE2E_BasicPipelineWithContainers(t *testing.T) {
 	// Create test telegram
 	telegram := domain.Telegram{
 		MessageID:    "E2E-SIMPLE-001",
-		Type:         "aftn",
+		Type:         "AFTN",
 		Time:         time.Now(),
 		FlightNumber: "CA1111",
 		Source:       "ZBAA",
@@ -91,7 +91,7 @@ func TestE2E_BasicPipelineWithContainers(t *testing.T) {
 	for _, tg := range result.Telegrams {
 		if tg.MessageID == "E2E-SIMPLE-001" {
 			found = true
-			assert.Equal(t, "aftn", tg.Type)
+			assert.Equal(t, "AFTN", tg.Type)
 			assert.Equal(t, "CA1111", tg.FlightNumber)
 			assert.Equal(t, "ZBAA", tg.Source)
 			assert.Equal(t, "ZSPD", tg.Destination)
@@ -202,7 +202,7 @@ func TestE2E_LargeDatasetHandling(t *testing.T) {
 func NewTelegram(messageID string) domain.Telegram {
 	return domain.Telegram{
 		MessageID:    messageID,
-		Type:         "aftn",
+		Type:         "AFTN",
 		Time:         time.Now(),
 		FlightNumber: "CA0000",
 		Source:       "ZBAA",

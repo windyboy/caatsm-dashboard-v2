@@ -11,7 +11,7 @@ import (
 func NewTelegram(messageID string) *persistence.Telegram {
 	return &persistence.Telegram{
 		MessageID:    messageID,
-		Type:         "aftn",
+		Type:         "AFTN",
 		Time:         time.Now(),
 		FlightNumber: "TEST123",
 		Source:       "ZBAA",

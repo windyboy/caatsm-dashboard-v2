@@ -10,23 +10,22 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/testing/mocks"
 )
 
 func TestQueryService_Search(t *testing.T) {
 	tests := []struct {
 		name        string
-		filter      persistence.SearchFilter
+		filter      domain.SearchFilter
 		indexError  error
 		indexResult interface{}
 		expectError bool
 	}{
 		{
 			name: "valid search",
-			filter: persistence.SearchFilter{
+			filter: domain.SearchFilter{
 				Query: "test",
-				Page: persistence.Pagination{
+				Page: domain.Pagination{
 					Limit:  10,
 					Offset: 0,
 					SortBy: "time",
@@ -37,10 +36,10 @@ func TestQueryService_Search(t *testing.T) {
 		},
 		{
 			name: "search with filters",
-			filter: persistence.SearchFilter{
+			filter: domain.SearchFilter{
 				Query: "test",
-				Type:  []string{"aftn"},
-				Page: persistence.Pagination{
+				Type:  []string{"AFTN"},
+				Page: domain.Pagination{
 					Limit:  10,
 					Offset: 0,
 				},
@@ -49,9 +48,9 @@ func TestQueryService_Search(t *testing.T) {
 		},
 		{
 			name: "index error",
-			filter: persistence.SearchFilter{
+			filter: domain.SearchFilter{
 				Query: "test",
-				Page: persistence.Pagination{
+				Page: domain.Pagination{
 					Limit:  10,
 					Offset: 0,
 				},
@@ -108,17 +107,17 @@ func TestQueryService_Recent(t *testing.T) {
 		name        string
 		limit       int
 		storeError  error
-		storeResult *persistence.SearchResult
+		storeResult *domain.SearchResult
 		expectError bool
 		expectCount int
 	}{
 		{
 			name:  "valid recent query",
 			limit: 10,
-			storeResult: &persistence.SearchResult{
-				Telegrams: []persistence.Telegram{
-					{MessageID: "TEST-001", Type: "aftn", Time: time.Now(), Priority: 2},
-					{MessageID: "TEST-002", Type: "sita", Time: time.Now(), Priority: 2},
+			storeResult: &domain.SearchResult{
+				Telegrams: []domain.Telegram{
+					{MessageID: "TEST-001", Type: "AFTN", Time: time.Now(), Priority: 2},
+					{MessageID: "TEST-002", Type: "SITA", Time: time.Now(), Priority: 2},
 				},
 				Total: 2,
 			},
@@ -134,8 +133,8 @@ func TestQueryService_Recent(t *testing.T) {
 		{
 			name:  "empty result",
 			limit: 10,
-			storeResult: &persistence.SearchResult{
-				Telegrams: []persistence.Telegram{},
+			storeResult: &domain.SearchResult{
+				Telegrams: []domain.Telegram{},
 				Total:     0,
 			},
 			expectError: false,
@@ -151,8 +150,8 @@ func TestQueryService_Recent(t *testing.T) {
 			service := NewQueryService(storeMock, indexMock)
 
 			// Setup expectations
-			expectedFilter := persistence.SearchFilter{
-				Page: persistence.Pagination{
+			expectedFilter := domain.SearchFilter{
+				Page: domain.Pagination{
 					Limit:  tt.limit,
 					Offset: 0,
 					SortBy: "time",
@@ -186,42 +185,42 @@ func TestQueryService_Recent(t *testing.T) {
 func TestBuildFilterString(t *testing.T) {
 	tests := []struct {
 		name   string
-		filter persistence.SearchFilter
+		filter domain.SearchFilter
 		want   string
 	}{
 		{
 			name:   "empty filter",
-			filter: persistence.SearchFilter{},
+			filter: domain.SearchFilter{},
 			want:   "",
 		},
 		{
 			name: "type filter",
-			filter: persistence.SearchFilter{
-				Type: []string{"aftn", "sita"},
+			filter: domain.SearchFilter{
+				Type: []string{"AFTN", "SITA"},
 			},
-			want: `(type = "aftn" OR type = "sita")`,
+			want: `(type = "AFTN" OR type = "SITA")`,
 		},
 		{
 			name: "source filter",
-			filter: persistence.SearchFilter{
+			filter: domain.SearchFilter{
 				Source: []string{"ZBAA", "ZSPD"},
 			},
 			want: `(source = "ZBAA" OR source = "ZSPD")`,
 		},
 		{
 			name: "priority filter",
-			filter: persistence.SearchFilter{
+			filter: domain.SearchFilter{
 				Priority: []int{1, 2},
 			},
 			want: `(priority = 1 OR priority = 2)`,
 		},
 		{
 			name: "multiple filters",
-			filter: persistence.SearchFilter{
-				Type:     []string{"aftn"},
+			filter: domain.SearchFilter{
+				Type:     []string{"AFTN"},
 				Priority: []int{1},
 			},
-			want: `(type = "aftn") AND (priority = 1)`,
+			want: `(type = "AFTN") AND (priority = 1)`,
 		},
 	}
 

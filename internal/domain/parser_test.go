@@ -15,7 +15,7 @@ func TestDefaultParser_Parse(t *testing.T) {
 	t.Run("valid JSON", func(t *testing.T) {
 		tg := Telegram{
 			MessageID:    "TEST-001",
-			Type:         "aftn",
+			Type:         "AFTN",
 			Time:         time.Now(),
 			FlightNumber: "TEST123",
 			Source:       "ZBAA",
@@ -46,9 +46,9 @@ func TestDefaultParser_Supports(t *testing.T) {
 	p := NewDefaultParser()
 
 	// Default parser supports all types
-	assert.True(t, p.Supports("aftn"))
-	assert.True(t, p.Supports("sita"))
-	assert.True(t, p.Supports("acars"))
-	assert.True(t, p.Supports("cpdlc"))
+	assert.True(t, p.Supports("AFTN"))
+	assert.True(t, p.Supports("SITA"))
+	assert.True(t, p.Supports("ACARS"))
+	assert.True(t, p.Supports("CPDLC"))
 	assert.True(t, p.Supports("unknown"))
 }

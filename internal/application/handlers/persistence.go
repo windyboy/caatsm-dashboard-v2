@@ -47,14 +47,8 @@ func (h *PersistenceHandler) HandleTelegramValidated(ctx context.Context, evt do
 		return fmt.Errorf("telegram is nil in TelegramValidated event")
 	}
 
-	// Convert domain telegram to persistence model
-	modelTelegram := domain.FromDomain(evt.Telegram)
-	if modelTelegram == nil {
-		return fmt.Errorf("failed to convert domain telegram to model")
-	}
-
 	// Persist to database
-	if err := h.store.Save(ctx, modelTelegram); err != nil {
+	if err := h.store.Save(ctx, evt.Telegram); err != nil {
 		h.logger.Error("failed to persist telegram",
 			zap.String("message_id", evt.Telegram.MessageID),
 			zap.Error(err),

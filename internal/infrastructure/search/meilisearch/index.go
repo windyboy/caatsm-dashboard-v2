@@ -4,7 +4,7 @@ import (
 	"context"
 
 	meilisearchClient "github.com/meilisearch/meilisearch-go"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	oldmeili "github.com/windy/caatsm-dashboard/internal/repository/meili"
 )
 
@@ -27,19 +27,13 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 }
 
 // Index adds/updates a telegram document in Meilisearch.
-func (i *Index) Index(ctx context.Context, telegram *persistence.Telegram) error {
-	// Convert persistence.Telegram to persistence.Telegram (type alias)
-	return i.oldIndex.Index(ctx, (*persistence.Telegram)(telegram))
+func (i *Index) Index(ctx context.Context, telegram *domain.Telegram) error {
+	return i.oldIndex.Index(ctx, telegram)
 }
 
 // BulkIndex indexes multiple telegrams.
-func (i *Index) BulkIndex(ctx context.Context, telegrams []*persistence.Telegram) error {
-	// Convert slice
-	modelTelegrams := make([]*persistence.Telegram, len(telegrams))
-	for j := range telegrams {
-		modelTelegrams[j] = (*persistence.Telegram)(telegrams[j])
-	}
-	return i.oldIndex.BulkIndex(ctx, modelTelegrams)
+func (i *Index) BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error {
+	return i.oldIndex.BulkIndex(ctx, telegrams)
 }
 
 // Delete removes a telegram from the index.

@@ -30,7 +30,7 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 			name: "valid telegram - all operations succeed",
 			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN", // Use uppercase since Normalize() will uppercase it
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -43,7 +43,7 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 			name: "invalid telegram - validation fails",
 			telegram: &domain.Telegram{
 				MessageID: "", // Invalid: empty message_id
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -56,7 +56,7 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 			name: "store save fails",
 			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -70,7 +70,7 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 			name: "index fails - should continue",
 			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -84,7 +84,7 @@ func TestTelegramService_SaveTelegram(t *testing.T) {
 			name: "publish fails - should continue",
 			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -151,7 +151,7 @@ func TestTelegramService_SaveTelegram_Normalize(t *testing.T) {
 
 	telegram := &domain.Telegram{
 		MessageID: "TEST-001",
-		Type:      "aftn",
+		Type:      "AFTN", // Use uppercase since Normalize() will uppercase it
 		Time:      time.Now(),
 		Priority:  2,
 	}

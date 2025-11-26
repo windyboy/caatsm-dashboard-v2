@@ -31,10 +31,10 @@ type HealthChecker interface {
 
 // HealthCheckResult contains health status.
 type HealthCheckResult struct {
-	Status      string                      `json:"status"`
-	PostgreSQL  ComponentHealth            `json:"postgresql"`
-	Meilisearch ComponentHealth            `json:"meilisearch"`
-	Redis       ComponentHealth            `json:"redis"`
+	Status      string          `json:"status"`
+	PostgreSQL  ComponentHealth `json:"postgresql"`
+	Meilisearch ComponentHealth `json:"meilisearch"`
+	Redis       ComponentHealth `json:"redis"`
 }
 
 // ComponentHealth represents the health of a component.
@@ -112,11 +112,7 @@ func (h *Handler) Search(ctx echo.Context) error {
 			Offset: 0,
 			SortBy: "time",
 			Order:  "desc",
-		},
-	}
-
-	if len(filter.Query) > maxQueryLength {
-		return echo.NewHTTPError(http.StatusBadRequest, "query too long")
+		Query: sanitizeQuery(ctx.QueryParam("query")),
 	}
 
 	// Parse pagination
@@ -168,6 +164,21 @@ func (h *Handler) Search(ctx echo.Context) error {
 	if endStr := ctx.QueryParam("end_time"); endStr != "" {
 		if end, err := time.Parse(time.RFC3339, endStr); err == nil {
 			filter.TimeRange.End = end
+		}
+	}
+
+	// Validate time range
+	if !filter.TimeRange.Start.IsZero() && !filter.TimeRange.End.IsZero() {
+		duration := filter.TimeRange.End.Sub(filter.TimeRange.Start)
+		maxDuration := time.Duration(maxTimeRangeDays) * 24 * time.Hour
+		if duration > maxDuration {
+			return echo.NewHTTPError(
+				http.StatusBadRequest,
+				fmt.Sprintf("time range exceeds maximum of %d days", maxTimeRangeDays),
+			)
+		}
+		if filter.TimeRange.End.Before(filter.TimeRange.Start) {
+			return echo.NewHTTPError(http.StatusBadRequest, "end_time must be after start_time")
 		}
 	}
 
@@ -334,6 +345,33 @@ func (h *Handler) Export(ctx echo.Context) error {
 		filter.Destination = []string{dstStr}
 	}
 
+	// Parse time range
+	if startStr := ctx.QueryParam("start_time"); startStr != "" {
+		if start, err := time.Parse(time.RFC3339, startStr); err == nil {
+			filter.TimeRange.Start = start
+		}
+	}
+	if endStr := ctx.QueryParam("end_time"); endStr != "" {
+		if end, err := time.Parse(time.RFC3339, endStr); err == nil {
+			filter.TimeRange.End = end
+		}
+	}
+
+	// Validate time range
+	if !filter.TimeRange.Start.IsZero() && !filter.TimeRange.End.IsZero() {
+		duration := filter.TimeRange.End.Sub(filter.TimeRange.Start)
+		maxDuration := time.Duration(maxTimeRangeDays) * 24 * time.Hour
+		if duration > maxDuration {
+			return echo.NewHTTPError(
+				http.StatusBadRequest,
+				fmt.Sprintf("time range exceeds maximum of %d days", maxTimeRangeDays),
+			)
+		}
+		if filter.TimeRange.End.Before(filter.TimeRange.Start) {
+			return echo.NewHTTPError(http.StatusBadRequest, "end_time must be after start_time")
+		}
+	}
+
 	// Determine content type
 	contentType := "application/octet-stream"
 	switch format {
@@ -415,4 +453,3 @@ func sanitizeQuery(q string) string {
 	}
 	return q
 }
-

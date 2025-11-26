@@ -14,28 +14,28 @@ import (
 type Hub struct {
 	// Registered clients
 	clients map[*Client]bool
-	
+
 	// IP-based connection tracking
 	ipConnections map[string]int
-	
+
 	// Configuration
 	config Config
-	
+
 	// Channels
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan []byte
-	
+
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
-	
+
 	// Context for graceful shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
-	
+
 	// Logger
 	logger *zap.Logger
-	
+
 	// Metrics
 	metrics *HubMetrics
 }
@@ -44,10 +44,10 @@ type Hub struct {
 type Config struct {
 	// MaxConnectionsPerIP limits connections per IP address (0 = unlimited)
 	MaxConnectionsPerIP int
-	
+
 	// ClientBufferSize is the buffer size for each client's send channel
 	ClientBufferSize int
-	
+
 	// EnableMetrics enables metrics collection
 	EnableMetrics bool
 }
@@ -66,24 +66,24 @@ func NewHub(config Config, logger *zap.Logger) *Hub {
 	if config.ClientBufferSize == 0 {
 		config.ClientBufferSize = 100
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	hub := &Hub{
-		clients:        make(map[*Client]bool),
-		ipConnections:  make(map[string]int),
-		config:         config,
-		register:       make(chan *Client),
-		unregister:     make(chan *Client),
-		broadcast:      make(chan []byte, 256),
-		ctx:            ctx,
-		cancel:         cancel,
-		logger:         logger,
-		metrics:        NewHubMetrics(config.EnableMetrics),
+		clients:       make(map[*Client]bool),
+		ipConnections: make(map[string]int),
+		config:        config,
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		broadcast:     make(chan []byte, 256),
+		ctx:           ctx,
+		cancel:        cancel,
+		logger:        logger,
+		metrics:       NewHubMetrics(config.EnableMetrics),
 	}
-	
+
 	go hub.run()
-	
+
 	return hub
 }
 
@@ -94,13 +94,13 @@ func (h *Hub) run() {
 		case <-h.ctx.Done():
 			h.logger.Info("hub shutting down")
 			return
-			
+
 		case client := <-h.register:
 			h.handleRegister(client)
-			
+
 		case client := <-h.unregister:
 			h.handleUnregister(client)
-			
+
 		case message := <-h.broadcast:
 			h.handleBroadcast(message)
 		}
@@ -111,7 +111,7 @@ func (h *Hub) run() {
 func (h *Hub) handleRegister(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	// Check connection limits per IP
 	clientIP := client.GetIP()
 	if h.config.MaxConnectionsPerIP > 0 {
@@ -126,16 +126,16 @@ func (h *Hub) handleRegister(client *Client) {
 		}
 		h.ipConnections[clientIP] = currentConnections + 1
 	}
-	
+
 	h.clients[client] = true
-		h.metrics.activeConnectionsInc()
-		h.metrics.totalConnectionsInc()
-	
+	h.metrics.activeConnectionsInc()
+	h.metrics.totalConnectionsInc()
+
 	h.logger.Info("client registered",
 		zap.String("remote_addr", client.RemoteAddr()),
 		zap.String("ip", clientIP),
 		zap.Int("total_clients", len(h.clients)))
-	
+
 	// Start client pumps
 	go client.writePump()
 	go client.readPump()
@@ -145,11 +145,11 @@ func (h *Hub) handleRegister(client *Client) {
 func (h *Hub) handleUnregister(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	if _, ok := h.clients[client]; ok {
 		delete(h.clients, client)
 		client.Close()
-		
+
 		// Update IP connection count
 		clientIP := client.GetIP()
 		if h.config.MaxConnectionsPerIP > 0 {
@@ -158,9 +158,9 @@ func (h *Hub) handleUnregister(client *Client) {
 				delete(h.ipConnections, clientIP)
 			}
 		}
-		
+
 		h.metrics.activeConnectionsDec()
-		
+
 		h.logger.Info("client unregistered",
 			zap.String("remote_addr", client.RemoteAddr()),
 			zap.Int("total_clients", len(h.clients)))
@@ -175,10 +175,10 @@ func (h *Hub) handleBroadcast(message []byte) {
 		clients = append(clients, client)
 	}
 	h.mu.RUnlock()
-	
+
 	dropped := 0
 	success := 0
-	
+
 	for _, client := range clients {
 		if client.SendMessage(message) {
 			success++
@@ -189,14 +189,17 @@ func (h *Hub) handleBroadcast(message []byte) {
 				h.logger.Warn("slow client detected, disconnecting",
 					zap.String("remote_addr", client.RemoteAddr()),
 					zap.Int("buffer_fill", client.BufferFillLevel()))
-				h.unregister <- client
+				// Defer unregistration to avoid blocking in broadcast loop
+				go func(c *Client) {
+					h.unregister <- c
+				}(client)
 			}
 		}
 	}
-	
+
 	h.metrics.messagesBroadcastAdd(float64(success))
 	h.metrics.messagesDroppedAdd(float64(dropped))
-	
+
 	if dropped > 0 {
 		h.logger.Debug("broadcast complete",
 			zap.Int("success", success),
@@ -247,21 +250,20 @@ func (h *Hub) GetIPConnectionCount(ip string) int {
 // Close gracefully shuts down the hub.
 func (h *Hub) Close() {
 	h.cancel()
-	
+
 	// Wait a bit for messages to drain
 	time.Sleep(100 * time.Millisecond)
-	
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	// Close all clients
 	for client := range h.clients {
 		client.Close()
 	}
-	
+
 	h.clients = make(map[*Client]bool)
 	h.ipConnections = make(map[string]int)
-	
+
 	h.logger.Info("hub closed")
 }
-

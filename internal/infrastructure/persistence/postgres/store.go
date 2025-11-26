@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	oldpostgres "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 )
 
@@ -24,79 +24,47 @@ func New(pool *pgxpool.Pool) *Store {
 }
 
 // Save persists a single telegram.
-// Since persistence.Telegram is a type alias for persistence.Telegram, types are identical.
-func (s *Store) Save(ctx context.Context, telegram *persistence.Telegram) error {
-	// Type alias means *persistence.Telegram and *persistence.Telegram are the same type
-	return s.oldStore.Save(ctx, (*persistence.Telegram)(telegram))
+func (s *Store) Save(ctx context.Context, telegram *domain.Telegram) error {
+	return s.oldStore.Save(ctx, telegram)
 }
 
 // BulkSave persists multiple telegrams.
-func (s *Store) BulkSave(ctx context.Context, telegrams []*persistence.Telegram) error {
-	// Convert slice - since types are aliased, we can convert element-by-element
-	modelTelegrams := make([]*persistence.Telegram, len(telegrams))
-	for i := range telegrams {
-		modelTelegrams[i] = (*persistence.Telegram)(telegrams[i])
-	}
-	return s.oldStore.BulkSave(ctx, modelTelegrams)
+func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) error {
+	return s.oldStore.BulkSave(ctx, telegrams)
 }
 
 // Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
-	// Convert filter - create new struct with same values
-	modelFilter := persistence.SearchFilter{
-		Query:       filter.Query,
-		Type:        filter.Type,
-		Source:      filter.Source,
-		Destination: filter.Destination,
-		Priority:    filter.Priority,
-		TimeRange:   persistence.TimeWindow(filter.TimeRange),
-		Page:        persistence.Pagination(filter.Page),
+func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+	return s.oldStore.Search(ctx, filter)
+}
+
+// FindByID retrieves a telegram by its message ID.
+func (s *Store) FindByID(ctx context.Context, messageID string) (*domain.Telegram, error) {
+	// Use Search with message_id filter as a workaround until FindByID is implemented in old store
+	filter := domain.SearchFilter{
+		Query: messageID,
+		Page: domain.Pagination{
+			Limit:  1,
+			Offset: 0,
+		},
 	}
-	
-	result, err := s.oldStore.Search(ctx, modelFilter)
+	result, err := s.Search(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
-	
-	// Convert result
-	telegrams := make([]persistence.Telegram, len(result.Telegrams))
-	for i := range result.Telegrams {
-		telegrams[i] = persistence.Telegram(result.Telegrams[i])
+	if len(result.Telegrams) == 0 {
+		return nil, nil // or return a NotFound error
 	}
-	
-	return &persistence.SearchResult{
-		Telegrams: telegrams,
-		Total:     result.Total,
-		Page:      persistence.Pagination(result.Page),
-	}, nil
+	return &result.Telegrams[0], nil
 }
 
 // TrafficSummary returns aggregated data for dashboards.
-func (s *Store) TrafficSummary(ctx context.Context, window persistence.TimeWindow) (*persistence.TrafficSummary, error) {
-	modelWindow := persistence.TimeWindow(window)
-	result, err := s.oldStore.TrafficSummary(ctx, modelWindow)
-	if err != nil {
-		return nil, err
-	}
-	
-	return &persistence.TrafficSummary{
-		TotalMessages: result.TotalMessages,
-		ByType:        result.ByType,
-		ByPriority:    result.ByPriority,
-	}, nil
+func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error) {
+	return s.oldStore.TrafficSummary(ctx, window)
 }
 
 // RouteStats returns top routes.
-func (s *Store) RouteStats(ctx context.Context, limit int) ([]persistence.RouteStat, error) {
-	modelStats, err := s.oldStore.RouteStats(ctx, limit)
-	if err != nil {
-		return nil, err
-	}
-	
-	stats := make([]persistence.RouteStat, len(modelStats))
-	for i := range modelStats {
-		stats[i] = persistence.RouteStat(modelStats[i])
-	}
-	return stats, nil
+func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error) {
+	return s.oldStore.RouteStats(ctx, limit)
 }
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 )
 
 // Index implements SearchIndex using Meilisearch.
@@ -66,7 +66,7 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 }
 
 // Index adds/updates a telegram document in Meilisearch.
-func (i *Index) Index(ctx context.Context, telegram *persistence.Telegram) error {
+func (i *Index) Index(ctx context.Context, telegram *domain.Telegram) error {
 	idx := i.client.Index(i.index)
 
 	doc := map[string]any{
@@ -90,7 +90,7 @@ func (i *Index) Index(ctx context.Context, telegram *persistence.Telegram) error
 }
 
 // BulkIndex ingests multiple telegrams.
-func (i *Index) BulkIndex(ctx context.Context, telegrams []*persistence.Telegram) error {
+func (i *Index) BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error {
 	if len(telegrams) == 0 {
 		return nil
 	}

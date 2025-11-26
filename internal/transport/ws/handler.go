@@ -11,8 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap"
 )
 
@@ -26,15 +26,26 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// TODO: Validate origin properly (Phase 3.4)
-		return true
+		origin := r.Header.Get("Origin")
+		// Allow same-origin requests
+		if origin == "" {
+			return true
+		}
+		// TODO: Configure allowed origins via environment variable
+		allowedOrigins := []string{"http://localhost:3000", "https://yourdomain.com"}
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+		return false
 	},
 }
 
 // Handler wraps the WebSocket hub and provides HTTP handlers.
 type Handler struct {
-	hub         *ws.Hub
-	logger      *zap.Logger
+	hub          *ws.Hub
+	logger       *zap.Logger
 	statsService interface {
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	}
@@ -182,23 +193,11 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 		msg := &ws.Message{
 			Type: ws.MessageTypeMessage,
 			Data: telegramModel,
-		}
-		if !client.SendMessageJSON(msg) {
-			h.logger.Warn("failed to send message", zap.String("message_id", telegram.MessageID))
-			continue
-		}
-	}
-
-	return nil
-}
-
-// startRedisListener listens to Redis pub/sub and broadcasts events.
-func (h *Handler) startRedisListener() {
+func (h *Handler) startRedisListener(ctx context.Context) {
 	if h.redisCli == nil {
 		return
 	}
 
-	ctx := context.Background()
 	pubsub := h.redisCli.Subscribe(ctx, "stats:update")
 	defer func() {
 		_ = pubsub.Close()
@@ -206,10 +205,29 @@ func (h *Handler) startRedisListener() {
 
 	ch := pubsub.Channel()
 
-	for msg := range ch {
-		if msg != nil && msg.Channel == "stats:update" && msg.Payload != "" {
-			// Verify it's valid JSON
-			var eventData map[string]any
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			if msg != nil && msg.Channel == "stats:update" && msg.Payload != "" {
+				// Verify it's valid JSON
+				var eventData map[string]any
+				if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
+					// Broadcast to all clients via hub
+					h.hub.Broadcast([]byte(msg.Payload))
+				} else {
+					h.logger.Warn("ignored invalid JSON message from redis",
+						zap.String("channel", msg.Channel),
+						zap.Error(err))
+				}
+			}
+		}
+	}
+}
 			if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
 				// Broadcast to all clients via hub
 				h.hub.Broadcast([]byte(msg.Payload))
@@ -221,4 +239,3 @@ func (h *Handler) startRedisListener() {
 		}
 	}
 }
-

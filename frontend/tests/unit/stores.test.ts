@@ -12,7 +12,7 @@ describe("messages store", () => {
   it("should add a single message", () => {
     const telegram: Telegram = {
       message_id: "TEST-001",
-      type: "aftn",
+      type: "AFTN",
       time: new Date().toISOString(),
       flight_number: "AA123",
       source: "KJFK",
@@ -31,7 +31,7 @@ describe("messages store", () => {
   it("should add multiple messages", () => {
     const telegram1: Telegram = {
       message_id: "TEST-001",
-      type: "aftn",
+      type: "AFTN",
       time: new Date().toISOString(),
       flight_number: "AA123",
       source: "KJFK",
@@ -43,7 +43,7 @@ describe("messages store", () => {
 
     const telegram2: Telegram = {
       message_id: "TEST-002",
-      type: "aftn",
+      type: "AFTN",
       time: new Date().toISOString(),
       flight_number: "AA456",
       source: "KJFK",
@@ -68,7 +68,7 @@ describe("messages store", () => {
     for (let i = 0; i < MAX_MESSAGES + 10; i++) {
       const telegram: Telegram = {
         message_id: `TEST-${i}`,
-        type: "aftn",
+        type: "AFTN",
         time: new Date().toISOString(),
         flight_number: "AA123",
         source: "KJFK",
@@ -88,7 +88,7 @@ describe("messages store", () => {
   it("should add multiple messages at once", () => {
     const telegrams: Telegram[] = Array.from({ length: 5 }, (_, i) => ({
       message_id: `TEST-${i}`,
-      type: "aftn",
+      type: "AFTN",
       time: new Date().toISOString(),
       flight_number: "AA123",
       source: "KJFK",
@@ -106,7 +106,7 @@ describe("messages store", () => {
   it("should clear messages", () => {
     const telegram: Telegram = {
       message_id: "TEST-001",
-      type: "aftn",
+      type: "AFTN",
       time: new Date().toISOString(),
       flight_number: "AA123",
       source: "KJFK",
@@ -143,7 +143,7 @@ describe("stats store", () => {
   });
 
   it("should set byType", () => {
-    const byType = { aftn: 50, acars: 30 };
+    const byType = { AFTN: 50, ACARS: 30 };
     stats.setByType(byType);
     const storeStats = get(stats);
     expect(storeStats.byType).toEqual(byType);
@@ -152,7 +152,7 @@ describe("stats store", () => {
   it("should reset to initial state", () => {
     stats.setTotal(100);
     stats.setByPriority({ 1: 50 });
-    stats.setByType({ aftn: 50 });
+    stats.setByType({ AFTN: 50 });
 
     stats.reset();
     const storeStats = get(stats);
@@ -164,11 +164,11 @@ describe("stats store", () => {
   it("should update multiple fields independently", () => {
     stats.setTotal(100);
     stats.setByPriority({ 1: 50 });
-    stats.setByType({ aftn: 50 });
+    stats.setByType({ AFTN: 50 });
 
     const storeStats = get(stats);
     expect(storeStats.total).toBe(100);
     expect(storeStats.byPriority).toEqual({ 1: 50 });
-    expect(storeStats.byType).toEqual({ aftn: 50 });
+    expect(storeStats.byType).toEqual({ AFTN: 50 });
   });
 });

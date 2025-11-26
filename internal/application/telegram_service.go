@@ -46,8 +46,7 @@ func (s *telegramService) SaveTelegram(ctx context.Context, telegram *domain.Tel
 	telegram.Normalize()
 
 	// 3. Save to PostgreSQL
-	modelTelegram := domain.FromDomain(telegram)
-	if err := s.store.Save(ctx, modelTelegram); err != nil {
+	if err := s.store.Save(ctx, telegram); err != nil {
 		return fmt.Errorf("save telegram: %w", err)
 	}
 
@@ -57,7 +56,7 @@ func (s *telegramService) SaveTelegram(ctx context.Context, telegram *domain.Tel
 	)
 
 	// 4. Index to Meilisearch (non-blocking - errors are logged but don't fail)
-	if err := s.index.Index(ctx, modelTelegram); err != nil {
+	if err := s.index.Index(ctx, telegram); err != nil {
 		s.logger.Warn("failed to index telegram",
 			zap.String("message_id", telegram.MessageID),
 			zap.Error(err),
@@ -73,7 +72,7 @@ func (s *telegramService) SaveTelegram(ctx context.Context, telegram *domain.Tel
 	if s.eventBus != nil {
 		eventData := map[string]any{
 			"type":     "telegram_processed",
-			"telegram": modelTelegram,
+			"telegram": telegram,
 		}
 		if err := s.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
 			s.logger.Warn("failed to publish event",

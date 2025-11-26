@@ -11,34 +11,34 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap/zaptest"
 )
 
 // mockSearchService is a mock implementation of SearchService for testing
 type mockSearchService struct {
-	searchFunc func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error)
+	searchFunc func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error)
 	callCount  int
 }
 
-func (m *mockSearchService) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+func (m *mockSearchService) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 	m.callCount++
 	if m.searchFunc != nil {
 		return m.searchFunc(ctx, filter)
 	}
-	return &persistence.SearchResult{}, nil
+	return &domain.SearchResult{}, nil
 }
 
 func TestExportStream_CSV_SmallDataset(t *testing.T) {
 	// Create mock service that returns a small dataset
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 			// Return 10 telegrams
-			telegrams := make([]persistence.Telegram, 10)
+			telegrams := make([]domain.Telegram, 10)
 			for i := 0; i < 10; i++ {
-				telegrams[i] = persistence.Telegram{
+				telegrams[i] = domain.Telegram{
 					MessageID:    "TEST-" + string(rune('0'+i)),
-					Type:         "aftn",
+					Type:         "AFTN",
 					Time:         time.Now(),
 					FlightNumber: "CA123",
 					Source:       "ZBAA",
@@ -47,7 +47,7 @@ func TestExportStream_CSV_SmallDataset(t *testing.T) {
 					Content:      "Test content",
 				}
 			}
-			return &persistence.SearchResult{
+			return &domain.SearchResult{
 				Telegrams: telegrams,
 				Total:     10,
 			}, nil
@@ -57,7 +57,7 @@ func TestExportStream_CSV_SmallDataset(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 	require.NoError(t, err)
 
 	// Parse CSV and verify
@@ -76,7 +76,7 @@ func TestExportStream_CSV_SmallDataset(t *testing.T) {
 func TestExportStream_CSV_LargeDataset(t *testing.T) {
 	// Create mock service that returns data in chunks
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 			// Simulate chunked responses
 			chunkSize := filter.Page.Limit
 			if chunkSize == 0 {
@@ -85,19 +85,19 @@ func TestExportStream_CSV_LargeDataset(t *testing.T) {
 
 			// Stop after 2 chunks (2000 records)
 			if filter.Page.Offset >= 2000 {
-				return &persistence.SearchResult{
-					Telegrams: []persistence.Telegram{},
+				return &domain.SearchResult{
+					Telegrams: []domain.Telegram{},
 					Total:     2000,
 				}, nil
 			}
 
 			// Return telegrams based on offset
-			telegrams := make([]persistence.Telegram, chunkSize)
+			telegrams := make([]domain.Telegram, chunkSize)
 			for i := 0; i < chunkSize; i++ {
 				idx := filter.Page.Offset + i
-				telegrams[i] = persistence.Telegram{
+				telegrams[i] = domain.Telegram{
 					MessageID:    "TEST-" + string(rune('0'+idx%10)),
-					Type:         "aftn",
+					Type:         "AFTN",
 					Time:         time.Now(),
 					FlightNumber: "CA123",
 					Source:       "ZBAA",
@@ -107,7 +107,7 @@ func TestExportStream_CSV_LargeDataset(t *testing.T) {
 				}
 			}
 
-			return &persistence.SearchResult{
+			return &domain.SearchResult{
 				Telegrams: telegrams,
 				Total:     2000,
 			}, nil
@@ -117,7 +117,7 @@ func TestExportStream_CSV_LargeDataset(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 	require.NoError(t, err)
 
 	// Parse CSV and verify
@@ -135,15 +135,15 @@ func TestExportStream_CSV_LargeDataset(t *testing.T) {
 func TestExportStream_CSV_Cancellation(t *testing.T) {
 	// Create mock service that simulates slow responses
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 			// Simulate some work
 			select {
 			case <-time.After(10 * time.Millisecond):
-				telegrams := make([]persistence.Telegram, ChunkSize)
+				telegrams := make([]domain.Telegram, ChunkSize)
 				for i := 0; i < ChunkSize; i++ {
-					telegrams[i] = persistence.Telegram{
+					telegrams[i] = domain.Telegram{
 						MessageID:    "TEST-" + string(rune('0'+i)),
-						Type:         "aftn",
+						Type:         "AFTN",
 						Time:         time.Now(),
 						FlightNumber: "CA123",
 						Source:       "ZBAA",
@@ -152,7 +152,7 @@ func TestExportStream_CSV_Cancellation(t *testing.T) {
 						Content:      "Test content",
 					}
 				}
-				return &persistence.SearchResult{
+				return &domain.SearchResult{
 					Telegrams: telegrams,
 					Total:     10000,
 				}, nil
@@ -169,7 +169,7 @@ func TestExportStream_CSV_Cancellation(t *testing.T) {
 	defer cancel()
 
 	var buf bytes.Buffer
-	err := service.ExportStream(ctx, persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(ctx, domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 
 	// Should return context cancellation error
 	require.Error(t, err)
@@ -179,7 +179,7 @@ func TestExportStream_CSV_Cancellation(t *testing.T) {
 func TestExportStream_CSV_SearchError(t *testing.T) {
 	// Create mock service that returns error
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 			return nil, errors.New("search failed")
 		},
 	}
@@ -187,7 +187,7 @@ func TestExportStream_CSV_SearchError(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "search chunk")
@@ -197,14 +197,14 @@ func TestExportStream_CSV_MaxExportLimit(t *testing.T) {
 	// Create mock service that always returns full chunks
 	callCount := 0
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
 			callCount++
 			// Always return full chunks to simulate more data available
-			telegrams := make([]persistence.Telegram, ChunkSize)
+			telegrams := make([]domain.Telegram, ChunkSize)
 			for i := 0; i < ChunkSize; i++ {
-				telegrams[i] = persistence.Telegram{
+				telegrams[i] = domain.Telegram{
 					MessageID:    "TEST-" + string(rune('0'+i)),
-					Type:         "aftn",
+					Type:         "AFTN",
 					Time:         time.Now(),
 					FlightNumber: "CA123",
 					Source:       "ZBAA",
@@ -213,7 +213,7 @@ func TestExportStream_CSV_MaxExportLimit(t *testing.T) {
 					Content:      "Test content",
 				}
 			}
-			return &persistence.SearchResult{
+			return &domain.SearchResult{
 				Telegrams: telegrams,
 				Total:     50000, // More than MaxExportLimit
 			}, nil
@@ -223,7 +223,7 @@ func TestExportStream_CSV_MaxExportLimit(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 	require.NoError(t, err)
 
 	// Parse CSV and verify
@@ -244,7 +244,7 @@ func TestExportStream_UnsupportedFormat(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormat("unknown"), &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormat("unknown"), &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported export format")
@@ -253,9 +253,9 @@ func TestExportStream_UnsupportedFormat(t *testing.T) {
 func TestExportStream_CSV_EmptyResult(t *testing.T) {
 	// Create mock service that returns no data
 	mockService := &mockSearchService{
-		searchFunc: func(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
-			return &persistence.SearchResult{
-				Telegrams: []persistence.Telegram{},
+		searchFunc: func(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+			return &domain.SearchResult{
+				Telegrams: []domain.Telegram{},
 				Total:     0,
 			}, nil
 		},
@@ -264,7 +264,7 @@ func TestExportStream_CSV_EmptyResult(t *testing.T) {
 	service := NewService(mockService, zaptest.NewLogger(t))
 
 	var buf bytes.Buffer
-	err := service.ExportStream(context.Background(), persistence.SearchFilter{}, persistence.ExportFormatCSV, &buf)
+	err := service.ExportStream(context.Background(), domain.SearchFilter{}, domain.ExportFormatCSV, &buf)
 	require.NoError(t, err)
 
 	// Should only have header

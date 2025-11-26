@@ -135,10 +135,10 @@
           class="w-full rounded-lg bg-gradient-to-r from-slate-50 to-slate-100/50 px-4 py-3 text-sm text-slate-900 border-0 focus:bg-white/95 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:shadow-lg focus:shadow-brand-500/20 transition-all duration-300 shadow-sm hover:shadow-md input-focus-glow"
         >
           <option value="">Any</option>
-          <option value="aftn">AFTN</option>
-          <option value="sita">SITA</option>
-          <option value="acars">ACARS</option>
-          <option value="cpdlc">CPDLC</option>
+          <option value="AFTN">AFTN</option>
+          <option value="SITA">SITA</option>
+          <option value="ACARS">ACARS</option>
+          <option value="CPDLC">CPDLC</option>
         </select>
       </div>
       <div>

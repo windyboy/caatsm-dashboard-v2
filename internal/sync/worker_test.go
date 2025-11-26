@@ -28,7 +28,7 @@ func TestWorker_Handle(t *testing.T) {
 			name: "valid telegram - success",
 			telegram: &persistence.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -38,7 +38,7 @@ func TestWorker_Handle(t *testing.T) {
 			name: "invalid telegram - empty message_id",
 			telegram: &persistence.Telegram{
 				MessageID: "",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -49,7 +49,7 @@ func TestWorker_Handle(t *testing.T) {
 			name: "service error - app failure",
 			telegram: &persistence.Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},

@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/windy/caatsm-dashboard/internal/application"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 )
 
-var _ application.QueryService = (*QueryServiceMock)(nil)
+// QueryServiceMock implements QueryService interface
+// (interface check removed to avoid import cycle with internal/application)
 
 // QueryServiceMock is a mock implementation of application.QueryService
 type QueryServiceMock struct {
@@ -33,4 +33,3 @@ func (m *QueryServiceMock) Recent(ctx context.Context, limit int) ([]*domain.Tel
 	}
 	return args.Get(0).([]*domain.Telegram), args.Error(1)
 }
-

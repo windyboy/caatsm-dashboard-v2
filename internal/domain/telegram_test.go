@@ -19,7 +19,7 @@ func TestTelegram_Validate(t *testing.T) {
 			name: "valid telegram",
 			telegram: Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -29,7 +29,7 @@ func TestTelegram_Validate(t *testing.T) {
 			name: "empty message_id",
 			telegram: Telegram{
 				MessageID: "",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  2,
 			},
@@ -40,7 +40,7 @@ func TestTelegram_Validate(t *testing.T) {
 			name: "zero time",
 			telegram: Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Time{},
 				Priority:  2,
 			},
@@ -62,7 +62,7 @@ func TestTelegram_Validate(t *testing.T) {
 			name: "priority too low",
 			telegram: Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  0,
 			},
@@ -73,7 +73,7 @@ func TestTelegram_Validate(t *testing.T) {
 			name: "priority too high",
 			telegram: Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  4,
 			},
@@ -124,7 +124,7 @@ func TestTelegram_IsHighPriority(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tg := Telegram{
 				MessageID: "TEST-001",
-				Type:      "aftn",
+				Type:      "AFTN",
 				Time:      time.Now(),
 				Priority:  tt.priority,
 			}
@@ -196,7 +196,10 @@ func TestTelegram_Normalize(t *testing.T) {
 	// Normalize should not panic
 	tg.Normalize()
 
-	// Verify the telegram still has the same structure
+	// Verify the telegram has been normalized (uppercase fields)
 	assert.Equal(t, "TEST-001", tg.MessageID)
-	assert.Equal(t, "test123", tg.FlightNumber)
+	assert.Equal(t, "TEST123", tg.FlightNumber) // Normalize() uppercases flight numbers
+	assert.Equal(t, "ZBAA", tg.Source)           // Normalize() uppercases ICAO codes
+	assert.Equal(t, "ZSPD", tg.Destination)      // Normalize() uppercases ICAO codes
+	assert.Equal(t, "test content", tg.Content)  // Normalize() trims whitespace
 }

@@ -49,7 +49,7 @@ func TestRedisEventBus_Publish(t *testing.T) {
 		eventType := "telegram_processed"
 		data := map[string]interface{}{
 			"telegram_id": "TEST-001",
-			"type":        "aftn",
+			"type":        "AFTN",
 		}
 
 		eventData := map[string]interface{}{

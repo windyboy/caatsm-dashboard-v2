@@ -16,10 +16,11 @@ func TestValidator_ValidateType(t *testing.T) {
 		ttype string
 		want  bool
 	}{
-		{"valid aftn", "aftn", true},
-		{"valid sita", "sita", true},
-		{"valid acars", "acars", true},
-		{"valid cpdlc", "cpdlc", true},
+		{"valid AFTN", "AFTN", true},
+		{"valid SITA", "SITA", true},
+		{"valid ACARS", "ACARS", true},
+		{"valid CPDLC", "CPDLC", true},
+		{"lowercase aftn", "aftn", false},
 		{"invalid type", "invalid", false},
 		{"empty type", "", false},
 	}

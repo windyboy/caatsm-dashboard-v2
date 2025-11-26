@@ -8,7 +8,7 @@ import (
 	"time"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/repository/cache"
 	"go.uber.org/zap"
@@ -38,20 +38,29 @@ func NewService(
 }
 
 // Search performs a search query using Meilisearch.
-func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (*persistence.SearchResult, error) {
-	// Check cache first
+func (s *Service) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+	// Validate filter constraints
+	if err := validateSearchFilter(filter); err != nil {
+		return nil, fmt.Errorf("invalid search filter: %w", err)
+	}
+
+	// Check cache first (if cache is available)
 	cacheKey := s.buildCacheKey(filter)
-	cached, err := s.cache.Get(ctx, cacheKey)
-	if err == nil {
+	var cached []byte
+	var err error
+	if s.cache != nil {
+		cached, err = s.cache.Get(ctx, cacheKey)
+	}
+	if s.cache != nil && err == nil && cached != nil {
 		// Cache hit - deserialize and return cached result
-		var cachedResult persistence.SearchResult
+		var cachedResult domain.SearchResult
 		if err := json.Unmarshal(cached, &cachedResult); err == nil {
 			s.logger.Debug("cache hit", zap.String("key", cacheKey))
 			return &cachedResult, nil
 		}
 		// If deserialization fails, log warning and continue to fresh query
 		s.logger.Warn("cache deserialization failed", zap.String("key", cacheKey), zap.Error(err))
-	} else {
+	} else if s.cache != nil {
 		s.logger.Debug("cache miss", zap.String("key", cacheKey))
 	}
 
@@ -59,13 +68,14 @@ func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (
 	var filterParts []string
 
 	if len(filter.Type) > 0 {
-		typeFilters := make([]string, len(filter.Type))
-		for i, t := range filter.Type {
+		typeFilters := make([]string, 0, len(filter.Type))
+		for _, t := range filter.Type {
 			// Validate and sanitize type value
 			if strings.ContainsAny(t, `"=()[]{}`) {
+				s.logger.Warn("invalid characters in type filter", zap.String("type", t))
 				continue // Skip invalid characters
 			}
-			typeFilters[i] = fmt.Sprintf("type = %q", t)
+			typeFilters = append(typeFilters, fmt.Sprintf("type = %q", t))
 		}
 		if len(typeFilters) > 0 {
 			filterParts = append(filterParts, "("+strings.Join(typeFilters, " OR ")+")")
@@ -73,13 +83,14 @@ func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (
 	}
 
 	if len(filter.Source) > 0 {
-		sourceFilters := make([]string, len(filter.Source))
-		for i, src := range filter.Source {
+		sourceFilters := make([]string, 0, len(filter.Source))
+		for _, src := range filter.Source {
 			// Validate and sanitize source value
 			if strings.ContainsAny(src, `"=()[]{}`) {
+				s.logger.Warn("invalid characters in source filter", zap.String("source", src))
 				continue // Skip invalid characters
 			}
-			sourceFilters[i] = fmt.Sprintf("source = %q", src)
+			sourceFilters = append(sourceFilters, fmt.Sprintf("source = %q", src))
 		}
 		if len(sourceFilters) > 0 {
 			filterParts = append(filterParts, "("+strings.Join(sourceFilters, " OR ")+")")
@@ -87,13 +98,14 @@ func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (
 	}
 
 	if len(filter.Destination) > 0 {
-		destFilters := make([]string, len(filter.Destination))
-		for i, dst := range filter.Destination {
+		destFilters := make([]string, 0, len(filter.Destination))
+		for _, dst := range filter.Destination {
 			// Validate and sanitize destination value
 			if strings.ContainsAny(dst, `"=()[]{}`) {
+				s.logger.Warn("invalid characters in destination filter", zap.String("destination", dst))
 				continue // Skip invalid characters
 			}
-			destFilters[i] = fmt.Sprintf("destination = %q", dst)
+			destFilters = append(destFilters, fmt.Sprintf("destination = %q", dst))
 		}
 		if len(destFilters) > 0 {
 			filterParts = append(filterParts, "("+strings.Join(destFilters, " OR ")+")")
@@ -153,9 +165,9 @@ func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (
 	}
 
 	// Convert Meilisearch results to our model
-	telegrams := make([]persistence.Telegram, 0, len(meiliResult.Hits))
+	telegrams := make([]domain.Telegram, 0, len(meiliResult.Hits))
 	for _, hit := range meiliResult.Hits {
-		var telegram persistence.Telegram
+		var telegram domain.Telegram
 		// Parse hit into telegram struct using JSON marshaling
 		hitBytes, err := json.Marshal(hit)
 		if err != nil {
@@ -210,22 +222,24 @@ func (s *Service) Search(ctx context.Context, filter persistence.SearchFilter) (
 		total = int64(len(telegrams))
 	}
 
-	searchResult := &persistence.SearchResult{
+	searchResult := &domain.SearchResult{
 		Telegrams: telegrams,
 		Total:     total,
 		Page:      filter.Page,
 	}
 
-	// Cache result
-	if resultBytes, err := json.Marshal(searchResult); err == nil {
-		if err := s.cache.Set(ctx, cacheKey, resultBytes); err != nil {
-			// Log error but don't fail the request
-			s.logger.Warn("failed to cache result", zap.String("key", cacheKey), zap.Error(err))
+	// Cache result (if cache is available)
+	if s.cache != nil {
+		if resultBytes, err := json.Marshal(searchResult); err == nil {
+			if err := s.cache.Set(ctx, cacheKey, resultBytes); err != nil {
+				// Log error but don't fail the request
+				s.logger.Warn("failed to cache result", zap.String("key", cacheKey), zap.Error(err))
+			} else {
+				s.logger.Debug("cached result", zap.String("key", cacheKey))
+			}
 		} else {
-			s.logger.Debug("cached result", zap.String("key", cacheKey))
+			s.logger.Warn("failed to marshal result for caching", zap.Error(err))
 		}
-	} else {
-		s.logger.Warn("failed to marshal result for caching", zap.Error(err))
 	}
 
 	return searchResult, nil
@@ -291,7 +305,7 @@ func (s *Service) Autocomplete(ctx context.Context, term string, size int) ([]st
 }
 
 // buildCacheKey generates a deterministic cache key from search filter parameters.
-func (s *Service) buildCacheKey(filter persistence.SearchFilter) string {
+func (s *Service) buildCacheKey(filter domain.SearchFilter) string {
 	// Build deterministic cache key from all filter parameters
 	key := fmt.Sprintf("search:%s", filter.Query)
 
@@ -326,5 +340,20 @@ func (s *Service) buildCacheKey(filter persistence.SearchFilter) string {
 	}
 
 	return key
+}
+
+// validateSearchFilter validates filter constraints at application layer
+func validateSearchFilter(filter domain.SearchFilter) error {
+	if !filter.TimeRange.Start.IsZero() && !filter.TimeRange.End.IsZero() {
+		duration := filter.TimeRange.End.Sub(filter.TimeRange.Start)
+		maxDuration := 90 * 24 * time.Hour
+		if duration > maxDuration {
+			return fmt.Errorf("time range cannot exceed 90 days")
+		}
+		if filter.TimeRange.End.Before(filter.TimeRange.Start) {
+			return fmt.Errorf("end time must be after start time")
+		}
+	}
+	return nil
 }
 

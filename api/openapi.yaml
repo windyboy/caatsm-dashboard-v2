@@ -53,9 +53,9 @@ components:
           example: "MSG-20241126-001"
         type:
           type: string
-          enum: [aftn, sita, acars, cpdlc]
+          enum: [AFTN, SITA, ACARS, CPDLC]
           description: Telegram message type
-          example: "aftn"
+          example: "AFTN"
         time:
           type: string
           format: date-time
@@ -156,10 +156,10 @@ components:
           additionalProperties:
             type: integer
           example:
-            "aftn": 10000
-            "sita": 3000
-            "acars": 1500
-            "cpdlc": 500
+            "AFTN": 10000
+            "SITA": 3000
+            "ACARS": 1500
+            "CPDLC": 500
     
     AutocompleteResult:
       type: object
@@ -271,7 +271,7 @@ paths:
           description: Filter by telegram type
           schema:
             type: string
-            enum: [aftn, sita, acars, cpdlc]
+            enum: [AFTN, SITA, ACARS, CPDLC]
         - name: source
           in: query
           description: Filter by source airport (ICAO code)
@@ -445,7 +445,7 @@ paths:
           description: Filter by telegram type
           schema:
             type: string
-            enum: [aftn, sita, acars, cpdlc]
+            enum: [AFTN, SITA, ACARS, CPDLC]
         - name: source
           in: query
           description: Filter by source airport (ICAO code)
