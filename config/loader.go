@@ -105,4 +105,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.username", "")
 	v.SetDefault("auth.password", "")
 	v.SetDefault("auth.jwt_secret", "")
+
+	v.SetDefault("websocket.allowed_origins", []string{"http://localhost:3000", "http://localhost:5173"})
 }

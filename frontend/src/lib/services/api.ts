@@ -1,6 +1,6 @@
 // REST API client for Go backend
 
-import type { SearchResult } from "../utils/types.ts";
+import type { SearchResult } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
 

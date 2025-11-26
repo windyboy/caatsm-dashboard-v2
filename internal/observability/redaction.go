@@ -44,8 +44,6 @@ func RedactTelegramContent(content string, policy RedactionPolicy) string {
 
 	redacted := content
 
-	redacted := content
-
 	// Redact emails
 	if policy.RedactEmails {
 		redacted = emailRegex.ReplaceAllString(redacted, "[EMAIL_REDACTED]")
@@ -65,23 +63,6 @@ func RedactTelegramContent(content string, policy RedactionPolicy) string {
 	// Truncate to max length after redaction
 	if policy.MaxContentLength > 0 && len(redacted) > policy.MaxContentLength {
 		redacted = redacted[:policy.MaxContentLength] + "...[REDACTED]"
-	}
-	}
-
-	// Redact emails
-	if policy.RedactEmails {
-		redacted = emailRegex.ReplaceAllString(redacted, "[EMAIL_REDACTED]")
-	}
-
-	// Redact IP addresses
-	if policy.RedactIPs {
-		redacted = ipv4Regex.ReplaceAllString(redacted, "[IP_REDACTED]")
-		redacted = ipv6Regex.ReplaceAllString(redacted, "[IPv6_REDACTED]")
-	}
-
-	// Redact phone numbers
-	if policy.RedactPhones {
-		redacted = phoneRegex.ReplaceAllString(redacted, "[PHONE_REDACTED]")
 	}
 
 	return redacted

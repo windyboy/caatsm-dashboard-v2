@@ -58,3 +58,5 @@ service_name = "caatsm-dashboard"
 otlp_endpoint = "localhost:4318"
 sampling_ratio = 1.0
 
+[websocket]
+allowed_origins = ["http://localhost:3000", "http://localhost:5173"]

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -20,17 +19,6 @@ const (
 	maxMessageSize = 512
 )
 
-// In production, configure allowed origins from environment/config
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// TODO: Replace with production-safe origin validation
-		// Example: return r.Header.Get("Origin") == "https://your-domain.com"
-		return true // SECURITY: Only safe for development
-	},
-}
-
 // WebSocketMessage represents a WebSocket message sent to clients.
 type WebSocketMessage struct {
 	Type string `json:"type"`
@@ -41,20 +29,29 @@ type WebSocketMessage struct {
 type SimpleHandler struct {
 	container   *app.Container
 	broadcaster *EventBroadcaster
+	upgrader    websocket.Upgrader
 }
 
 // NewSimpleHandler creates a new simple WebSocket handler.
-func NewSimpleHandler(container *app.Container, broadcaster *EventBroadcaster) *SimpleHandler {
+func NewSimpleHandler(container *app.Container, broadcaster *EventBroadcaster, allowedOrigins []string) *SimpleHandler {
+	// Prepare allowed origins: trim whitespace and filter empty entries
+	origins := prepareAllowedOrigins(allowedOrigins)
+
 	return &SimpleHandler{
 		container:   container,
 		broadcaster: broadcaster,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin:     makeCheckOriginFunc(origins),
+		},
 	}
 }
 
 // HandleWebSocket handles WebSocket connections for real-time updates.
 func (h *SimpleHandler) HandleWebSocket(c echo.Context) error {
 	// Upgrade HTTP connection to WebSocket
-	ws, err := wsUpgrader.Upgrade(c.Response(), c.Request(), nil)
+	ws, err := h.upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		h.container.Logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
@@ -140,7 +137,7 @@ func (h *SimpleHandler) HandleWebSocket(c echo.Context) error {
 
 // sendInitialStats sends initial statistics to the WebSocket client.
 func (h *SimpleHandler) sendInitialStats(ctx context.Context, ws *websocket.Conn) error {
-	window := persistence.TimeWindow{}
+	window := domain.TimeWindow{}
 	summary, err := h.container.StatsServiceV2.TrafficSummary(ctx, window)
 	if err != nil {
 		return fmt.Errorf("get traffic summary: %w", err)
@@ -281,7 +278,7 @@ func (h *SimpleHandler) handleBroadcastEvent(ctx context.Context, ws *websocket.
 	}
 
 	// Always update stats when we receive any event
-	window := persistence.TimeWindow{}
+	window := domain.TimeWindow{}
 	summary, err := h.container.StatsServiceV2.TrafficSummary(ctx, window)
 	if err != nil {
 		h.container.Logger.Warn("failed to get traffic summary", zap.Error(err))

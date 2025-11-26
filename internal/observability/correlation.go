@@ -3,8 +3,11 @@ package observability
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 )
 
 // CorrelationIDMiddleware enhances requests with correlation IDs that flow through all layers.
@@ -40,9 +43,31 @@ func CorrelationIDMiddleware() echo.MiddlewareFunc {
 }
 
 // generateCorrelationID creates a unique correlation ID.
+// It uses crypto/rand for secure random generation, with a time-based fallback
+// if the random source is unavailable.
 func generateCorrelationID() string {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	n, err := rand.Read(b)
+	if err != nil {
+		// Log the error for observability
+		logger, _ := zap.NewProduction()
+		if logger != nil {
+			logger.Error("crypto/rand failed, using time-based fallback for correlation ID",
+				zap.Error(err),
+				zap.Int("bytes_read", n))
+			defer logger.Sync()
+		}
+
+		// Fallback: use time-based ID to ensure uniqueness
+		// Combine timestamp with any partial bytes read
+		timestamp := time.Now().UnixNano()
+		if n > 0 {
+			// Mix partial random bytes with timestamp for better uniqueness
+			return fmt.Sprintf("%016x-%s", timestamp, hex.EncodeToString(b[:n]))
+		}
+		// Pure time-based fallback if no bytes were read
+		return fmt.Sprintf("%016x", timestamp)
+	}
 	return hex.EncodeToString(b)
 }
 

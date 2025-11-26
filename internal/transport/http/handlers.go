@@ -12,6 +12,7 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/application/export"
 	"github.com/windy/caatsm-dashboard/internal/application/search"
 	"github.com/windy/caatsm-dashboard/internal/application/stats"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 )
@@ -106,13 +107,13 @@ func Register(e *echo.Echo, h *Handler) {
 // @Router /search [get]
 func (h *Handler) Search(ctx echo.Context) error {
 	filter := persistence.SearchFilter{
-		Query: sanitizeQuery(ctx.FormValue("query")),
+		Query: sanitizeQuery(ctx.QueryParam("query")),
 		Page: persistence.Pagination{
 			Limit:  DefaultPageLimit,
 			Offset: 0,
 			SortBy: "time",
 			Order:  "desc",
-		Query: sanitizeQuery(ctx.QueryParam("query")),
+		},
 	}
 
 	// Parse pagination
@@ -182,7 +183,10 @@ func (h *Handler) Search(ctx echo.Context) error {
 		}
 	}
 
-	result, err := h.searchService.Search(ctx.Request().Context(), filter)
+	// Convert persistence filter to domain filter
+	domainFilter := domain.SearchFilterToDomain(filter)
+	
+	result, err := h.searchService.Search(ctx.Request().Context(), domainFilter)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
 			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": "Search not available"})
@@ -243,7 +247,9 @@ func (h *Handler) Autocomplete(ctx echo.Context) error {
 func (h *Handler) StatsTotal(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
-	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), window)
+	// Convert to domain TimeWindow
+	domainWindow := domain.TimeWindowToDomain(window)
+	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), domainWindow)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
 			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": "Stats not available"})
@@ -267,7 +273,9 @@ func (h *Handler) StatsTotal(ctx echo.Context) error {
 func (h *Handler) StatsPriority(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
-	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), window)
+	// Convert to domain TimeWindow
+	domainWindow := domain.TimeWindowToDomain(window)
+	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), domainWindow)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
 			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": "Stats not available"})
@@ -292,7 +300,9 @@ func (h *Handler) StatsPriority(ctx echo.Context) error {
 func (h *Handler) StatsType(ctx echo.Context) error {
 	window := persistence.TimeWindow{}
 
-	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), window)
+	// Convert to domain TimeWindow
+	domainWindow := domain.TimeWindowToDomain(window)
+	summary, err := h.statsService.TrafficSummary(ctx.Request().Context(), domainWindow)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
 			return ctx.JSON(http.StatusNotImplemented, map[string]string{"error": "Stats not available"})
@@ -388,8 +398,12 @@ func (h *Handler) Export(ctx echo.Context) error {
 	ctx.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=telegrams.%s", format))
 	ctx.Response().WriteHeader(http.StatusOK)
 
+	// Convert persistence types to domain types
+	domainFilter := domain.SearchFilterToDomain(filter)
+	domainFormat := domain.ExportFormatToDomain(format)
+	
 	// Stream directly to response writer to avoid memory issues
-	if err := h.exportService.ExportStream(ctx.Request().Context(), filter, format, ctx.Response().Writer); err != nil {
+	if err := h.exportService.ExportStream(ctx.Request().Context(), domainFilter, domainFormat, ctx.Response().Writer); err != nil {
 		if errors.Is(err, repository.ErrNotImplemented) {
 			// Note: Can't change status code after WriteHeader, log error instead
 			return fmt.Errorf("export not implemented: %w", err)

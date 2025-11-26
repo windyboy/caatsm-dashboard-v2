@@ -187,10 +187,11 @@ func (s *Server) registerRoutes(broadcaster *transportws.EventBroadcaster) {
 	transporthttp.Register(s.e, transportHandlers)
 	s.logger.Info("registered HTTP handlers in transport layer")
 	
-	// Register WebSocket handler using transport layer
-	wsHandler := transportws.NewSimpleHandler(s.container, broadcaster)
+	// Register WebSocket handler using transport layer with configured allowed origins
+	wsHandler := transportws.NewSimpleHandler(s.container, broadcaster, s.cfg.WebSocket.AllowedOrigins)
 	wsHandler.Register(s.e)
-	s.logger.Info("registered WebSocket handler in transport layer")
+	s.logger.Info("registered WebSocket handler in transport layer",
+		zap.Strings("allowed_origins", s.cfg.WebSocket.AllowedOrigins))
 
 	// Serve static files from Svelte frontend build directory
 	// This should be registered last to catch all non-API routes

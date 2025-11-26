@@ -94,17 +94,11 @@ func (pm *PolicyManager) setDefaultPolicies() {
 }
 
 // GetPolicy returns the degradation policy for a component.
-// SetPolicy sets a custom degradation policy for a component.
-func (pm *PolicyManager) SetPolicy(policy DegradationPolicy) error {
-	if err := ValidatePolicy(policy); err != nil {
-		return err
-	}
-	pm.policies[policy.Component] = policy
-	pm.logger.Info("degradation policy set",
-		zap.String("component", policy.Component),
-		zap.String("action", string(policy.Action)),
-	)
-	return nil
+func (pm *PolicyManager) GetPolicy(component string) (DegradationPolicy, bool) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	policy, ok := pm.policies[component]
+	return policy, ok
 }
 
 // SetPolicy sets a custom degradation policy for a component.

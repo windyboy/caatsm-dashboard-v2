@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,26 +23,6 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		// Allow same-origin requests
-		if origin == "" {
-			return true
-		}
-		// TODO: Configure allowed origins via environment variable
-		allowedOrigins := []string{"http://localhost:3000", "https://yourdomain.com"}
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				return true
-			}
-		}
-		return false
-	},
-}
-
 // Handler wraps the WebSocket hub and provides HTTP handlers.
 type Handler struct {
 	hub          *ws.Hub
@@ -53,6 +34,7 @@ type Handler struct {
 		Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
 	}
 	redisCli redis.UniversalClient
+	upgrader websocket.Upgrader
 }
 
 // NewHandler creates a new WebSocket handler.
@@ -66,19 +48,70 @@ func NewHandler(
 		Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
 	},
 	redisCli redis.UniversalClient,
+	allowedOrigins []string,
 ) *Handler {
+	// Prepare allowed origins: trim whitespace and filter empty entries
+	origins := prepareAllowedOrigins(allowedOrigins)
+
 	return &Handler{
 		hub:          hub,
 		logger:       logger,
 		statsService: statsService,
 		queryService: queryService,
 		redisCli:     redisCli,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin:     makeCheckOriginFunc(origins),
+		},
+	}
+}
+
+// prepareAllowedOrigins trims whitespace and filters empty entries from the origins list.
+func prepareAllowedOrigins(origins []string) []string {
+	if len(origins) == 0 {
+		// Safe default for development
+		return []string{"http://localhost:3000", "http://localhost:5173"}
+	}
+
+	result := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	// If all entries were empty, use safe defaults
+	if len(result) == 0 {
+		return []string{"http://localhost:3000", "http://localhost:5173"}
+	}
+
+	return result
+}
+
+// makeCheckOriginFunc creates a CheckOrigin function that validates against allowed origins.
+func makeCheckOriginFunc(allowedOrigins []string) func(*http.Request) bool {
+	return func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		// Allow same-origin requests (empty Origin header)
+		if origin == "" {
+			return true
+		}
+
+		// Check against allowed origins
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+		return false
 	}
 }
 
 // HandleWebSocket handles WebSocket connections.
 func (h *Handler) HandleWebSocket(c echo.Context) error {
-	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	conn, err := h.upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		h.logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
@@ -98,7 +131,7 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 
 	// Start Redis listener if available
 	if h.redisCli != nil {
-		go h.startRedisListener()
+		go h.startRedisListener(ctx)
 	}
 
 	return nil
@@ -193,6 +226,16 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 		msg := &ws.Message{
 			Type: ws.MessageTypeMessage,
 			Data: telegramModel,
+		}
+
+		if !client.SendMessageJSON(msg) {
+			return fmt.Errorf("failed to send message: buffer full")
+		}
+	}
+
+	return nil
+}
+
 func (h *Handler) startRedisListener(ctx context.Context) {
 	if h.redisCli == nil {
 		return
@@ -224,17 +267,6 @@ func (h *Handler) startRedisListener(ctx context.Context) {
 						zap.String("channel", msg.Channel),
 						zap.Error(err))
 				}
-			}
-		}
-	}
-}
-			if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
-				// Broadcast to all clients via hub
-				h.hub.Broadcast([]byte(msg.Payload))
-			} else {
-				h.logger.Warn("ignored invalid JSON message from redis",
-					zap.String("channel", msg.Channel),
-					zap.Error(err))
 			}
 		}
 	}

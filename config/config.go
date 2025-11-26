@@ -19,6 +19,7 @@ type AppConfig struct {
 	Metrics     MetricsConfig  `mapstructure:"metrics"`
 	Auth        AuthConfig     `mapstructure:"auth"`
 	Tracing     TracingConfig  `mapstructure:"tracing"`
+	WebSocket   WebSocketConfig `mapstructure:"websocket"`
 }
 
 type ServerConfig struct {
@@ -85,6 +86,10 @@ type AuthConfig struct {
 	Username    string `mapstructure:"username"`
 	Password    string `mapstructure:"password"`
 	JWTSecret   string `mapstructure:"jwt_secret"`
+}
+
+type WebSocketConfig struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 // Validate performs sanity checks on configuration values before bootstrap.

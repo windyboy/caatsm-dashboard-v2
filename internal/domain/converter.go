@@ -39,3 +39,37 @@ func FromDomain(d *Telegram) *persistence.Telegram {
 		RawData:      d.RawData,
 	}
 }
+
+// SearchFilterToDomain converts persistence.SearchFilter to domain.SearchFilter
+func SearchFilterToDomain(p persistence.SearchFilter) SearchFilter {
+	return SearchFilter{
+		Query:       p.Query,
+		Type:        p.Type,
+		Source:      p.Source,
+		Destination: p.Destination,
+		Priority:    p.Priority,
+		TimeRange: TimeWindow{
+			Start: p.TimeRange.Start,
+			End:   p.TimeRange.End,
+		},
+		Page: Pagination{
+			Limit:  p.Page.Limit,
+			Offset: p.Page.Offset,
+			SortBy: p.Page.SortBy,
+			Order:  p.Page.Order,
+		},
+	}
+}
+
+// TimeWindowToDomain converts persistence.TimeWindow to domain.TimeWindow
+func TimeWindowToDomain(p persistence.TimeWindow) TimeWindow {
+	return TimeWindow{
+		Start: p.Start,
+		End:   p.End,
+	}
+}
+
+// ExportFormatToDomain converts persistence.ExportFormat to domain.ExportFormat
+func ExportFormatToDomain(p persistence.ExportFormat) ExportFormat {
+	return ExportFormat(p)
+}

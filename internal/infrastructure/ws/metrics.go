@@ -12,15 +12,19 @@ type HubMetrics struct {
 	totalConnections  *atomic.Int64
 	
 	// Prometheus metrics
-	messagesSent      prometheus.Counter
-	messagesBroadcast prometheus.Counter
-	messagesDropped   prometheus.Counter
+	messagesSent       prometheus.Counter
+	messagesBroadcast  prometheus.Counter
+	messagesDropped    prometheus.Counter
 	connectionRejected prometheus.Counter
+	
+	// Dedicated registry to avoid duplicate registration panics
+	registry *prometheus.Registry
 	
 	enabled bool
 }
 
-// NewHubMetrics creates a new metrics tracker.
+// NewHubMetrics creates a new metrics tracker with a dedicated Prometheus registry.
+// This avoids duplicate registration panics when creating multiple hub instances.
 func NewHubMetrics(enabled bool) *HubMetrics {
 	m := &HubMetrics{
 		activeConnections: &atomic.Int64{},
@@ -29,6 +33,9 @@ func NewHubMetrics(enabled bool) *HubMetrics {
 	}
 	
 	if enabled {
+		// Create a dedicated registry for this hub instance
+		m.registry = prometheus.NewRegistry()
+		
 		m.messagesSent = prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "websocket_messages_sent_total",
 			Help: "Total number of WebSocket messages sent",
@@ -49,7 +56,8 @@ func NewHubMetrics(enabled bool) *HubMetrics {
 			Help: "Total number of WebSocket connections rejected",
 		})
 		
-		prometheus.MustRegister(
+		// Register on the dedicated registry instead of the global registry
+		m.registry.MustRegister(
 			m.messagesSent,
 			m.messagesBroadcast,
 			m.messagesDropped,
@@ -123,5 +131,13 @@ func (m *HubMetrics) connectionRejectedInc() {
 	if m.enabled {
 		m.connectionRejected.Inc()
 	}
+}
+
+// Registry returns the dedicated Prometheus registry for this hub's metrics.
+// This registry can be used with promhttp.HandlerFor() to expose metrics over HTTP
+// or with registry.Gather() for custom metric collection.
+// Returns nil if metrics are disabled.
+func (m *HubMetrics) Registry() *prometheus.Registry {
+	return m.registry
 }
 
