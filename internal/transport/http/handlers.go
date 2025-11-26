@@ -136,12 +136,22 @@ func (h *Handler) Search(ctx echo.Context) error {
 	if sortBy := ctx.QueryParam("sort_by"); sortBy != "" {
 		filter.Page.SortBy = sortBy
 	}
+	if sortBy := ctx.QueryParam("sort_by"); sortBy != "" {
+		allowedSortFields := map[string]bool{
+			"time": true, "priority": true, "message_id": true,
+			"type": true, "flight_number": true, "source": true, "destination": true,
+		}
+		if !allowedSortFields[sortBy] {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid sort_by field")
+		}
+		filter.Page.SortBy = sortBy
+	}
 	if order := ctx.QueryParam("order"); order != "" {
+		if order != "asc" && order != "desc" {
+			return echo.NewHTTPError(http.StatusBadRequest, "order must be 'asc' or 'desc'")
+		}
 		filter.Page.Order = order
 	}
-
-	// Parse filters
-	if typeStr := ctx.QueryParam("type"); typeStr != "" {
 		filter.Type = []string{typeStr}
 	}
 	if srcStr := ctx.QueryParam("source"); srcStr != "" {
@@ -315,10 +325,15 @@ func (h *Handler) StatsType(ctx echo.Context) error {
 	})
 }
 
-// Export godoc
-// @Summary Export telegrams
-// @Description Export search results to CSV format with streaming support (handles 50k+ records without OOM)
-// @Tags export
+	format := persistence.ExportFormat(ctx.QueryParam("format"))
+	if format == "" {
+		format = persistence.ExportFormatCSV
+	}
+	if format != persistence.ExportFormatCSV && 
+	   format != persistence.ExportFormatExcel && 
+	   format != persistence.ExportFormatPDF {
+		return echo.NewHTTPError(http.StatusBadRequest, "format must be csv, xlsx, or pdf")
+	}
 // @Accept json
 // @Produce text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf
 // @Param format query string false "Export format (csv, xlsx, pdf)" default(csv)
