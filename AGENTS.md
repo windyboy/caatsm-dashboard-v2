@@ -237,7 +237,7 @@ Key environment variables (set in `.env.local` or config file):
 ## Dependencies
 
 **Backend:**
-- Go 1.21+
+- Go 1.25+
 - PostgreSQL 14+
 - Redis/Valkey 7+
 - NATS 2.10+

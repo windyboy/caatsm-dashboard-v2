@@ -411,7 +411,7 @@ View with Swagger UI or OpenAPI editors.
 ## Technology Stack
 
 **Backend**:
-- Go 1.21+
+- Go 1.25+
 - Echo v4 (HTTP framework)
 - PostgreSQL 14+ with TimescaleDB (time-series data)
 - Meilisearch 1.5+ (full-text search)

@@ -381,6 +381,109 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "production with URL-encoded password containing default username (should pass)",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port: 3000,
+				},
+				Database: DatabaseConfig{
+					// Different user with password containing "caatsm" - should pass
+					DSN: "postgres://produser:pass%40caatsm@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "production with key-value DSN format with default credentials",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port: 3000,
+				},
+				Database: DatabaseConfig{
+					// Key-value format with default credentials - should fail
+					DSN: "host=prod-db port=5432 user=caatsm password=caatsm dbname=db sslmode=disable",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: database cannot use default credentials",
+		},
+		{
+			name: "production with different username, same password (should pass)",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port: 3000,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://produser:caatsm@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "production with same username, different password (should pass)",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port: 3000,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://caatsm:securepass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

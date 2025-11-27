@@ -127,7 +127,7 @@
     bind:this={inputElement}
     {type}
     {placeholder}
-    {value}
+    bind:value={value}
     {required}
     {readonly}
     {disabled}

@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // AppConfig contains all configuration knobs for the CAATSM Dashboard.
 type AppConfig struct {
-	Environment string         `mapstructure:"environment"`
-	Server      ServerConfig   `mapstructure:"server"`
-	Logger      LoggerConfig   `mapstructure:"logger"`
-	Database    DatabaseConfig `mapstructure:"database"`
-	Meilisearch SearchConfig   `mapstructure:"meilisearch"`
-	Redis       RedisConfig    `mapstructure:"redis"`
-	NATS        NATSConfig     `mapstructure:"nats"`
-	Metrics     MetricsConfig  `mapstructure:"metrics"`
-	Auth        AuthConfig     `mapstructure:"auth"`
-	Tracing     TracingConfig  `mapstructure:"tracing"`
+	Environment string          `mapstructure:"environment"`
+	Server      ServerConfig    `mapstructure:"server"`
+	Logger      LoggerConfig    `mapstructure:"logger"`
+	Database    DatabaseConfig  `mapstructure:"database"`
+	Meilisearch SearchConfig    `mapstructure:"meilisearch"`
+	Redis       RedisConfig     `mapstructure:"redis"`
+	NATS        NATSConfig      `mapstructure:"nats"`
+	Metrics     MetricsConfig   `mapstructure:"metrics"`
+	Auth        AuthConfig      `mapstructure:"auth"`
+	Tracing     TracingConfig   `mapstructure:"tracing"`
 	WebSocket   WebSocketConfig `mapstructure:"websocket"`
 }
 
@@ -137,9 +139,9 @@ func (c *AppConfig) Validate() error {
 			errs = append(errs, errors.New("production: meilisearch.api_key cannot be default 'masterKey'"))
 		}
 
-		// Database DSN cannot contain default credentials
-		if strings.Contains(c.Database.DSN, "caatsm:caatsm@") {
-			errs = append(errs, errors.New("production: database cannot use default credentials 'caatsm:caatsm'"))
+		// Database DSN cannot contain default credentials (improved validation)
+		if err := c.validateProductionDatabaseCredentials(); err != nil {
+			errs = append(errs, err)
 		}
 
 		// JWT secret must be changed from default
@@ -153,4 +155,25 @@ func (c *AppConfig) Validate() error {
 	}
 
 	return fmt.Errorf("config validation failed: %w", errors.Join(errs...))
+}
+
+// validateProductionDatabaseCredentials ensures production doesn't use default credentials
+func (c *AppConfig) validateProductionDatabaseCredentials() error {
+	// Parse DSN to extract credentials properly
+	connConfig, err := pgconn.ParseConfig(c.Database.DSN)
+	if err != nil {
+		// If parsing fails, fall back to string check for backward compatibility
+		if strings.Contains(c.Database.DSN, "caatsm:caatsm@") {
+			return errors.New("production: database cannot use default credentials 'caatsm:caatsm'")
+		}
+		// Don't fail validation if DSN is unparseable - let connection attempt handle it
+		return nil
+	}
+
+	// Check if using default credentials
+	if connConfig.User == "caatsm" && connConfig.Password == "caatsm" {
+		return errors.New("production: database cannot use default credentials 'caatsm:caatsm'")
+	}
+
+	return nil
 }

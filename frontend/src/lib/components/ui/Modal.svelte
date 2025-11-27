@@ -14,7 +14,7 @@
 
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import type { ModalProps } from "../../types/ui";
 
   // Props with Svelte 5 $props() rune
@@ -120,14 +120,13 @@
     }
   }
 
-  function handleOpen() {
+  async function handleOpen() {
     // Store previous focus
     previousFocus = document.activeElement as HTMLElement;
 
     // Setup focus trap after modal is rendered
-    setTimeout(() => {
-      setupFocusTrap();
-    }, 100);
+    await tick();
+    setupFocusTrap();
 
     onopen?.(new Event('open'));
   }
@@ -142,9 +141,12 @@
     }
   }
 
-  function handleBackdropClick(event: MouseEvent) {
+  function handleBackdropClick(event: Event) {
     if (event.target === event.currentTarget && backdropClosable) {
-      onbackdropClick?.(event);
+      // Only invoke the callback if it's actually a MouseEvent
+      if (onbackdropClick && event instanceof MouseEvent) {
+        onbackdropClick(event);
+      }
       handleClose();
     }
   }
@@ -179,7 +181,7 @@
     class="modal modal-open" 
     role="presentation"
     onclick={handleBackdropClick}
-    onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e as any)}
+    onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e)}
   >
     <div 
       bind:this={modalElement}

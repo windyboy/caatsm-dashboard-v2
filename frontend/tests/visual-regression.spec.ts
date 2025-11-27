@@ -135,6 +135,12 @@ test.describe('Visual Regression Tests', () => {
   });
 
   test('loading states', async ({ page }) => {
+    // Intercept network requests to delay responses and capture loading state
+    await page.route('**/api/**', async (route) => {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Delay API responses by 1s
+      await route.continue();
+    });
+
     await page.goto('/search', { waitUntil: 'load' });
     
     // Trigger a search to show loading state
@@ -144,14 +150,15 @@ test.describe('Visual Regression Tests', () => {
     try {
       await searchInput.first().waitFor({ timeout: TIMEOUT });
       await searchInput.first().fill('test query');
+      await searchInput.first().press('Enter'); // Trigger search submission
       
-      // Look for loading indicators immediately after input
+      // Wait for loading indicator to appear with explicit state check
       const loadingIndicator = page.locator('[data-testid="loading"]')
         .or(page.locator('.animate-spin'))
         .or(page.locator('text="Loading"'))
         .or(page.locator('text="Searching"'));
 
-      await loadingIndicator.first().waitFor({ timeout: TIMEOUT });
+      await loadingIndicator.first().waitFor({ state: 'visible', timeout: TIMEOUT });
       await expect(page).toHaveScreenshot('loading-state.png', SCREENSHOT_OPTIONS);
     } catch (error) {
       test.skip(true, 'Search input or loading indicator not found');

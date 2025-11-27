@@ -86,7 +86,7 @@
     {@render children?.()}
   </a>
 {:else}
-  <button {type} {disabled} class={classes} onclick={handleClick}>
+  <button {type} {disabled} aria-disabled={disabled || loading} class={classes} onclick={handleClick}>
     {@render children?.()}
   </button>
 {/if}
