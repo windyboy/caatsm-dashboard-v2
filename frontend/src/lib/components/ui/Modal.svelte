@@ -14,8 +14,7 @@
 
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { fade } from "svelte/transition";
-  import Button from "./Button.svelte";
+  import { onDestroy } from "svelte";
   import type { ModalProps } from "../../types/ui";
 
   // Props with Svelte 5 $props() rune
@@ -48,6 +47,9 @@
   // Internal state
   let modalElement = $state<HTMLElement>();
   let previousFocus = $state<HTMLElement>();
+  let focusableElements = $state<HTMLElement[]>([]);
+  let firstFocusable = $state<HTMLElement>();
+  let lastFocusable = $state<HTMLElement>();
 
   // Size classes using design tokens
   const sizeClasses = {
@@ -64,13 +66,67 @@
     : "items-start justify-center pt-16");
   const customWidth = $derived(width ? `width: ${typeof width === 'number' ? `${width}px` : width};` : '');
 
+  // Get all focusable elements within the modal
+  function getFocusableElements(): HTMLElement[] {
+    if (!modalElement) return [];
+
+    const focusableSelectors = [
+      'a[href]',
+      'button:not([disabled])',
+      'textarea:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(', ');
+
+    const elements = Array.from(modalElement.querySelectorAll<HTMLElement>(focusableSelectors));
+    return elements.filter(el => {
+      // Filter out hidden or invisible elements
+      return el.offsetParent !== null && !el.hasAttribute('hidden');
+    });
+  }
+
+  // Setup focus trap
+  function setupFocusTrap() {
+    focusableElements = getFocusableElements();
+    firstFocusable = focusableElements[0];
+    lastFocusable = focusableElements[focusableElements.length - 1];
+
+    // Focus the first focusable element or modal container
+    if (firstFocusable) {
+      firstFocusable.focus();
+    } else if (modalElement) {
+      modalElement.focus();
+    }
+  }
+
+  // Handle Tab key to trap focus
+  function handleFocusTrap(event: KeyboardEvent) {
+    if (event.key !== 'Tab') return;
+    if (!firstFocusable || !lastFocusable) return;
+
+    // Shift+Tab: if on first element, jump to last
+    if (event.shiftKey) {
+      if (document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable.focus();
+      }
+    } else {
+      // Tab: if on last element, jump to first
+      if (document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
+      }
+    }
+  }
+
   function handleOpen() {
     // Store previous focus
     previousFocus = document.activeElement as HTMLElement;
 
-    // Focus modal
+    // Setup focus trap after modal is rendered
     setTimeout(() => {
-      modalElement?.focus();
+      setupFocusTrap();
     }, 100);
 
     onopen?.(new Event('open'));
@@ -103,188 +159,66 @@
   $effect(() => {
     if (open) {
       handleOpen();
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
     }
+  });
+
+  // Cleanup on component destroy
+  onDestroy(() => {
+    document.body.classList.remove('modal-open');
   });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if open}
-  <!-- Backdrop -->
-  <div
-    class="modal-backdrop"
-    transition:fade={{ duration: 200 }}
+  <!-- Daisy UI Modal -->
+  <div 
+    class="modal modal-open" 
+    role="presentation"
     onclick={handleBackdropClick}
+    onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e as any)}
   >
-    <!-- Modal container -->
-    <div
-      class="modal-container {positionClasses}"
-      transition:fade={{ duration: 200, delay: 50 }}
+    <div 
+      bind:this={modalElement}
+      class="modal-box {sizeClasses[size!]} {className}" 
+      style={customWidth}
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      onkeydown={handleFocusTrap}
     >
-      <!-- Modal content -->
-      <div
-        bind:this={modalElement}
-        class="modal-content {sizeClasses[size!]} {className}"
-        style={customWidth}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? "modal-title" : undefined}
-        tabindex="-1"
-      >
-        <!-- Header -->
-        {#if title || closable}
-          <div class="modal-header">
-            {#if title}
-              <h2 id="modal-title" class="modal-title">{title}</h2>
-            {/if}
+      <!-- Header -->
+      {#if title || closable}
+        <div class="flex items-center justify-between mb-4">
+          {#if title}
+            <h3 class="font-bold text-lg">{title}</h3>
+          {/if}
 
-            {#if closable}
-              <button
-                type="button"
-                class="modal-close"
-                onclick={handleClose}
-                aria-label="Close modal"
-              >
-                ×
-              </button>
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Body -->
-        <div class="modal-body">
-          {@render children?.()}
+          {#if closable}
+            <button
+              type="button"
+              class="btn btn-sm btn-circle btn-ghost"
+              onclick={handleClose}
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+          {/if}
         </div>
+      {/if}
 
-        <!-- Footer -->
-        {#if footer && footerSnippet}
-          <div class="modal-footer">
-            {@render footerSnippet()}
-          </div>
-        {/if}
-      </div>
+      <!-- Body -->
+      {@render children?.()}
+
+      <!-- Footer -->
+      {#if footer && footerSnippet}
+        <div class="modal-action">
+          {@render footerSnippet()}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
-
-<style>
-  .modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: 1000;
-    display: flex;
-    padding: var(--spacing-lg);
-  }
-
-  .modal-container {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    overflow-y: auto;
-  }
-
-  .modal-content {
-    background: white;
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-2xl);
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 2 * var(--spacing-lg));
-    margin: auto;
-    position: relative;
-    transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .modal-backdrop .modal-content {
-    transform: scale(1);
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--color-slate-100);
-    flex-shrink: 0;
-  }
-
-  .modal-title {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--color-slate-900);
-    margin: 0;
-  }
-
-  .modal-close {
-    background: none;
-    border: none;
-    color: var(--color-slate-400);
-    cursor: pointer;
-    font-size: 1.5rem;
-    line-height: 1;
-    padding: var(--spacing-xs);
-    border-radius: var(--radius-md);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-  }
-
-  .modal-close:hover {
-    background-color: var(--color-slate-100);
-    color: var(--color-slate-600);
-  }
-
-  .modal-body {
-    padding: var(--spacing-lg);
-    flex: 1;
-    overflow-y: auto;
-    color: var(--color-slate-700);
-  }
-
-  .modal-footer {
-    padding: var(--spacing-lg);
-    border-top: 1px solid var(--color-slate-100);
-    flex-shrink: 0;
-    display: flex;
-    gap: var(--spacing-sm);
-    justify-content: flex-end;
-  }
-
-  /* Responsive adjustments */
-  @media (max-width: 640px) {
-    .modal-backdrop {
-      padding: var(--spacing-md);
-    }
-
-    .modal-content {
-      max-height: calc(100vh - 2 * var(--spacing-md));
-    }
-
-    .modal-header,
-    .modal-body,
-    .modal-footer {
-      padding: var(--spacing-md);
-    }
-  }
-
-  /* Focus trap styles */
-  .modal-content:focus {
-    outline: none;
-  }
-
-  /* Prevent body scroll when modal is open */
-  :global(body.modal-open) {
-    overflow: hidden;
-  }
-</style>

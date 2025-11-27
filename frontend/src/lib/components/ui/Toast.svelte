@@ -48,15 +48,15 @@
     'bottom-center': 'bottom-4 left-1/2 transform -translate-x-1/2'
   };
 
-  // Variant classes using design tokens
+  // Variant classes using Daisy UI
   const variantClasses = {
-    primary: "bg-white border-brand-200 text-slate-900",
-    secondary: "bg-slate-50 border-slate-200 text-slate-700",
-    outline: "bg-transparent border-brand-500 text-brand-600",
-    ghost: "bg-white/90 border-transparent text-slate-700 backdrop-blur-sm",
-    success: "bg-success-50 border-success-200 text-success-800",
-    warning: "bg-warning-50 border-warning-200 text-warning-800",
-    danger: "bg-danger-50 border-danger-200 text-danger-800"
+    primary: "alert-info",
+    secondary: "alert",
+    outline: "alert-info",
+    ghost: "alert",
+    success: "alert-success",
+    warning: "alert-warning",
+    danger: "alert-error"
   };
 
   // Icon defaults based on variant
@@ -115,25 +115,23 @@
 {#if mounted}
   <div
     class="toast-container {positionClasses[position!]}"
-    transition:slide={{ duration: 300, axis: (position || 'top-right').includes('top') ? 'y' : 'y' }}
+    transition:slide={{ duration: 300, axis: 'y' }}
     onmouseenter={handleMouseEnter}
     onmouseleave={handleMouseLeave}
   >
-    <div class="toast-content {variantClasses[variant!]} {className}" role="alert">
+    <div class="alert {variantClasses[variant!]} {className}" role="alert">
       <!-- Icon -->
       {#if currentIcon}
-        <div class="toast-icon">
-          {currentIcon}
-        </div>
+        <span>{currentIcon}</span>
       {/if}
 
       <!-- Content -->
-      <div class="toast-body">
+      <div>
         {#if title}
-          <div class="toast-title">{title}</div>
+          <div class="font-bold">{title}</div>
         {/if}
         {#if message}
-          <div class="toast-message">{message}</div>
+          <div>{message}</div>
         {/if}
       </div>
 
@@ -141,143 +139,13 @@
       {#if dismissible}
         <button
           type="button"
-          class="toast-close"
+          class="btn btn-sm btn-circle btn-ghost"
           onclick={dismiss}
           aria-label="Dismiss toast"
         >
-          ×
+          ✕
         </button>
       {/if}
     </div>
   </div>
 {/if}
-
-<style>
-  .toast-container {
-    position: fixed;
-    z-index: 1100;
-    pointer-events: none;
-  }
-
-  .toast-content {
-    pointer-events: auto;
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
-    border: 1px solid;
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    max-width: 400px;
-    min-width: 300px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .toast-content:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-xl);
-  }
-
-  .toast-icon {
-    font-size: 1.25rem;
-    line-height: 1;
-    flex-shrink: 0;
-    margin-top: 0.125rem;
-  }
-
-  .toast-body {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .toast-title {
-    font-size: var(--text-sm);
-    font-weight: var(--font-semibold);
-    line-height: var(--leading-sm);
-    margin-bottom: var(--spacing-xs);
-  }
-
-  .toast-message {
-    font-size: var(--text-sm);
-    line-height: var(--leading-sm);
-    color: var(--color-slate-600);
-  }
-
-  .toast-close {
-    background: none;
-    border: none;
-    color: var(--color-slate-400);
-    cursor: pointer;
-    font-size: 1.25rem;
-    line-height: 1;
-    padding: var(--spacing-xs);
-    border-radius: var(--radius-md);
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-    margin-top: -0.25rem;
-    margin-right: -0.25rem;
-    width: 1.5rem;
-    height: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .toast-close:hover {
-    background-color: var(--color-slate-100);
-    color: var(--color-slate-600);
-  }
-
-  /* Variant-specific styles */
-  .toast-content.bg-success-50 {
-    border-color: var(--color-success-200);
-  }
-
-  .toast-content.bg-success-50 .toast-icon {
-    color: var(--color-success-600);
-  }
-
-  .toast-content.bg-warning-50 {
-    border-color: var(--color-warning-200);
-  }
-
-  .toast-content.bg-warning-50 .toast-icon {
-    color: var(--color-warning-600);
-  }
-
-  .toast-content.bg-danger-50 {
-    border-color: var(--color-danger-200);
-  }
-
-  .toast-content.bg-danger-50 .toast-icon {
-    color: var(--color-danger-600);
-  }
-
-  /* Animation keyframes for progress bar (future enhancement) */
-  @keyframes toast-progress {
-    from {
-      width: 100%;
-    }
-    to {
-      width: 0%;
-    }
-  }
-
-  /* Responsive adjustments */
-  @media (max-width: 640px) {
-    .toast-container {
-      left: var(--spacing-sm) !important;
-      right: var(--spacing-sm) !important;
-      top: auto !important;
-      bottom: var(--spacing-sm) !important;
-      transform: none !important;
-    }
-
-    .toast-content {
-      max-width: none;
-      min-width: auto;
-    }
-  }
-</style>

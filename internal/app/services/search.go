@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	meilisearch "github.com/meilisearch/meilisearch-go"
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
@@ -118,52 +120,69 @@ func (s *SearchService) Autocomplete(ctx context.Context, query string, limit in
 		return nil, fmt.Errorf("autocomplete search failed: %w", err)
 	}
 
-	// Extract suggestions from Meilisearch response
+	// Type assert to Meilisearch SDK's SearchResponse
+	searchResp, ok := result.(*meilisearch.SearchResponse)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse autocomplete response: expected *meilisearch.SearchResponse, got %T", result)
+	}
+
+	if searchResp.Hits == nil {
+		s.logger.Warn("autocomplete response has nil hits",
+			zap.String("query", query),
+		)
+		return []string{}, nil
+	}
+
+	// Extract suggestions from typed hits
+	seen := make(map[string]bool)
 	suggestions := make([]string, 0, limit)
-	
-	// Type assert to map structure that Meilisearch returns
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		// Extract hits from the response
-		if hits, ok := resultMap["hits"].([]interface{}); ok {
-			seen := make(map[string]bool) // Deduplicate suggestions
-			
-			for _, hit := range hits {
-				if len(suggestions) >= limit {
-					break
-				}
-				
-				hitMap, ok := hit.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				
-				// Extract values from each attribute
-				for _, attr := range attributes {
-					if val, exists := hitMap[attr]; exists && val != nil {
-						if strVal, ok := val.(string); ok && strVal != "" {
-							// Add to suggestions if not already seen
-							if !seen[strVal] {
-								suggestions = append(suggestions, strVal)
-								seen[strVal] = true
-								
-								if len(suggestions) >= limit {
-									break
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			s.logger.Warn("autocomplete response missing hits field or wrong type",
+
+	for _, hit := range searchResp.Hits {
+		if len(suggestions) >= limit {
+			break
+		}
+
+		// Decode hit into a map to access dynamic fields
+		var hitData map[string]interface{}
+		hitBytes, err := json.Marshal(hit)
+		if err != nil {
+			s.logger.Error("failed to marshal hit",
+				zap.Error(err),
 				zap.String("query", query),
 			)
+			return nil, fmt.Errorf("failed to marshal hit: %w", err)
 		}
-	} else {
-		s.logger.Warn("autocomplete response type assertion failed",
-			zap.String("query", query),
-			zap.String("result_type", fmt.Sprintf("%T", result)),
-		)
+
+		if err := json.Unmarshal(hitBytes, &hitData); err != nil {
+			s.logger.Error("failed to unmarshal hit",
+				zap.Error(err),
+				zap.String("query", query),
+			)
+			return nil, fmt.Errorf("failed to unmarshal hit: %w", err)
+		}
+
+		// Extract values from each attribute
+		for _, attr := range attributes {
+			if len(suggestions) >= limit {
+				break
+			}
+
+			val, exists := hitData[attr]
+			if !exists || val == nil {
+				continue
+			}
+
+			strVal, ok := val.(string)
+			if !ok || strVal == "" {
+				continue
+			}
+
+			// Add to suggestions if not already seen
+			if !seen[strVal] {
+				suggestions = append(suggestions, strVal)
+				seen[strVal] = true
+			}
+		}
 	}
 
 	return suggestions, nil

@@ -158,11 +158,11 @@ export const modalExample = `
   }
 </script>
 
-<Button variant="primary" on:click={openModal}>
+<Button variant="primary" onclick={openModal}>
   Open Modal
 </Button>
 
-<Modal {open} {closeModal} title="Create New Item" size="md">
+<Modal open={showModal} onclose={closeModal} title="Create New Item" size="md">
   <form class="space-y-4">
     <Input
       label="Name"

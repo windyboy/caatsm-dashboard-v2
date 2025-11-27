@@ -63,7 +63,6 @@
 <style>
   .loading-wrapper {
     position: relative;
-    display: contents;
   }
 
   .loading-overlay {

@@ -1,1 +1,8 @@
-{"mcpServers":{}}
+{"mcpServers":{
+    "svelte-mcp-local": {
+      "name": "Svelte MCP Local",
+      "command": "npx",
+      "args": ["-y", "@sveltejs/mcp"],
+      "type": "stdio"
+    }
+}}

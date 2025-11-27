@@ -1,5 +1,6 @@
 import { defineConfig } from "unocss";
 import presetWind4 from "@unocss/preset-wind4";
+import daisyui from "daisyui";
 import presetTypography from "@unocss/preset-typography";
 import transformerDirectives from "@unocss/transformer-directives";
 
@@ -12,6 +13,10 @@ export default defineConfig({
       },
     }),
     presetTypography(),
+  ],
+
+  plugins: [
+    daisyui,
   ],
 
   // 转换器

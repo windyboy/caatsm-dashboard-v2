@@ -39,8 +39,12 @@
   }: Props = $props();
 
   // Computed error state with $derived
-  const hasError = $derived(showError && (error || errorMessage !== 'An error occurred while loading this content.'));
-  const displayMessage = $derived(error instanceof Error ? error.message : (error as string) || errorMessage);
+  const hasError = $derived(showError && !!error);
+  const displayMessage = $derived(
+    error instanceof Error ? error.message : 
+    typeof error === 'string' ? error : 
+    errorMessage
+  );
 
   function handleRetry() {
     onretry?.(new Event('retry'));

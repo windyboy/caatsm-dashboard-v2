@@ -8,6 +8,8 @@
     "@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@6",
     "unocss": "npm:unocss@66",
     "unocss/vite": "npm:unocss@66/vite",
+    "daisyui": "npm:daisyui@5",
+    "@ameinhardt/unocss-preset-daisy": "npm:@ameinhardt/unocss-preset-daisy@latest",
     "vitest": "npm:vitest@1",
     "vitest/config": "npm:vitest@1/config",
     "@vitest/ui": "npm:@vitest/ui@1",

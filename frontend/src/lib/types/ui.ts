@@ -211,7 +211,7 @@ export interface ToastProps extends BaseComponentProps {
   /** Toast title */
   title?: string;
   /** Toast message */
-  message: string;
+  message?: string;
   /** Toast duration in milliseconds */
   duration?: number;
   /** Whether toast can be dismissed */
