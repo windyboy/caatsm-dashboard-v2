@@ -17,9 +17,9 @@ type NATSContainer struct {
 }
 
 // NewNATSContainer creates and starts a NATS container with JetStream enabled
-func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
+func NewNATSContainer(ctx context.Context) (result *NATSContainer, err error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "nats:2.10-alpine",
+		Image:        "nats:2.12.2-alpine",
 		ExposedPorts: []string{"4222/tcp"},
 		Cmd:          []string{"-js"}, // Enable JetStream
 		WaitingFor: wait.ForAll(
@@ -35,6 +35,16 @@ func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to start NATS container: %w", err)
 	}
+
+	// Ensure container cleanup on error after successful start
+	defer func() {
+		if err != nil && result == nil {
+			if termErr := container.Terminate(ctx); termErr != nil {
+				// Log termination error but don't override the original error
+				fmt.Printf("warning: failed to cleanup NATS container: %v\n", termErr)
+			}
+		}
+	}()
 
 	host, err := container.Host(ctx)
 	if err != nil {
@@ -54,8 +64,10 @@ func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	}, nil
 }
 
-// Connect creates a NATS connection to the container
-func (c *NATSContainer) Connect(ctx context.Context) (*nats.Conn, error) {
+// Connect creates a NATS connection to the container.
+// Note: This method does not support context-based cancellation as nats.Connect
+// does not accept a context parameter. Use nats.Conn.Close() to terminate the connection.
+func (c *NATSContainer) Connect() (*nats.Conn, error) {
 	conn, err := nats.Connect(c.URI,
 		nats.Timeout(5*time.Second),
 		nats.RetryOnFailedConnect(true),
@@ -74,4 +86,3 @@ func (c *NATSContainer) Close(ctx context.Context) error {
 	}
 	return nil
 }
-

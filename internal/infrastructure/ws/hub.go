@@ -135,10 +135,6 @@ func (h *Hub) handleRegister(client *Client) {
 		zap.String("remote_addr", client.RemoteAddr()),
 		zap.String("ip", clientIP),
 		zap.Int("total_clients", len(h.clients)))
-
-	// Start client pumps
-	go client.writePump()
-	go client.readPump()
 }
 
 // handleUnregister removes a client from the hub.
@@ -178,21 +174,19 @@ func (h *Hub) handleBroadcast(message []byte) {
 
 	dropped := 0
 	success := 0
+	var slowClients []*Client
 
 	for _, client := range clients {
 		if client.SendMessage(message) {
 			success++
 		} else {
 			dropped++
-			// If client is slow and buffer is full, consider disconnecting
+			// If client is slow and buffer is full, mark for disconnection
 			if client.IsSlow() {
-				h.logger.Warn("slow client detected, disconnecting",
+				h.logger.Warn("slow client detected, marking for disconnection",
 					zap.String("remote_addr", client.RemoteAddr()),
 					zap.Int("buffer_fill", client.BufferFillLevel()))
-				// Defer unregistration to avoid blocking in broadcast loop
-				go func(c *Client) {
-					h.unregister <- c
-				}(client)
+				slowClients = append(slowClients, client)
 			}
 		}
 	}
@@ -204,6 +198,18 @@ func (h *Hub) handleBroadcast(message []byte) {
 		h.logger.Debug("broadcast complete",
 			zap.Int("success", success),
 			zap.Int("dropped", dropped))
+	}
+
+	// Unregister slow clients with non-blocking sends to avoid deadlock
+	for _, client := range slowClients {
+		select {
+		case h.unregister <- client:
+			// Successfully queued for unregistration
+		default:
+			// Channel is full, log and skip
+			h.logger.Warn("unregister channel full, slow client not queued",
+				zap.String("remote_addr", client.RemoteAddr()))
+		}
 	}
 }
 
@@ -245,6 +251,11 @@ func (h *Hub) GetIPConnectionCount(ip string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.ipConnections[ip]
+}
+
+// Context returns the hub's context for lifecycle management.
+func (h *Hub) Context() context.Context {
+	return h.ctx
 }
 
 // Close gracefully shuts down the hub.

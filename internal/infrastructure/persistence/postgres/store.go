@@ -34,16 +34,16 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) erro
 }
 
 // Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
 	return s.oldStore.Search(ctx, filter)
 }
 
 // FindByID retrieves a telegram by its message ID.
 func (s *Store) FindByID(ctx context.Context, messageID string) (*domain.Telegram, error) {
 	// Use Search with message_id filter as a workaround until FindByID is implemented in old store
-	filter := domain.SearchFilter{
+	filter := domain.SearchFilters{
 		Query: messageID,
-		Page: domain.Pagination{
+		Pagination: domain.Pagination{
 			Limit:  1,
 			Offset: 0,
 		},
@@ -67,4 +67,3 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error) {
 	return s.oldStore.RouteStats(ctx, limit)
 }
-

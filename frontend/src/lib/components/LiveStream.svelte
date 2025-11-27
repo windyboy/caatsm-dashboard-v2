@@ -10,37 +10,37 @@
 -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { messages } from "../stores/messages";
   import { websocket } from "../stores/websocket";
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
 
+  let unsubscribe = $state<(() => void) | null>(null);
+  let container = $state<HTMLDivElement>();
 
-  let unsubscribe: (() => void) | null = null;
+  const typedMessages = $derived((Array.isArray($messages) ? $messages : []) as Telegram[]);
 
-  let container: HTMLDivElement;
-
-  $: typedMessages = (Array.isArray($messages) ? $messages : []) as Telegram[];
-
-  onMount(() => {
+  // Lifecycle with $effect
+  $effect(() => {
     websocket.connect();
 
     // Scroll to bottom when new messages arrive
     unsubscribe = messages.subscribe((msgs: Telegram[]) => {
       if (container && Array.isArray(msgs)) {
         setTimeout(() => {
-          container.scrollTop = container.scrollHeight;
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
         }, 50);
       }
     });
-  });
 
-  onDestroy(() => {
-    if (unsubscribe) {
-      unsubscribe();
-    }
-    websocket.cleanup();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      websocket.cleanup();
+    };
   });
 </script>
 
@@ -80,50 +80,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .card-glow {
-    background: rgba(252, 252, 253, 0.9);
-    backdrop-filter: blur(10px);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.04),
-      0 2px 4px rgba(0, 0, 0, 0.02),
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border: 0.5px solid rgba(226, 232, 240, 0.5);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .card-glow:hover {
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.08),
-      0 4px 8px rgba(0, 0, 0, 0.04),
-      0 0 0 0.5px rgba(0, 0, 0, 0.05),
-      inset 0 1px 0 rgba(255, 255, 255, 1);
-    border-color: rgba(203, 213, 225, 0.6);
-    transform: translateY(-1px);
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: rgba(241, 245, 249, 0.5);
-    border-radius: 10px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(203, 213, 225, 0.6);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    transition: background 0.2s ease;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.8);
-  }
-</style>

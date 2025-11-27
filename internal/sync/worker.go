@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/windy/caatsm-dashboard/internal/application"
 	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	natsrepo "github.com/windy/caatsm-dashboard/internal/repository/nats"
@@ -14,17 +14,27 @@ import (
 
 // Worker coordinates streaming telegram ingestion and indexing.
 type Worker struct {
-	consumer        repository.StreamConsumer
-	telegramService application.TelegramService
-	logger          *zap.Logger
+	consumer repository.StreamConsumer
+	store    repository.TelegramStore
+	search   repository.SearchIndex
+	eventBus event.EventBus
+	logger   *zap.Logger
 }
 
 // NewWorker creates a Worker instance.
-func NewWorker(consumer repository.StreamConsumer, telegramService application.TelegramService, logger *zap.Logger) *Worker {
+func NewWorker(
+	consumer repository.StreamConsumer,
+	store repository.TelegramStore,
+	search repository.SearchIndex,
+	eventBus event.EventBus,
+	logger *zap.Logger,
+) *Worker {
 	return &Worker{
-		consumer:        consumer,
-		telegramService: telegramService,
-		logger:          logger,
+		consumer: consumer,
+		store:    store,
+		search:   search,
+		eventBus: eventBus,
+		logger:   logger,
 	}
 }
 
@@ -48,13 +58,52 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 		return fmt.Errorf("%w: %v", ErrBadData, err)
 	}
 
-	if err := w.telegramService.SaveTelegram(ctx, domainTelegram); err != nil {
-		w.logger.Error("failed to save telegram via application service",
+	// Normalize the telegram
+	domainTelegram.Normalize()
+
+	// Save to PostgreSQL
+	if err := w.store.Save(ctx, domainTelegram); err != nil {
+		w.logger.Error("failed to save telegram",
 			zap.Error(err),
 			zap.String("message_id", telegram.MessageID),
-			zap.String("type", telegram.Type),
 		)
 		return fmt.Errorf("%w: %v", ErrAppFailure, err)
+	}
+
+	w.logger.Info("telegram saved to database",
+		zap.String("message_id", telegram.MessageID),
+		zap.String("type", telegram.Type),
+	)
+
+	// Index to Meilisearch (non-blocking - log errors but continue)
+	if err := w.search.Index(ctx, domainTelegram); err != nil {
+		w.logger.Warn("failed to index telegram",
+			zap.String("message_id", telegram.MessageID),
+			zap.Error(err),
+		)
+		// Continue - indexing failure should not block the flow
+	} else {
+		w.logger.Info("telegram indexed",
+			zap.String("message_id", telegram.MessageID),
+		)
+	}
+
+	// Publish event for real-time updates (non-blocking)
+	if w.eventBus != nil {
+		eventData := map[string]any{
+			"type":     "telegram_processed",
+			"telegram": domainTelegram,
+		}
+		if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
+			w.logger.Warn("failed to publish event",
+				zap.String("message_id", telegram.MessageID),
+				zap.Error(err),
+			)
+		} else {
+			w.logger.Debug("event published",
+				zap.String("message_id", telegram.MessageID),
+			)
+		}
 	}
 
 	w.logger.Info("successfully processed telegram",

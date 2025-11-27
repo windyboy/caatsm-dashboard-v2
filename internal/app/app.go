@@ -9,32 +9,37 @@ import (
 	meilisearch "github.com/meilisearch/meilisearch-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/application"
-	"github.com/windy/caatsm-dashboard/internal/application/export"
-	"github.com/windy/caatsm-dashboard/internal/application/health"
-	"github.com/windy/caatsm-dashboard/internal/application/search"
-	"github.com/windy/caatsm-dashboard/internal/application/stats"
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
+	"github.com/windy/caatsm-dashboard/internal/app/services"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
 	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
 	redisClient "github.com/windy/caatsm-dashboard/internal/platform/redis"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/repository/cache"
 	meiliRepo "github.com/windy/caatsm-dashboard/internal/repository/meili"
 	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 	"go.uber.org/zap"
 )
 
-// Container wires together dependencies required by handlers and background workers.
+// Container wires together dependencies for the simplified architecture
 type Container struct {
-	Config       *config.AppConfig
-	Logger       *zap.Logger
-	QueryService application.QueryService
+	Config *config.AppConfig
+	Logger *zap.Logger
 
-	// Application layer services (clean architecture)
-	SearchServiceV2 *search.Service
-	StatsServiceV2  *stats.Service
-	ExportServiceV2 *export.Service
-	HealthService   *health.Service
-	PolicyManager   *health.PolicyManager
+	// Infrastructure ports
+	Repo     ports.Repository
+	Cache    ports.Cache
+	Search   ports.SearchIndex
+	Pub      ports.EventPublisher
+	EventBus event.EventBus // Redis pub/sub for real-time updates
+
+	// Concrete repository types (for components that need direct access)
+	TelegramStore repository.TelegramStore
+	SearchIndex   repository.SearchIndex
+
+	// Application services
+	DashboardService *services.DashboardService
 
 	// Client references for health checks
 	pool     *pgxpool.Pool
@@ -67,6 +72,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 		return nil, fmt.Errorf("create redis client: %w", err)
 	}
 
+	// Initialize event bus for real-time updates
+	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
+
 	// Initialize repositories
 	store := pgstore.New(pool)
 	meiliIndex := meiliRepo.New(meiliSvc, cfg.Meilisearch.Index)
@@ -79,40 +87,28 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	// Initialize cache
 	cacheStore := cache.New(redisCli, 5*time.Minute)
 
-	// Initialize QueryService
-	queryService := application.NewQueryService(store, meiliIndex)
+	// Set infrastructure ports
+	container.Repo = store          // implements ports.Repository
+	container.Cache = cacheStore    // implements ports.Cache
+	container.Search = meiliIndex   // implements ports.SearchIndex
+	container.EventBus = eventBus   // Redis pub/sub for real-time updates
+	// Note: ports.EventPublisher not assigned (different interface signature)
 
-	// Initialize application layer services (clean architecture)
-	searchServiceV2 := search.NewService(
-		meiliIndex, // repository.SearchIndex - compatible
-		store,      // repository.TelegramStore - compatible (implements both TelegramStore and AnalyticsStore)
-		cacheStore, // cache.Store
+	// Set concrete repository types (for direct access)
+	container.TelegramStore = store     // repository.TelegramStore
+	container.SearchIndex = meiliIndex  // repository.SearchIndex
+
+	// Initialize application services
+	container.DashboardService = services.NewDashboardService(
+		services.NewSearchService(store, cacheStore, meiliIndex, nil, logger),
+		services.NewStatsService(store, cacheStore, logger),
+		services.NewExportService(
+			services.NewSearchService(store, cacheStore, meiliIndex, nil, logger),
+			logger,
+		),
+		services.NewRealtimeManager(),
 		logger,
 	)
-
-	statsServiceV2 := stats.NewService(
-		store, // repository.AnalyticsStore - store implements this
-		logger,
-	)
-
-	exportServiceV2 := export.NewService(
-		searchServiceV2, // Uses the new search service
-		logger,
-	)
-
-	// Set services
-	container.QueryService = queryService
-	container.SearchServiceV2 = searchServiceV2
-	container.StatsServiceV2 = statsServiceV2
-	container.ExportServiceV2 = exportServiceV2
-
-	// Initialize health service
-	healthService := health.NewService(pool, meiliSvc, redisCli, logger)
-	container.HealthService = healthService
-
-	// Initialize policy manager
-	policyManager := health.NewPolicyManager(logger)
-	container.PolicyManager = policyManager
 
 	// Store client references for health checks
 	container.pool = pool
@@ -153,18 +149,7 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 
 // HealthCheckInternal is the internal implementation that can be called directly.
 func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
-	// Use new health service if available, otherwise fall back to old implementation
-	if c.HealthService != nil {
-		healthResult := c.HealthService.Check(ctx)
-		return HealthCheckResult{
-			Status:      healthResult.Status,
-			PostgreSQL:  ComponentHealth{Status: string(healthResult.PostgreSQL.Status), Message: healthResult.PostgreSQL.Message},
-			Meilisearch: ComponentHealth{Status: string(healthResult.Meilisearch.Status), Message: healthResult.Meilisearch.Message},
-			Redis:       ComponentHealth{Status: string(healthResult.Redis.Status), Message: healthResult.Redis.Message},
-		}
-	}
-
-	// Fallback to old implementation
+	// Simplified health check implementation
 	result := HealthCheckResult{
 		Status: "ok",
 	}
@@ -217,4 +202,33 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 // RedisClient returns the Redis client for external use.
 func (c *Container) RedisClient() redis.UniversalClient {
 	return c.redisCli
+}
+
+// Close releases all container-managed resources.
+func (c *Container) Close() error {
+	var firstErr error
+
+	// Close database pool
+	if c.pool != nil {
+		c.Logger.Info("closing database connection pool")
+		c.pool.Close()
+		c.Logger.Info("database connection pool closed")
+	}
+
+	// Close Redis client
+	if c.redisCli != nil {
+		c.Logger.Info("closing Redis client")
+		if err := c.redisCli.Close(); err != nil {
+			c.Logger.Warn("Redis close error", zap.Error(err))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("redis close: %w", err)
+			}
+		} else {
+			c.Logger.Info("Redis client closed")
+		}
+	}
+
+	// Note: Meilisearch client doesn't have an explicit Close() method
+
+	return firstErr
 }

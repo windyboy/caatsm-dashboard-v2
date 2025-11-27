@@ -13,23 +13,27 @@
 -->
 
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
   import { autocomplete } from "../services/api";
   import { createLogger } from "../utils/logger.ts";
-
+  import type { SearchParams } from "../services/api";
 
   const logger = createLogger("SearchForm");
 
-  const dispatch = createEventDispatcher();
+  interface Props {
+    onsearch?: (detail: SearchParams) => void;
+    onreset?: () => void;
+  }
 
-  let query = "";
-  let type = "";
-  let priority = "";
-  let start_time = "";
-  let end_time = "";
-  let suggestions: string[] = [];
-  let showSuggestions = false;
-  let autocompleteTimeout: number | null = null;
+  let { onsearch, onreset }: Props = $props();
+
+  let query = $state("");
+  let type = $state("");
+  let priority = $state("");
+  let start_time = $state("");
+  let end_time = $state("");
+  let suggestions = $state<string[]>([]);
+  let showSuggestions = $state(false);
+  let autocompleteTimeout = $state<number | null>(null);
 
   async function handleAutocomplete() {
     if (autocompleteTimeout) {
@@ -59,7 +63,7 @@
   }
 
   function handleSearch() {
-    dispatch("search", {
+    onsearch?.({
       query,
       type: type || undefined,
       priority: priority ? parseInt(priority) : undefined,
@@ -86,7 +90,7 @@
       <h2 class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent">Search Telegrams</h2>
     </div>
   </div>
-  <form class="space-y-6" on:submit|preventDefault={handleSearch}>
+  <form class="space-y-6" onsubmit={(e) => { e.preventDefault(); handleSearch(); }}>
     <div>
       <label class="block text-sm font-semibold text-slate-700 mb-2.5" for="query">Keywords</label>
       <div class="relative">
@@ -94,7 +98,7 @@
           id="query"
           type="search"
           bind:value={query}
-          on:input={handleAutocomplete}
+          oninput={handleAutocomplete}
           placeholder="Flight number, message id, content..."
           class="w-full rounded-lg bg-gradient-to-r from-slate-50 to-slate-100/50 px-5 py-3 text-slate-900 border-0 placeholder:text-slate-400 focus:bg-white/95 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:shadow-lg focus:shadow-brand-500/20 transition-all duration-300 shadow-sm hover:shadow-md input-focus-glow"
         />
@@ -106,7 +110,7 @@
               <button
                 type="button"
                 class="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700"
-                on:click={() => selectSuggestion(String(suggestion))}
+                onclick={() => selectSuggestion(String(suggestion))}
               >
                 {suggestion}
               </button>
@@ -189,13 +193,14 @@
         <button
           type="button"
           class="rounded-lg bg-gradient-to-r from-slate-100/80 to-slate-200/60 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:from-slate-200/90 hover:to-slate-300/70 transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 border-0 ripple btn-hover-lift"
-          on:click|preventDefault={() => {
+          onclick={(e) => {
+            e.preventDefault();
             query = "";
             type = "";
             priority = "";
             start_time = "";
             end_time = "";
-            dispatch("reset");
+            onreset?.();
           }}
         >
          Reset

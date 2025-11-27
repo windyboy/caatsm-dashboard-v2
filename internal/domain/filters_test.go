@@ -202,3 +202,21 @@ func TestDefaultPagination(t *testing.T) {
 	assert.Equal(t, "desc", p.Order)
 }
 
+func TestSearchFilters_TimeRangeValidation(t *testing.T) {
+	// Test time range validation at domain level
+	filter := SearchFilters{
+		TimeRange: TimeWindow{
+			Start: time.Now().Add(-180 * 24 * time.Hour), // 180 days ago
+			End:   time.Now(),
+		},
+		Pagination: Pagination{
+			Limit:  50,
+			Offset: 0,
+		},
+	}
+
+	err := filter.Validate()
+	assert.Error(t, err, "filter validation should fail for > 90 day range")
+	assert.Contains(t, err.Error(), "range cannot exceed", "error should mention range limit")
+}
+

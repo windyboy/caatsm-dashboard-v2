@@ -15,40 +15,41 @@
 
 ## Architecture
 
-The CAATSM Dashboard follows **Clean Architecture** principles with clear layer separation.
+The CAATSM Dashboard follows a **Simplified Clean Architecture** with clear layer separation and minimal abstractions.
 
 ```
 ┌─────────────────────────────────────────┐
-│         Transport Layer                 │
+│         Delivery Layer                  │
 │   HTTP/WebSocket Handlers               │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
-│      Application Layer                  │
-│   Use Cases (Search, Stats, Export)     │
+│      Application Layer (app/)           │
+│   Services + Container (DI)             │
+│   (dashboard, search, stats, export)    │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
 │         Domain Layer                    │
-│   Business Logic & Domain Events        │
+│   Business Logic & Validation           │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
 │      Infrastructure Layer               │
-│   PostgreSQL, Meilisearch, Valkey, WS   │
+│   PostgreSQL, Meilisearch, Redis/Valkey │
 └─────────────────────────────────────────┘
 ```
 
-**Key Components**:
+**Key Components** (Post-Migration, Nov 2025):
 - **Frontend**: Deno + Svelte + SvelteKit (real-time dashboard via WebSocket)
-- **Transport**: HTTP REST API + WebSocket handlers (fully migrated to clean architecture)
-- **Application**: Use case services (search, stats, streaming export, health)
-- **Domain**: Business entities, events, validation rules (with time range limits)
-- **Infrastructure**: PostgreSQL, Meilisearch, Valkey cache, WebSocket hub with backpressure
+- **Delivery**: HTTP REST API + WebSocket handlers (`internal/delivery/`)
+- **App**: Unified services with Container pattern for DI (`internal/app/`)
+- **Domain**: Business entities, events, validation rules (`internal/domain/`)
+- **Infrastructure**: Repository implementations (`internal/infrastructure/`)
 
 **Data Flow**:
-- NATS JetStream → Worker → Domain Events → Handlers (Persistence, Indexing)
-- HTTP Request → Transport → Application → Domain → Infrastructure
+- NATS JetStream → Sync Worker → Repository → DB + Search Index + EventBus
+- HTTP Request → Delivery → App Services → Domain → Infrastructure
 
 **Production Features**:
 - ✅ Streaming CSV export (handles 50k+ records without OOM)
@@ -56,8 +57,12 @@ The CAATSM Dashboard follows **Clean Architecture** principles with clear layer 
 - ✅ Production config guards (prevents insecure defaults in prod)
 - ✅ Rate limiting (10 req/sec, configurable)
 - ✅ WebSocket backpressure handling (auto-disconnects slow clients)
+- ✅ Simplified architecture (legacy application layer removed Nov 2025)
 
-For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed architecture documentation, see:
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture details
+- [ARCHITECTURE_REFACTOR_README.md](ARCHITECTURE_REFACTOR_README.md) - Migration history
+- [MIGRATION_COMPLETE.md](MIGRATION_COMPLETE.md) - Latest migration summary
 
 ## Getting Started
 

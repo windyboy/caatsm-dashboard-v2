@@ -1,6 +1,9 @@
 /* UnoCSS 通过 virtual:uno.css 在 +layout.svelte 中导入 */
 /* PresetWind4 内置了 reset 样式，不需要单独导入 */
 
+/* Import design system theme variables */
+@import './lib/theme.css';
+
 /* 自定义滚动条样式 - 适配浅色主题，提升视觉质感 */
 /* Webkit 浏览器 (Chrome, Safari, Edge) */
 .scrollbar-thin::-webkit-scrollbar {
@@ -243,7 +246,9 @@
   }
 
   .skeleton {
-    @apply animate-pulse bg-slate-200 rounded;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    background-color: rgb(226, 232, 240);
+    border-radius: 0.25rem;
     background: linear-gradient(
       90deg,
       rgba(226, 232, 240, 0.6) 0%,

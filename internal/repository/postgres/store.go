@@ -118,7 +118,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) erro
 }
 
 // Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
 	var conditions []string
 	var args []any
 	argPos := 1
@@ -129,9 +129,9 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		argPos++
 	}
 
-	if len(filter.Type) > 0 {
-		placeholders := make([]string, len(filter.Type))
-		for i, t := range filter.Type {
+	if len(filter.Types) > 0 {
+		placeholders := make([]string, len(filter.Types))
+		for i, t := range filter.Types {
 			placeholders[i] = fmt.Sprintf("$%d", argPos)
 			args = append(args, t)
 			argPos++
@@ -139,9 +139,9 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		conditions = append(conditions, fmt.Sprintf("type IN (%s)", strings.Join(placeholders, ",")))
 	}
 
-	if len(filter.Source) > 0 {
-		placeholders := make([]string, len(filter.Source))
-		for i, src := range filter.Source {
+	if len(filter.Sources) > 0 {
+		placeholders := make([]string, len(filter.Sources))
+		for i, src := range filter.Sources {
 			placeholders[i] = fmt.Sprintf("$%d", argPos)
 			args = append(args, src)
 			argPos++
@@ -149,9 +149,9 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		conditions = append(conditions, fmt.Sprintf("source IN (%s)", strings.Join(placeholders, ",")))
 	}
 
-	if len(filter.Destination) > 0 {
-		placeholders := make([]string, len(filter.Destination))
-		for i, dst := range filter.Destination {
+	if len(filter.Destinations) > 0 {
+		placeholders := make([]string, len(filter.Destinations))
+		for i, dst := range filter.Destinations {
 			placeholders[i] = fmt.Sprintf("$%d", argPos)
 			args = append(args, dst)
 			argPos++
@@ -159,9 +159,9 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		conditions = append(conditions, fmt.Sprintf("destination IN (%s)", strings.Join(placeholders, ",")))
 	}
 
-	if len(filter.Priority) > 0 {
-		placeholders := make([]string, len(filter.Priority))
-		for i, p := range filter.Priority {
+	if len(filter.Priorities) > 0 {
+		placeholders := make([]string, len(filter.Priorities))
+		for i, p := range filter.Priorities {
 			placeholders[i] = fmt.Sprintf("$%d", argPos)
 			args = append(args, p)
 			argPos++
@@ -186,16 +186,16 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	limit := filter.Page.Limit
+	limit := filter.Pagination.Limit
 	if limit <= 0 {
 		limit = DefaultSearchLimit
 	}
-	offset := filter.Page.Offset
+	offset := filter.Pagination.Offset
 	if offset < 0 {
 		offset = 0
 	}
 
-	sortBy := filter.Page.SortBy
+	sortBy := filter.Pagination.SortBy
 	if sortBy == "" {
 		sortBy = "time"
 	}
@@ -213,7 +213,7 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 		sortBy = "time"
 	}
 
-	order := filter.Page.Order
+	order := filter.Pagination.Order
 	if order == "" {
 		order = "DESC"
 	}
@@ -262,7 +262,7 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 			&t.RawData,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("scan telegram row (limit: %d, offset: %d): %w", filter.Page.Limit, filter.Page.Offset, err)
+			return nil, fmt.Errorf("scan telegram row (limit: %d, offset: %d): %w", filter.Pagination.Limit, filter.Pagination.Offset, err)
 		}
 		telegrams = append(telegrams, t)
 	}
@@ -274,7 +274,7 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilter) (*domain
 	return &domain.SearchResult{
 		Telegrams: telegrams,
 		Total:     total,
-		Page:      filter.Page,
+		Page:      filter.Pagination,
 	}, nil
 }
 

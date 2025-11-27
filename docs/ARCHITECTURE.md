@@ -4,35 +4,46 @@
 
 The CAATSM Dashboard follows **Clean Architecture** principles with clear separation of concerns across layers. The architecture is designed for maintainability, testability, and scalability.
 
-**Current Status**: ✅ **Clean Architecture Migration Complete** - All legacy code removed, fully modernized architecture in production.
+**Current Status**: ✅ **Simplified Architecture Migration Complete** (Nov 27, 2025) - Legacy `internal/application/` removed, new `internal/app/` with Container pattern.
 
 ## Architecture Layers
 
-The system is organized into four main layers, with dependencies flowing inward:
+The system follows a **Simplified Clean Architecture** with clear layer separation:
 
 ```
 ┌─────────────────────────────────────────┐
-│         Transport Layer                 │
+│         Delivery Layer                  │
 │   HTTP/WebSocket Handlers               │
+│   (internal/delivery/)                  │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
-│      Application Layer                  │
-│   Use Cases & Orchestration             │
+│      Application Layer (App)            │
+│   Services + Container (DI)             │
+│   (internal/app/)                       │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
 │         Domain Layer                    │
 │   Business Logic & Entities             │
+│   (internal/domain/)                    │
 └───────────────┬─────────────────────────┘
                 │
 ┌───────────────▼─────────────────────────┐
 │      Infrastructure Layer               │
-│   External Concerns (DB, Cache, etc.)   │
+│   Repository Implementations            │
+│   (internal/infrastructure/)            │
 └─────────────────────────────────────────┘
 ```
 
-**Dependency Rule**: Dependencies point **inward**. Outer layers depend on inner layers, but inner layers never depend on outer layers.
+**Dependency Rule**: Dependencies point **inward**. Outer layers depend on inner layers, never the reverse.
+
+**Key Changes** (Nov 2025 Migration):
+- ✅ `internal/application/` → `internal/app/` (simplified)
+- ✅ `internal/transport/` → `internal/delivery/` (renamed for clarity)
+- ✅ Introduced `app.Container` for centralized dependency injection
+- ✅ Sync worker migrated to use Container pattern
+- ✅ Removed unnecessary abstraction layers
 
 ## Layer Details
 
@@ -63,33 +74,48 @@ The system is organized into four main layers, with dependencies flowing inward:
 - ✅ Input sanitization and validation
 - ✅ Whitelist-based sort field validation
 
-### 2. Application Layer (`internal/application/`)
+### 2. Application Layer (`internal/app/`) - **Simplified (Nov 2025)**
 
-**Purpose**: Use cases and orchestration. Implements business workflows.
+**Purpose**: Application services with centralized dependency injection via Container pattern.
 
 **Contains**:
-- Use case services (search, stats, export, health)
-- Port interfaces (repository interfaces)
-- Event handlers
-- Event dispatcher
+- Application services (dashboard, search, stats, export)
+- Port interfaces (repository abstractions)
+- Container for dependency injection (`app.go`)
 
 **Depends On**:
-- Domain layer (uses domain entities and events)
-- Port interfaces (depends on abstractions, not implementations)
+- Domain layer (uses domain entities and validation)
+- Port interfaces (depends on abstractions)
 
-**Key Packages**:
-- `application/search/` - Search use cases
-- `application/stats/` - Statistics use cases
-- `application/export/` - **Streaming export** use cases (handles 50k+ records without OOM)
-- `application/health/` - Health checking with NATS, WebSocket, DB, cache, search
-- `application/handlers/` - Event handlers (persistence, indexing)
-- `application/events/` - Event dispatching
-- `application/ports/` - Port interfaces (repository abstractions)
+**Key Components**:
+- `app/services/dashboard.go` - Unified dashboard service with parallel data fetching
+- `app/services/search.go` - Search service with caching
+- `app/services/stats.go` - Statistics aggregation
+- `app/services/export.go` - **Streaming export** (handles 50k+ records without OOM)
+- `app/services/realtime.go` - Real-time manager for WebSocket updates
+- `app/ports/repository.go` - Port interfaces
+- `app/app.go` - **Container** with dependency injection
+
+**Container Pattern**:
+```go
+type Container struct {
+    Config       *config.AppConfig
+    Logger       *zap.Logger
+    Repo         ports.Repository
+    Cache        ports.Cache
+    Search       ports.SearchIndex
+    EventBus     event.EventBus
+    TelegramStore repository.TelegramStore  // For direct access
+    SearchIndex   repository.SearchIndex     // For direct access
+    DashboardService *services.DashboardService
+}
+```
 
 **Production Features**:
 - ✅ Streaming CSV export with chunking (1000 records per chunk)
-- ✅ Comprehensive health checks for all dependencies
+- ✅ Comprehensive health checks via Container
 - ✅ Export limit enforcement (max 10,000 records)
+- ✅ Parallel data fetching in dashboard service
 
 ### 3. Infrastructure Layer (`internal/infrastructure/`)
 
@@ -114,40 +140,41 @@ The system is organized into four main layers, with dependencies flowing inward:
 - `infrastructure/ws/` - WebSocket hub with **backpressure control** and **slow client detection**
 - `infrastructure/resilience/` - Circuit breakers
 
-### 4. Transport Layer (`internal/transport/`)
+### 4. Delivery Layer (`internal/delivery/`) - **Renamed (Nov 2025)**
 
 **Purpose**: HTTP/WebSocket handling, request/response formatting.
 
 **Contains**:
-- HTTP handlers with OpenAPI annotations
-- WebSocket handlers
-- Request parsing with validation
+- HTTP handlers
+- WebSocket handlers with event broadcasting
+- Request parsing and validation
 - Response formatting (JSON)
 
 **Depends On**:
-- Application services (calls use cases)
+- Application services (calls `app.Container.DashboardService`)
 - No direct domain or infrastructure access
 
 **Key Packages**:
-- `transport/http/` - HTTP handlers with **rate limiting** (10 req/sec)
-- `transport/ws/` - WebSocket handler with connection management
+- `delivery/http/` - HTTP handlers with **rate limiting** (10 req/sec)
+- `delivery/ws/` - WebSocket handler with EventBroadcaster pattern
 
 **Production Features**:
-- ✅ Rate limiting middleware
-- ✅ OpenAPI 3.1 specification with Swagger annotations
-- ✅ Input validation at transport boundary
+- ✅ Rate limiting middleware (10 req/sec, configurable)
+- ✅ Input validation at delivery boundary
+- ✅ WebSocket backpressure handling
+- ✅ CORS configuration with allowed origins
 
 ## Data Flow
 
-### Request Flow
+### Request Flow (Updated Nov 2025)
 
 ```
 HTTP Request
     ↓
-Transport Layer (HTTP Handler)
+Delivery Layer (HTTP Handler)
     ↓ Parse request, validate input, rate limit
-Application Layer (Use Case Service)
-    ↓ Orchestrate business logic
+Application Layer (app.Container.DashboardService)
+    ↓ Orchestrate business logic, parallel data fetching
 Domain Layer (Domain Entity)
     ↓ Business rules, validation (max 90 days, etc.)
 Infrastructure Layer (Repository)

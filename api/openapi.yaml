@@ -9,7 +9,7 @@ info:
     Features:
     - Full-text search with Meilisearch
     - Real-time analytics and statistics
-    - Streaming CSV export (handles 50k+ records)
+    - Streaming CSV export (max 10,000 records per request)
     - Time range validation (max 90 days)
     - WebSocket real-time updates
     - Production-ready with rate limiting and security

@@ -29,7 +29,67 @@ export default defineConfig({
     // PresetWind4 使用 font 而不是 fontFamily
     // @ts-ignore - PresetWind4 使用 font 而不是 fontFamily，但类型定义可能还未更新
     font: {
-      sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+      family: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+    },
+
+    // Design System Tokens - CSS Variables for consistent theming
+    spacing: {
+      'xs': 'var(--spacing-xs, 0.25rem)',    // 4px
+      'sm': 'var(--spacing-sm, 0.5rem)',     // 8px
+      'md': 'var(--spacing-md, 0.75rem)',    // 12px
+      'lg': 'var(--spacing-lg, 1rem)',       // 16px
+      'xl': 'var(--spacing-xl, 1.25rem)',    // 20px
+      '2xl': 'var(--spacing-2xl, 1.5rem)',   // 24px
+      '3xl': 'var(--spacing-3xl, 2rem)',     // 32px
+      '4xl': 'var(--spacing-4xl, 2.5rem)',   // 40px
+      '5xl': 'var(--spacing-5xl, 3rem)',     // 48px
+      '6xl': 'var(--spacing-6xl, 4rem)',     // 64px
+    },
+
+    borderRadius: {
+      'none': 'var(--radius-none, 0)',
+      'sm': 'var(--radius-sm, 0.125rem)',    // 2px
+      'md': 'var(--radius-md, 0.375rem)',    // 6px
+      'lg': 'var(--radius-lg, 0.5rem)',      // 8px
+      'xl': 'var(--radius-xl, 0.75rem)',     // 12px
+      '2xl': 'var(--radius-2xl, 1rem)',      // 16px
+      '3xl': 'var(--radius-3xl, 1.5rem)',    // 24px
+      'full': 'var(--radius-full, 9999px)',
+    },
+
+    fontSize: {
+      'xs': ['var(--text-xs, 0.75rem)', 'var(--leading-xs, 1rem)'],       // 12px
+      'sm': ['var(--text-sm, 0.875rem)', 'var(--leading-sm, 1.25rem)'],    // 14px
+      'base': ['var(--text-base, 1rem)', 'var(--leading-base, 1.5rem)'],   // 16px
+      'lg': ['var(--text-lg, 1.125rem)', 'var(--leading-lg, 1.75rem)'],    // 18px
+      'xl': ['var(--text-xl, 1.25rem)', 'var(--leading-xl, 1.75rem)'],     // 20px
+      '2xl': ['var(--text-2xl, 1.5rem)', 'var(--leading-2xl, 2rem)'],      // 24px
+      '3xl': ['var(--text-3xl, 1.875rem)', 'var(--leading-3xl, 2.25rem)'], // 30px
+      '4xl': ['var(--text-4xl, 2.25rem)', 'var(--leading-4xl, 2.5rem)'],   // 36px
+      '5xl': ['var(--text-5xl, 3rem)', 'var(--leading-5xl, 1)'],           // 48px
+    },
+
+    fontWeight: {
+      'thin': 'var(--font-thin, 100)',
+      'extralight': 'var(--font-extralight, 200)',
+      'light': 'var(--font-light, 300)',
+      'normal': 'var(--font-normal, 400)',
+      'medium': 'var(--font-medium, 500)',
+      'semibold': 'var(--font-semibold, 600)',
+      'bold': 'var(--font-bold, 700)',
+      'extrabold': 'var(--font-extrabold, 800)',
+      'black': 'var(--font-black, 900)',
+    },
+
+    boxShadow: {
+      'xs': 'var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05))',
+      'sm': 'var(--shadow-sm, 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1))',
+      'md': 'var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1))',
+      'lg': 'var(--shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1))',
+      'xl': 'var(--shadow-xl, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))',
+      '2xl': 'var(--shadow-2xl, 0 25px 50px -12px rgb(0 0 0 / 0.25))',
+      'inner': 'var(--shadow-inner, inset 0 2px 4px 0 rgb(0 0 0 / 0.05))',
+      'none': 'var(--shadow-none, 0 0 #0000)',
     },
     // 扩展颜色系统 - 添加更鲜艳的配色方案
     colors: {

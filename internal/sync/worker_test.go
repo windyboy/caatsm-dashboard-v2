@@ -62,21 +62,34 @@ func TestWorker_Handle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup mocks
-			serviceMock := new(mocks.TelegramServiceMock)
+			storeMock := new(mocks.TelegramStoreMock)
+			searchMock := new(mocks.SearchIndexMock)
+			eventBusMock := new(mocks.EventBusMock)
 			logger := zaptest.NewLogger(t)
 
 			worker := &Worker{
-				telegramService: serviceMock,
-				logger:          logger,
+				store:    storeMock,
+				search:   searchMock,
+				eventBus: eventBusMock,
+				logger:   logger,
 			}
 
 			// Setup expectations
 			if !tt.expectBadData {
 				domainTelegram := domain.ToDomain(tt.telegram)
 				if domainTelegram.Validate() == nil {
-					serviceMock.On("SaveTelegram", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
+					// Expect Save call
+					storeMock.On("Save", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
 						return tg.MessageID == tt.telegram.MessageID
 					})).Return(tt.serviceError)
+
+					// Expect Index and Publish calls only if Save succeeds
+					if tt.serviceError == nil {
+						searchMock.On("Index", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
+							return tg.MessageID == tt.telegram.MessageID
+						})).Return(nil)
+						eventBusMock.On("Publish", mock.Anything, "telegram_processed", mock.Anything).Return(nil)
+					}
 				}
 			}
 
@@ -97,7 +110,11 @@ func TestWorker_Handle(t *testing.T) {
 			}
 
 			// Verify mock calls
-			serviceMock.AssertExpectations(t)
+			storeMock.AssertExpectations(t)
+			if !tt.expectError || !tt.expectAppFailure {
+				searchMock.AssertExpectations(t)
+				eventBusMock.AssertExpectations(t)
+			}
 		})
 	}
 }

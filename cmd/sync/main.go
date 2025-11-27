@@ -10,16 +10,10 @@ import (
 	"syscall"
 
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/application"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/observability"
-	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
 	natsClient "github.com/windy/caatsm-dashboard/internal/platform/nats"
-	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
-	redisClient "github.com/windy/caatsm-dashboard/internal/platform/redis"
-	"github.com/windy/caatsm-dashboard/internal/repository/meili"
 	natsrepo "github.com/windy/caatsm-dashboard/internal/repository/nats"
-	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 	"github.com/windy/caatsm-dashboard/internal/sync"
 	"go.uber.org/zap"
 )
@@ -55,44 +49,31 @@ func main() {
 
 	logger.Info("starting sync worker")
 
-	pool, err := postgresClient.NewPool(ctx, cfg.Database)
+	// Create app container with all dependencies
+	container, err := app.New(ctx, cfg, logger)
 	if err != nil {
-		logger.Fatal("connect postgres", zap.Error(err))
+		logger.Fatal("failed to create container", zap.Error(err))
 	}
-	defer pool.Close()
+	logger.Info("application container initialized")
 
-	meiliSvc, err := meiliClient.NewClient(cfg.Meilisearch)
-	if err != nil {
-		logger.Fatal("connect meilisearch", zap.Error(err))
-	}
-
-	redisCli, err := redisClient.NewClient(cfg.Redis)
-	if err != nil {
-		logger.Fatal("connect redis", zap.Error(err))
-	}
-	defer func() { _ = redisCli.Close() }()
-
+	// Initialize NATS connection (needed for streaming consumer)
 	nc, js, err := natsClient.Connect(ctx, cfg.NATS)
 	if err != nil {
 		logger.Fatal("connect nats", zap.Error(err))
 	}
 	defer nc.Close()
 
-	// Initialize repositories
-	store := pgstore.New(pool)
-	index := meili.New(meiliSvc, cfg.Meilisearch.Index)
-
-	// Initialize event bus
-	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
-
-	// Initialize application service
-	telegramService := application.NewTelegramService(store, index, eventBus, logger)
-
 	// Initialize NATS consumer
 	streamConsumer := natsrepo.New(js, cfg.NATS.Stream, cfg.NATS.Consumer)
 
-	// Create worker with application service
-	worker := sync.NewWorker(streamConsumer, telegramService, logger)
+	// Create worker with new architecture dependencies
+	worker := sync.NewWorker(
+		streamConsumer,
+		container.TelegramStore, // repository.TelegramStore
+		container.SearchIndex,   // repository.SearchIndex
+		container.EventBus,      // event.EventBus
+		logger,
+	)
 	if err := worker.Run(ctx); err != nil {
 		logger.Error("worker terminated", zap.Error(err))
 		os.Exit(1)

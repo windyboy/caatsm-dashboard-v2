@@ -10,12 +10,14 @@
   import { stats } from "../stores/stats";
   import type { StatsState } from "../stores/stats";
 
-  /** @type {string} */
-  export let title: string;
-  /** @type {"total" | "priority" | "type"} */
-  export let type: "total" | "priority" | "type";
+  interface Props {
+    title: string;
+    type: "total" | "priority" | "type";
+  }
 
-  $: statsValue = $stats as StatsState;
+  let { title, type }: Props = $props();
+
+  const statsValue = $derived($stats as StatsState);
 </script>
 
 <div

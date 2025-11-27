@@ -60,9 +60,12 @@ func RedactTelegramContent(content string, policy RedactionPolicy) string {
 		redacted = phoneRegex.ReplaceAllString(redacted, "[PHONE_REDACTED]")
 	}
 
-	// Truncate to max length after redaction
-	if policy.MaxContentLength > 0 && len(redacted) > policy.MaxContentLength {
-		redacted = redacted[:policy.MaxContentLength] + "...[REDACTED]"
+	// Truncate to max length after redaction (rune-aware to preserve UTF-8)
+	if policy.MaxContentLength > 0 {
+		runes := []rune(redacted)
+		if len(runes) > policy.MaxContentLength {
+			redacted = string(runes[:policy.MaxContentLength]) + "...[REDACTED]"
+		}
 	}
 
 	return redacted
@@ -70,23 +73,25 @@ func RedactTelegramContent(content string, policy RedactionPolicy) string {
 
 // RedactMessageID masks part of the message ID for privacy
 func RedactMessageID(messageID string) string {
-	if len(messageID) <= 8 {
+	runes := []rune(messageID)
+	if len(runes) <= 8 {
 		return messageID // Too short to redact meaningfully
 	}
 
-	// Keep first 4 and last 4 characters, mask the middle
-	return messageID[:4] + "***" + messageID[len(messageID)-4:]
+	// Keep first 4 and last 4 characters, mask the middle (rune-aware)
+	return string(runes[:4]) + "***" + string(runes[len(runes)-4:])
 }
 
 // RedactFlightNumber keeps the airline code but masks the flight number
 func RedactFlightNumber(flightNumber string) string {
-	if len(flightNumber) <= 3 {
+	runes := []rune(flightNumber)
+	if len(runes) <= 3 {
 		return flightNumber // Too short to redact meaningfully
 	}
 
-	// Assuming format like "CA1234" - keep first 2 chars (airline), mask rest
-	airline := flightNumber[:2]
-	return airline + strings.Repeat("*", len(flightNumber)-2)
+	// Assuming format like "CA1234" - keep first 2 chars (airline), mask rest (rune-aware)
+	airline := string(runes[:2])
+	return airline + strings.Repeat("*", len(runes)-2)
 }
 
 // SanitizeForLogging sanitizes a telegram for safe logging

@@ -59,10 +59,13 @@ func NewTracerProvider(cfg Config) (*TracerProvider, error) {
 	}
 
 	// Create OTLP HTTP exporter
-	client := otlptracehttp.NewClient(
+	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(cfg.OTLPEndpoint),
-		otlptracehttp.WithInsecure(), // Use TLS in production
-	)
+	}
+	if cfg.Environment == "development" {
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+	client := otlptracehttp.NewClient(opts...)
 
 	exporter, err := otlptrace.New(context.Background(), client)
 	if err != nil {
@@ -75,7 +78,7 @@ func NewTracerProvider(cfg Config) (*TracerProvider, error) {
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.ServiceVersion(cfg.ServiceVersion),
-			semconv.DeploymentEnvironment(cfg.Environment),
+			attribute.String("deployment.environment", cfg.Environment),
 		),
 	)
 	if err != nil {

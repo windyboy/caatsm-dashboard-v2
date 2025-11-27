@@ -1,0 +1,366 @@
+?   	github.com/windy/caatsm-dashboard/cmd/extract-dsn	[no test files]
+?   	github.com/windy/caatsm-dashboard/cmd/generate-test-data	[no test files]
+?   	github.com/windy/caatsm-dashboard/cmd/publish-stream	[no test files]
+?   	github.com/windy/caatsm-dashboard/cmd/server	[no test files]
+?   	github.com/windy/caatsm-dashboard/cmd/sync	[no test files]
+=== RUN   TestAppConfig_Validate_BasicValidation
+=== RUN   TestAppConfig_Validate_BasicValidation/valid_development_config
+=== RUN   TestAppConfig_Validate_BasicValidation/invalid_port
+=== RUN   TestAppConfig_Validate_BasicValidation/missing_database_DSN
+=== RUN   TestAppConfig_Validate_BasicValidation/missing_meilisearch_host
+=== RUN   TestAppConfig_Validate_BasicValidation/missing_meilisearch_API_key
+=== RUN   TestAppConfig_Validate_BasicValidation/missing_NATS_URL
+=== RUN   TestAppConfig_Validate_BasicValidation/metrics_enabled_without_path
+=== RUN   TestAppConfig_Validate_BasicValidation/basic_auth_enabled_without_credentials
+--- PASS: TestAppConfig_Validate_BasicValidation (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/valid_development_config (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/invalid_port (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/missing_database_DSN (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/missing_meilisearch_host (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/missing_meilisearch_API_key (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/missing_NATS_URL (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/metrics_enabled_without_path (0.00s)
+    --- PASS: TestAppConfig_Validate_BasicValidation/basic_auth_enabled_without_credentials (0.00s)
+=== RUN   TestAppConfig_Validate_ProductionDefaults
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_with_proper_auth
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_without_auth
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_with_default_meilisearch_key
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_with_default_database_credentials
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_with_default_JWT_secret
+=== RUN   TestAppConfig_Validate_ProductionDefaults/production_with_JWT_auth
+=== RUN   TestAppConfig_Validate_ProductionDefaults/development_with_default_credentials_(should_pass)
+--- PASS: TestAppConfig_Validate_ProductionDefaults (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_with_proper_auth (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_without_auth (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_with_default_meilisearch_key (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_with_default_database_credentials (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_with_default_JWT_secret (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/production_with_JWT_auth (0.00s)
+    --- PASS: TestAppConfig_Validate_ProductionDefaults/development_with_default_credentials_(should_pass) (0.00s)
+=== RUN   TestServerConfig
+--- PASS: TestServerConfig (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/config	0.005s
+?   	github.com/windy/caatsm-dashboard/internal/app	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/app/ports	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/app/services	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/auth	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/delivery/http	[no test files]
+=== RUN   TestPrepareAllowedOrigins
+=== RUN   TestPrepareAllowedOrigins/empty_slice_returns_defaults
+=== RUN   TestPrepareAllowedOrigins/nil_slice_returns_defaults
+=== RUN   TestPrepareAllowedOrigins/trims_whitespace
+=== RUN   TestPrepareAllowedOrigins/filters_empty_entries
+=== RUN   TestPrepareAllowedOrigins/all_empty_entries_returns_defaults
+=== RUN   TestPrepareAllowedOrigins/valid_origins_unchanged
+--- PASS: TestPrepareAllowedOrigins (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/empty_slice_returns_defaults (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/nil_slice_returns_defaults (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/trims_whitespace (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/filters_empty_entries (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/all_empty_entries_returns_defaults (0.00s)
+    --- PASS: TestPrepareAllowedOrigins/valid_origins_unchanged (0.00s)
+=== RUN   TestMakeCheckOriginFunc
+=== RUN   TestMakeCheckOriginFunc/empty_origin_header_returns_true
+=== RUN   TestMakeCheckOriginFunc/allowed_origin_returns_true
+=== RUN   TestMakeCheckOriginFunc/disallowed_origin_returns_false
+=== RUN   TestMakeCheckOriginFunc/multiple_allowed_origins
+=== RUN   TestMakeCheckOriginFunc/case_sensitive_check
+--- PASS: TestMakeCheckOriginFunc (0.00s)
+    --- PASS: TestMakeCheckOriginFunc/empty_origin_header_returns_true (0.00s)
+    --- PASS: TestMakeCheckOriginFunc/allowed_origin_returns_true (0.00s)
+    --- PASS: TestMakeCheckOriginFunc/disallowed_origin_returns_false (0.00s)
+    --- PASS: TestMakeCheckOriginFunc/multiple_allowed_origins (0.00s)
+    --- PASS: TestMakeCheckOriginFunc/case_sensitive_check (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/delivery/ws	0.006s
+=== RUN   TestToDomain
+=== RUN   TestToDomain/valid_conversion
+=== RUN   TestToDomain/nil_input
+--- PASS: TestToDomain (0.00s)
+    --- PASS: TestToDomain/valid_conversion (0.00s)
+    --- PASS: TestToDomain/nil_input (0.00s)
+=== RUN   TestFromDomain
+=== RUN   TestFromDomain/valid_conversion
+=== RUN   TestFromDomain/nil_input
+=== RUN   TestFromDomain/round_trip_conversion
+--- PASS: TestFromDomain (0.00s)
+    --- PASS: TestFromDomain/valid_conversion (0.00s)
+    --- PASS: TestFromDomain/nil_input (0.00s)
+    --- PASS: TestFromDomain/round_trip_conversion (0.00s)
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/valid_time_range_within_90_days
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exactly_90_days
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exceeds_90_days
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exceeds_90_days_by_a_lot
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/start_after_end
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/zero_time_range
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/only_start_set
+=== RUN   TestSearchFilters_Validate_TimeRangeTooLarge/only_end_set
+--- PASS: TestSearchFilters_Validate_TimeRangeTooLarge (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/valid_time_range_within_90_days (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exactly_90_days (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exceeds_90_days (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/time_range_exceeds_90_days_by_a_lot (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/start_after_end (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/zero_time_range (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/only_start_set (0.00s)
+    --- PASS: TestSearchFilters_Validate_TimeRangeTooLarge/only_end_set (0.00s)
+=== RUN   TestSearchFilters_Validate_Pagination
+=== RUN   TestSearchFilters_Validate_Pagination/valid_pagination
+=== RUN   TestSearchFilters_Validate_Pagination/negative_limit
+=== RUN   TestSearchFilters_Validate_Pagination/negative_offset
+=== RUN   TestSearchFilters_Validate_Pagination/invalid_sort_field
+=== RUN   TestSearchFilters_Validate_Pagination/valid_sort_fields
+=== RUN   TestSearchFilters_Validate_Pagination/invalid_order
+--- PASS: TestSearchFilters_Validate_Pagination (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/valid_pagination (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/negative_limit (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/negative_offset (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/invalid_sort_field (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/valid_sort_fields (0.00s)
+    --- PASS: TestSearchFilters_Validate_Pagination/invalid_order (0.00s)
+=== RUN   TestDefaultPagination
+--- PASS: TestDefaultPagination (0.00s)
+=== RUN   TestDefaultParser_Parse
+=== RUN   TestDefaultParser_Parse/valid_JSON
+=== RUN   TestDefaultParser_Parse/invalid_JSON
+--- PASS: TestDefaultParser_Parse (0.00s)
+    --- PASS: TestDefaultParser_Parse/valid_JSON (0.00s)
+    --- PASS: TestDefaultParser_Parse/invalid_JSON (0.00s)
+=== RUN   TestDefaultParser_Supports
+--- PASS: TestDefaultParser_Supports (0.00s)
+=== RUN   TestTelegram_Validate
+=== RUN   TestTelegram_Validate/valid_telegram
+=== RUN   TestTelegram_Validate/empty_message_id
+=== RUN   TestTelegram_Validate/zero_time
+=== RUN   TestTelegram_Validate/empty_type
+=== RUN   TestTelegram_Validate/priority_too_low
+=== RUN   TestTelegram_Validate/priority_too_high
+--- PASS: TestTelegram_Validate (0.00s)
+    --- PASS: TestTelegram_Validate/valid_telegram (0.00s)
+    --- PASS: TestTelegram_Validate/empty_message_id (0.00s)
+    --- PASS: TestTelegram_Validate/zero_time (0.00s)
+    --- PASS: TestTelegram_Validate/empty_type (0.00s)
+    --- PASS: TestTelegram_Validate/priority_too_low (0.00s)
+    --- PASS: TestTelegram_Validate/priority_too_high (0.00s)
+=== RUN   TestTelegram_IsHighPriority
+=== RUN   TestTelegram_IsHighPriority/priority_1_is_high
+=== RUN   TestTelegram_IsHighPriority/priority_2_is_not_high
+=== RUN   TestTelegram_IsHighPriority/priority_3_is_not_high
+--- PASS: TestTelegram_IsHighPriority (0.00s)
+    --- PASS: TestTelegram_IsHighPriority/priority_1_is_high (0.00s)
+    --- PASS: TestTelegram_IsHighPriority/priority_2_is_not_high (0.00s)
+    --- PASS: TestTelegram_IsHighPriority/priority_3_is_not_high (0.00s)
+=== RUN   TestTelegram_ExtractRoute
+=== RUN   TestTelegram_ExtractRoute/both_source_and_destination
+=== RUN   TestTelegram_ExtractRoute/only_source
+=== RUN   TestTelegram_ExtractRoute/only_destination
+=== RUN   TestTelegram_ExtractRoute/neither_source_nor_destination
+--- PASS: TestTelegram_ExtractRoute (0.00s)
+    --- PASS: TestTelegram_ExtractRoute/both_source_and_destination (0.00s)
+    --- PASS: TestTelegram_ExtractRoute/only_source (0.00s)
+    --- PASS: TestTelegram_ExtractRoute/only_destination (0.00s)
+    --- PASS: TestTelegram_ExtractRoute/neither_source_nor_destination (0.00s)
+=== RUN   TestTelegram_Normalize
+--- PASS: TestTelegram_Normalize (0.00s)
+=== RUN   TestValidator_ValidateType
+=== RUN   TestValidator_ValidateType/valid_AFTN
+=== RUN   TestValidator_ValidateType/valid_SITA
+=== RUN   TestValidator_ValidateType/valid_ACARS
+=== RUN   TestValidator_ValidateType/valid_CPDLC
+=== RUN   TestValidator_ValidateType/lowercase_aftn
+=== RUN   TestValidator_ValidateType/invalid_type
+=== RUN   TestValidator_ValidateType/empty_type
+--- PASS: TestValidator_ValidateType (0.00s)
+    --- PASS: TestValidator_ValidateType/valid_AFTN (0.00s)
+    --- PASS: TestValidator_ValidateType/valid_SITA (0.00s)
+    --- PASS: TestValidator_ValidateType/valid_ACARS (0.00s)
+    --- PASS: TestValidator_ValidateType/valid_CPDLC (0.00s)
+    --- PASS: TestValidator_ValidateType/lowercase_aftn (0.00s)
+    --- PASS: TestValidator_ValidateType/invalid_type (0.00s)
+    --- PASS: TestValidator_ValidateType/empty_type (0.00s)
+=== RUN   TestValidator_ValidatePriority
+=== RUN   TestValidator_ValidatePriority/priority_1
+=== RUN   TestValidator_ValidatePriority/priority_2
+=== RUN   TestValidator_ValidatePriority/priority_3
+=== RUN   TestValidator_ValidatePriority/priority_0
+=== RUN   TestValidator_ValidatePriority/priority_4
+=== RUN   TestValidator_ValidatePriority/negative_priority
+--- PASS: TestValidator_ValidatePriority (0.00s)
+    --- PASS: TestValidator_ValidatePriority/priority_1 (0.00s)
+    --- PASS: TestValidator_ValidatePriority/priority_2 (0.00s)
+    --- PASS: TestValidator_ValidatePriority/priority_3 (0.00s)
+    --- PASS: TestValidator_ValidatePriority/priority_0 (0.00s)
+    --- PASS: TestValidator_ValidatePriority/priority_4 (0.00s)
+    --- PASS: TestValidator_ValidatePriority/negative_priority (0.00s)
+=== RUN   TestValidator_ValidateICAOCode
+=== RUN   TestValidator_ValidateICAOCode/valid_ICAO
+=== RUN   TestValidator_ValidateICAOCode/valid_ICAO_lowercase
+=== RUN   TestValidator_ValidateICAOCode/too_short
+=== RUN   TestValidator_ValidateICAOCode/too_long
+=== RUN   TestValidator_ValidateICAOCode/contains_numbers
+=== RUN   TestValidator_ValidateICAOCode/contains_special_chars
+=== RUN   TestValidator_ValidateICAOCode/empty
+--- PASS: TestValidator_ValidateICAOCode (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/valid_ICAO (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/valid_ICAO_lowercase (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/too_short (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/too_long (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/contains_numbers (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/contains_special_chars (0.00s)
+    --- PASS: TestValidator_ValidateICAOCode/empty (0.00s)
+=== RUN   TestSearchFilters_Validate
+=== RUN   TestSearchFilters_Validate/valid_filters
+=== RUN   TestSearchFilters_Validate/negative_limit
+=== RUN   TestSearchFilters_Validate/negative_offset
+=== RUN   TestSearchFilters_Validate/invalid_sort_field
+=== RUN   TestSearchFilters_Validate/invalid_order
+=== RUN   TestSearchFilters_Validate/time_range_start_after_end
+=== RUN   TestSearchFilters_Validate/time_range_too_large
+=== RUN   TestSearchFilters_Validate/time_range_at_maximum_limit_(90_days)
+=== RUN   TestSearchFilters_Validate/time_range_within_limit_(30_days)
+--- PASS: TestSearchFilters_Validate (0.00s)
+    --- PASS: TestSearchFilters_Validate/valid_filters (0.00s)
+    --- PASS: TestSearchFilters_Validate/negative_limit (0.00s)
+    --- PASS: TestSearchFilters_Validate/negative_offset (0.00s)
+    --- PASS: TestSearchFilters_Validate/invalid_sort_field (0.00s)
+    --- PASS: TestSearchFilters_Validate/invalid_order (0.00s)
+    --- PASS: TestSearchFilters_Validate/time_range_start_after_end (0.00s)
+    --- PASS: TestSearchFilters_Validate/time_range_too_large (0.00s)
+    --- PASS: TestSearchFilters_Validate/time_range_at_maximum_limit_(90_days) (0.00s)
+    --- PASS: TestSearchFilters_Validate/time_range_within_limit_(30_days) (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/domain	0.005s
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/cache/valkey	[no test files]
+=== RUN   TestRedisEventBus_Publish
+=== RUN   TestRedisEventBus_Publish/successful_publish
+=== RUN   TestRedisEventBus_Publish/event_data_structure
+--- PASS: TestRedisEventBus_Publish (0.00s)
+    --- PASS: TestRedisEventBus_Publish/successful_publish (0.00s)
+    --- PASS: TestRedisEventBus_Publish/event_data_structure (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/infrastructure/event	0.003s
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/events	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/persistence	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/resilience	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/infrastructure/search/meilisearch	[no test files]
+=== RUN   TestNewHubMetrics
+=== RUN   TestNewHubMetrics/metrics_enabled_creates_dedicated_registry
+=== RUN   TestNewHubMetrics/metrics_disabled_does_not_create_registry
+=== RUN   TestNewHubMetrics/multiple_instances_have_separate_registries
+=== RUN   TestNewHubMetrics/metrics_can_be_gathered_from_registry
+--- PASS: TestNewHubMetrics (0.00s)
+    --- PASS: TestNewHubMetrics/metrics_enabled_creates_dedicated_registry (0.00s)
+    --- PASS: TestNewHubMetrics/metrics_disabled_does_not_create_registry (0.00s)
+    --- PASS: TestNewHubMetrics/multiple_instances_have_separate_registries (0.00s)
+    --- PASS: TestNewHubMetrics/metrics_can_be_gathered_from_registry (0.00s)
+=== RUN   TestHubMetrics_Counters
+=== RUN   TestHubMetrics_Counters/active_connections_counter
+=== RUN   TestHubMetrics_Counters/total_connections_counter
+=== RUN   TestHubMetrics_Counters/disabled_metrics_return_zero
+--- PASS: TestHubMetrics_Counters (0.00s)
+    --- PASS: TestHubMetrics_Counters/active_connections_counter (0.00s)
+    --- PASS: TestHubMetrics_Counters/total_connections_counter (0.00s)
+    --- PASS: TestHubMetrics_Counters/disabled_metrics_return_zero (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/infrastructure/ws	0.005s
+?   	github.com/windy/caatsm-dashboard/internal/metrics	[no test files]
+=== RUN   TestRedactTelegramContent
+=== RUN   TestRedactTelegramContent/truncate_long_content
+=== RUN   TestRedactTelegramContent/redact_email_addresses
+=== RUN   TestRedactTelegramContent/redact_IPv4_addresses
+=== RUN   TestRedactTelegramContent/redact_phone_numbers
+=== RUN   TestRedactTelegramContent/redact_multiple_patterns
+=== RUN   TestRedactTelegramContent/truncate_and_redact
+=== RUN   TestRedactTelegramContent/empty_content
+--- PASS: TestRedactTelegramContent (0.00s)
+    --- PASS: TestRedactTelegramContent/truncate_long_content (0.00s)
+    --- PASS: TestRedactTelegramContent/redact_email_addresses (0.00s)
+    --- PASS: TestRedactTelegramContent/redact_IPv4_addresses (0.00s)
+    --- PASS: TestRedactTelegramContent/redact_phone_numbers (0.00s)
+    --- PASS: TestRedactTelegramContent/redact_multiple_patterns (0.00s)
+    --- PASS: TestRedactTelegramContent/truncate_and_redact (0.00s)
+    --- PASS: TestRedactTelegramContent/empty_content (0.00s)
+=== RUN   TestRedactMessageID
+=== RUN   TestRedactMessageID/standard_message_ID
+=== RUN   TestRedactMessageID/short_message_ID
+=== RUN   TestRedactMessageID/long_message_ID
+--- PASS: TestRedactMessageID (0.00s)
+    --- PASS: TestRedactMessageID/standard_message_ID (0.00s)
+    --- PASS: TestRedactMessageID/short_message_ID (0.00s)
+    --- PASS: TestRedactMessageID/long_message_ID (0.00s)
+=== RUN   TestRedactFlightNumber
+=== RUN   TestRedactFlightNumber/standard_flight_number
+=== RUN   TestRedactFlightNumber/long_flight_number
+=== RUN   TestRedactFlightNumber/short_code
+=== RUN   TestRedactFlightNumber/three_char_code
+--- PASS: TestRedactFlightNumber (0.00s)
+    --- PASS: TestRedactFlightNumber/standard_flight_number (0.00s)
+    --- PASS: TestRedactFlightNumber/long_flight_number (0.00s)
+    --- PASS: TestRedactFlightNumber/short_code (0.00s)
+    --- PASS: TestRedactFlightNumber/three_char_code (0.00s)
+=== RUN   TestSanitizeForLogging
+--- PASS: TestSanitizeForLogging (0.00s)
+=== RUN   TestRedactUserIdentifiableInfo
+--- PASS: TestRedactUserIdentifiableInfo (0.00s)
+=== RUN   TestDefaultRedactionPolicy
+--- PASS: TestDefaultRedactionPolicy (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/observability	0.006s
+?   	github.com/windy/caatsm-dashboard/internal/observability/tracing	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/platform/meili	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/platform/nats	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/platform/postgres	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/platform/redis	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/repository	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/repository/cache	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/repository/meili	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/repository/nats	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/repository/postgres	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/server	[no test files]
+=== RUN   TestWorker_Handle
+=== RUN   TestWorker_Handle/valid_telegram_-_success
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	worker received telegram	{"message_id": "TEST-001", "type": "AFTN", "time": "2025-11-27T09:01:07.256+0800", "flight": "", "route": " -> "}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	telegram saved to database	{"message_id": "TEST-001", "type": "AFTN"}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	telegram indexed	{"message_id": "TEST-001"}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	DEBUG	event published	{"message_id": "TEST-001"}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	successfully processed telegram	{"message_id": "TEST-001", "type": "AFTN"}
+=== RUN   TestWorker_Handle/invalid_telegram_-_empty_message_id
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	worker received telegram	{"message_id": "", "type": "AFTN", "time": "2025-11-27T09:01:07.256+0800", "flight": "", "route": " -> "}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	WARN	invalid telegram data	{"message_id": "", "error": "invalid telegram: message_id cannot be empty"}
+=== RUN   TestWorker_Handle/service_error_-_app_failure
+    logger.go:146: 2025-11-27T09:01:07.256+0800	INFO	worker received telegram	{"message_id": "TEST-001", "type": "AFTN", "time": "2025-11-27T09:01:07.256+0800", "flight": "", "route": " -> "}
+    logger.go:146: 2025-11-27T09:01:07.256+0800	ERROR	failed to save telegram	{"error": "service error", "message_id": "TEST-001"}
+--- PASS: TestWorker_Handle (0.00s)
+    --- PASS: TestWorker_Handle/valid_telegram_-_success (0.00s)
+    --- PASS: TestWorker_Handle/invalid_telegram_-_empty_message_id (0.00s)
+    --- PASS: TestWorker_Handle/service_error_-_app_failure (0.00s)
+=== RUN   TestIsRetryableError
+=== RUN   TestIsRetryableError/ErrAppFailure_is_retryable
+=== RUN   TestIsRetryableError/ErrInfraFailure_is_retryable
+=== RUN   TestIsRetryableError/ErrBadData_is_not_retryable
+=== RUN   TestIsRetryableError/wrapped_ErrAppFailure_is_retryable
+--- PASS: TestIsRetryableError (0.00s)
+    --- PASS: TestIsRetryableError/ErrAppFailure_is_retryable (0.00s)
+    --- PASS: TestIsRetryableError/ErrInfraFailure_is_retryable (0.00s)
+    --- PASS: TestIsRetryableError/ErrBadData_is_not_retryable (0.00s)
+    --- PASS: TestIsRetryableError/wrapped_ErrAppFailure_is_retryable (0.00s)
+=== RUN   TestIsBadDataError
+=== RUN   TestIsBadDataError/ErrBadData_is_bad_data
+=== RUN   TestIsBadDataError/ErrAppFailure_is_not_bad_data
+=== RUN   TestIsBadDataError/nil_error_is_not_bad_data
+--- PASS: TestIsBadDataError (0.00s)
+    --- PASS: TestIsBadDataError/ErrBadData_is_bad_data (0.00s)
+    --- PASS: TestIsBadDataError/ErrAppFailure_is_not_bad_data (0.00s)
+    --- PASS: TestIsBadDataError/nil_error_is_not_bad_data (0.00s)
+PASS
+ok  	github.com/windy/caatsm-dashboard/internal/sync	0.004s
+?   	github.com/windy/caatsm-dashboard/internal/tasks	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/testing	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/testing/integration	[no test files]
+?   	github.com/windy/caatsm-dashboard/internal/testing/mocks	[no test files]
+?   	github.com/windy/caatsm-dashboard/pkg/config	[no test files]
+?   	github.com/windy/caatsm-dashboard/pkg/errors	[no test files]
+?   	github.com/windy/caatsm-dashboard/pkg/metrics	[no test files]

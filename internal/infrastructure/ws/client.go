@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"sync"
@@ -84,8 +85,9 @@ func (c *Client) SendMessageJSON(msg *Message) bool {
 	return c.SendMessage(data)
 }
 
-// readPump pumps messages from the WebSocket connection to the hub.
-func (c *Client) readPump() {
+// ReadPump pumps messages from the WebSocket connection to the hub.
+// It handles inbound messages, triggers client unregister/cleanup on error or context cancellation.
+func (c *Client) ReadPump(ctx context.Context) {
 	defer func() {
 		c.hub.unregister <- c
 		_ = c.conn.Close()
@@ -98,20 +100,28 @@ func (c *Client) readPump() {
 		return nil
 	})
 	
-	// Read loop (mainly for pong messages)
+	// Read loop (mainly for pong messages and context cancellation)
 	for {
-		_, _, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.logger.Warn("websocket read error", zap.Error(err))
+		select {
+		case <-ctx.Done():
+			c.logger.Info("read pump context cancelled", zap.String("remote_addr", c.remoteAddr))
+			return
+		default:
+			_, _, err := c.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					c.logger.Warn("websocket read error", zap.Error(err))
+				}
+				return
 			}
-			break
 		}
 	}
 }
 
-// writePump pumps messages from the send channel to the WebSocket connection.
-func (c *Client) writePump() {
+// WritePump pumps messages from the send channel to the WebSocket connection.
+// It sends periodic pings to keep the connection alive, and closes the connection
+// and unregisters the client when done.
+func (c *Client) WritePump(ctx context.Context) {
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
 		ticker.Stop()
@@ -120,6 +130,12 @@ func (c *Client) writePump() {
 	
 	for {
 		select {
+		case <-ctx.Done():
+			c.logger.Info("write pump context cancelled", zap.String("remote_addr", c.remoteAddr))
+			c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+			return
+			
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if !ok {

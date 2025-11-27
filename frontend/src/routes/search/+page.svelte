@@ -1,25 +1,24 @@
 <script lang="ts">
   import SearchForm from "$lib/components/SearchForm.svelte";
   import SearchResults from "$lib/components/SearchResults.svelte";
-  import LoadingSpinner from "$lib/components/LoadingSpinner.svelte";
+  import LoadingSpinner from "$lib/components/ui/LoadingSpinner.svelte";
+  import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
   import { search, type SearchParams } from "$lib/services/api";
   import type { Telegram } from "$lib/utils/types";
-  import { createLogger } from "$lib/utils/logger.ts";
-  import { onMount } from "svelte";
-
+  import { createLogger } from "$lib/utils/logger";
 
   const logger = createLogger("SearchPage");
 
-  let mounted = false;
+  let mounted = $state(false);
+  let telegrams = $state<Telegram[]>([]);
+  let total = $state(0);
+  let loading = $state(false);
+  let error = $state<string | null>(null);
 
-  onMount(() => {
+  // Mount with $effect
+  $effect(() => {
     mounted = true;
   });
-
-  let telegrams: Telegram[] = [];
-  let total = 0;
-  let loading = false;
-  let error: string | null = null;
 
   async function handleSearch(params: SearchParams) {
     loading = true;
@@ -92,7 +91,7 @@
   <main class="mx-auto max-w-7xl px-6 py-8">
     <section class="space-y-8">
       <div>
-        <SearchForm on:search={handleSearch} on:reset={handleReset} />
+        <SearchForm onsearch={handleSearch} onreset={handleReset} />
       </div>
 
       {#if loading}
@@ -108,44 +107,12 @@
         </div>
       {:else}
         <div>
-          <SearchResults {telegrams} {total} />
+          <ErrorBoundary context={{ component: 'SearchResults' }}>
+            <SearchResults {telegrams} {total} />
+          </ErrorBoundary>
         </div>
       {/if}
     </section>
   </main>
 </div>
 {/if}
-
-<style>
-  .card-glow {
-    background: rgba(252, 252, 253, 0.9);
-    backdrop-filter: blur(10px);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.04),
-      0 2px 4px rgba(0, 0, 0, 0.02),
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border: 0.5px solid rgba(226, 232, 240, 0.5);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .skeleton {
-    animation: pulse 1.5s ease-in-out infinite;
-    background: linear-gradient(
-      90deg,
-      rgba(226, 232, 240, 0.8) 0%,
-      rgba(241, 245, 249, 0.9) 50%,
-      rgba(226, 232, 240, 0.8) 100%
-    );
-    background-size: 200% 100%;
-  }
-
-  @keyframes pulse {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-</style>

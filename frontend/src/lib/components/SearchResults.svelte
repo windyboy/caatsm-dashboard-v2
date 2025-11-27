@@ -10,10 +10,12 @@
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
 
-  /** @type {Telegram[]} */
-  export let telegrams: Telegram[] = [];
-  /** @type {number} */
-  export let total: number = 0;
+  interface Props {
+    telegrams?: Telegram[];
+    total?: number;
+  }
+
+  let { telegrams = [], total = 0 }: Props = $props();
 </script>
 
 <div   class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow min-h-[400px]">

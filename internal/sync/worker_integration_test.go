@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/application"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	meiliRepo "github.com/windy/caatsm-dashboard/internal/repository/meili"
 	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
 	testhelpers "github.com/windy/caatsm-dashboard/internal/testing"
 	"go.uber.org/zap/zaptest"
@@ -30,21 +31,20 @@ func TestWorker_Integration_SaveTelegram(t *testing.T) {
 
 	// Initialize repositories
 	store := pgstore.New(env.Pool)
+	searchIndex := meiliRepo.New(env.Meili, "telegrams-test")
 
 	// Initialize event bus
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
 
-	// Initialize application service
+	// Create worker
 	logger := zaptest.NewLogger(t)
-	// For integration test, we'll use a nil index (or create a mock index)
-	telegramService := application.NewTelegramService(store, nil, eventBus, logger)
+	worker := NewWorker(nil, store, searchIndex, eventBus, logger)
 
 	// Create test telegram
 	telegram := testhelpers.NewTelegram("INTEGRATION-TEST-001")
-	domainTelegram := domain.ToDomain(telegram)
 
 	// Execute
-	err = telegramService.SaveTelegram(ctx, domainTelegram)
+	err = worker.Handle(ctx, telegram)
 	require.NoError(t, err)
 
 	// Verify: Check that telegram was saved to database
@@ -66,7 +66,7 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	defer env.Cleanup(ctx)
 
 	// Test invalid telegram (should return ErrBadData)
-	invalidTelegram := &domain.Telegram{
+	invalidTelegram := &persistence.Telegram{
 		MessageID: "", // Invalid: empty message_id
 		Type:      "AFTN",
 		Time:      time.Now(),
@@ -74,11 +74,12 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	}
 
 	store := pgstore.New(env.Pool)
+	searchIndex := meiliRepo.New(env.Meili, "telegrams-test")
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
 	logger := zaptest.NewLogger(t)
-	telegramService := application.NewTelegramService(store, nil, eventBus, logger)
+	worker := NewWorker(nil, store, searchIndex, eventBus, logger)
 
-	err = telegramService.SaveTelegram(ctx, invalidTelegram)
+	err = worker.Handle(ctx, invalidTelegram)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "validate telegram")
+	require.True(t, IsBadDataError(err), "expected ErrBadData for invalid telegram")
 }

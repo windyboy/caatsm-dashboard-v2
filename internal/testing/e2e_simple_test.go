@@ -111,30 +111,6 @@ func TestE2E_BasicPipelineWithContainers(t *testing.T) {
 	t.Log("E2E basic pipeline test passed")
 }
 
-func TestE2E_TimeRangeValidationIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping E2E test in short mode")
-	}
-
-	// Test time range validation at domain level
-	filter := domain.SearchFilters{
-		TimeRange: domain.TimeWindow{
-			Start: time.Now().Add(-180 * 24 * time.Hour), // 180 days ago
-			End:   time.Now(),
-		},
-		Page: domain.Pagination{
-			Limit:  50,
-			Offset: 0,
-		},
-	}
-
-	err := filter.Validate()
-	assert.Error(t, err, "filter validation should fail for > 90 day range")
-	assert.Contains(t, err.Error(), "range cannot exceed", "error should mention range limit")
-
-	t.Log("Time range validation works correctly")
-}
-
 func TestE2E_LargeDatasetHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping E2E test in short mode")
@@ -212,4 +188,3 @@ func NewTelegram(messageID string) domain.Telegram {
 		RawData:      "RAW",
 	}
 }
-

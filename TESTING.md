@@ -88,15 +88,34 @@ go test -tags=integration ./internal/testing -v
 - `internal/domain/filters_test.go` - Search filter validation
 - `internal/domain/telegram_test.go` - Telegram entity validation
 
-**Application Layer**:
-- `internal/application/export/stream_test.go` - Streaming CSV export (50k+ records)
-- `internal/application/health/*_test.go` - Health check logic
+**Application Layer** (Migrated to `internal/app/` Nov 2025):
+- `internal/app/services/*` - Application services (dashboard, search, stats, export)
+- `internal/sync/worker_test.go` - Sync worker unit tests (✅ migrated)
+- `internal/sync/worker_integration_test.go` - Sync worker integration tests (✅ migrated)
+
+**Infrastructure Layer**:
+- `internal/infrastructure/event/*_test.go` - Event bus tests
+- `internal/infrastructure/ws/*_test.go` - WebSocket tests
 
 **Configuration**:
 - `config/config_test.go` - Production config validation
 
 **Observability**:
 - `internal/observability/redaction_test.go` - PII redaction (email, IP, phone)
+
+### Test Statistics (Nov 2025)
+
+```bash
+Total Packages: 42
+Packages with Tests: 7
+Test Pass Rate: 100%
+Key Test Areas:
+  ✅ Domain validation
+  ✅ Sync worker (newly migrated)
+  ✅ Event broadcasting
+  ✅ WebSocket handling
+  ✅ Observability/redaction
+```
 
 **Integration**:
 - `internal/testing/e2e_simple_test.go` - End-to-end pipeline tests

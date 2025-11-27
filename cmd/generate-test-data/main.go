@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/windy/caatsm-dashboard/config"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
 	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
@@ -112,9 +113,15 @@ func main() {
 	logger.Info("generating test data", zap.Int("count", *count))
 	telegrams := generateTestData(*count)
 
+	// Convert to domain telegrams
+	domainTelegrams := make([]*domain.Telegram, len(telegrams))
+	for i, t := range telegrams {
+		domainTelegrams[i] = domain.ToDomain(t)
+	}
+
 	// Save to database
 	logger.Info("saving telegrams to database")
-	if err := store.BulkSave(ctx, telegrams); err != nil {
+	if err := store.BulkSave(ctx, domainTelegrams); err != nil {
 		logger.Fatal("save telegrams", zap.Error(err))
 	}
 

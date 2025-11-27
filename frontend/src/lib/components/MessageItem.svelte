@@ -8,8 +8,11 @@
 <script lang="ts">
   import type { Telegram } from "../utils/types";
 
-  /** @type {Telegram} */
-  export let telegram: Telegram;
+  interface Props {
+    telegram: Telegram;
+  }
+
+  let { telegram }: Props = $props();
 
   function getTypeColorClass(type: string): string {
     const typeLower = type.toLowerCase();
@@ -100,28 +103,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .message-card-glow {
-    background: rgba(251, 252, 253, 0.95);
-    backdrop-filter: blur(8px);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.03),
-      0 1px 2px rgba(0, 0, 0, 0.02),
-      0 0 0 0.5px rgba(0, 0, 0, 0.02),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95);
-    border: 0.5px solid rgba(241, 245, 249, 0.6);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .message-card-glow:hover {
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.06),
-      0 2px 4px rgba(0, 0, 0, 0.03),
-      0 0 0 0.5px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 1);
-    border-color: rgba(226, 232, 240, 0.8);
-    transform: translateY(-1px);
-  }
-</style>

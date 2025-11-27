@@ -1,21 +1,13 @@
 <script lang="ts">
   import LiveStream from "$lib/components/LiveStream.svelte";
   import StatsCard from "$lib/components/StatsCard.svelte";
-  import { onMount } from "svelte";
-
-
-  let mounted = false;
-
-  onMount(() => {
-    mounted = true;
-  });
+  import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
 </script>
 
-{#if mounted}
-  <div
-    class="min-h-screen text-slate-900 antialiased"
-    style="background: linear-gradient(135deg, rgb(239, 246, 255) 0%, rgb(219, 234, 254) 25%, rgb(191, 219, 254) 50%, rgb(147, 197, 253) 75%, rgb(96, 165, 250) 100%); background-attachment: fixed;"
-  >
+<div
+  class="min-h-screen text-slate-900 antialiased"
+  style="background: linear-gradient(135deg, rgb(239, 246, 255) 0%, rgb(219, 234, 254) 25%, rgb(191, 219, 254) 50%, rgb(147, 197, 253) 75%, rgb(96, 165, 250) 100%); background-attachment: fixed;"
+>
   <header
     class="bg-white/95 backdrop-blur-lg shadow-lg border-b border-brand-200/30 sticky top-0 z-50"
   >
@@ -60,20 +52,28 @@
       <div class="grid gap-6 lg:grid-cols-3">
         <!-- Live Stream - Full width on mobile, 2/3 on desktop -->
         <div class="lg:col-span-2 order-2 lg:order-1">
-          <LiveStream />
+          <ErrorBoundary context={{ component: 'LiveStream' }}>
+            <LiveStream />
+          </ErrorBoundary>
         </div>
 
         <!-- Stats Cards - Stack on mobile, sidebar on desktop -->
         <div class="space-y-4 order-1 lg:order-2">
           <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-1">
             <div class="md:col-span-1 lg:col-span-1">
-              <StatsCard title="Total Messages (24h)" type="total" />
+              <ErrorBoundary context={{ component: 'StatsCard', type: 'total' }}>
+                <StatsCard title="Total Messages (24h)" type="total" />
+              </ErrorBoundary>
             </div>
             <div class="md:col-span-1 lg:col-span-1">
-              <StatsCard title="Priority Breakdown" type="priority" />
+              <ErrorBoundary context={{ component: 'StatsCard', type: 'priority' }}>
+                <StatsCard title="Priority Breakdown" type="priority" />
+              </ErrorBoundary>
             </div>
             <div class="md:col-span-1 lg:col-span-1">
-              <StatsCard title="Type Breakdown" type="type" />
+              <ErrorBoundary context={{ component: 'StatsCard', type: 'type' }}>
+                <StatsCard title="Type Breakdown" type="type" />
+              </ErrorBoundary>
             </div>
           </div>
         </div>
@@ -81,4 +81,3 @@
     </section>
   </main>
 </div>
-{/if}

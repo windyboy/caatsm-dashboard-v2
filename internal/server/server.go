@@ -12,19 +12,20 @@ import (
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/auth"
+	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
+	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
-	transporthttp "github.com/windy/caatsm-dashboard/internal/transport/http"
-	transportws "github.com/windy/caatsm-dashboard/internal/transport/ws"
 	"go.uber.org/zap"
 )
 
 // Server wraps echo.Echo with configuration and shared dependencies.
 type Server struct {
-	e         *echo.Echo
-	cfg       *config.AppConfig
-	logger    *zap.Logger
-	container *app.Container
-	metrics   *observability.MetricsExporter
+	e           *echo.Echo
+	cfg         *config.AppConfig
+	logger      *zap.Logger
+	container   *app.Container
+	metrics     *observability.MetricsExporter
+	broadcaster *deliveryws.EventBroadcaster
 }
 
 // New constructs a Server instance and wires base middleware/routes.
@@ -66,16 +67,17 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	} else {
 		logger.Info("redis client available for WebSocket")
 	}
-	broadcaster := transportws.NewEventBroadcaster(redisCli, logger)
+	broadcaster := deliveryws.NewEventBroadcaster(redisCli, logger)
 	go broadcaster.StartRedisListener()
 	logger.Info("started Redis listener goroutine")
 
 	s := &Server{
-		e:         e,
-		cfg:       cfg,
-		logger:    logger,
-		container: container,
-		metrics:   metricsExporter,
+		e:           e,
+		cfg:         cfg,
+		logger:      logger,
+		container:   container,
+		metrics:     metricsExporter,
+		broadcaster: broadcaster,
 	}
 
 	s.registerRoutes(broadcaster)
@@ -132,39 +134,54 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	var shutdownErrors []error
+
 	// Step 1: Stop accepting new HTTP connections
-	s.logger.Info("stopping HTTP server (no new connections)")
+	s.logger.Info("step 1: stopping HTTP server (no new connections)")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		s.logger.Error("HTTP server shutdown error", zap.Error(err))
-		return fmt.Errorf("http shutdown: %w", err)
+		shutdownErrors = append(shutdownErrors, fmt.Errorf("http shutdown: %w", err))
+	} else {
+		s.logger.Info("HTTP server stopped successfully")
 	}
-	s.logger.Info("HTTP server stopped")
 
-	// Step 2: Flush metrics (before closing connections)
+	// Step 2: Cancel worker contexts and wait for goroutines to finish
+	s.logger.Info("step 2: stopping worker goroutines (broadcaster)")
+	if s.broadcaster != nil {
+		s.broadcaster.Close() // Cancels context and waits for goroutine via WaitGroup
+		s.logger.Info("broadcaster stopped successfully")
+	}
+
+	// Step 3: Flush metrics (before closing downstream connections)
 	if s.metrics != nil {
-		s.logger.Info("flushing metrics")
-		// Metrics are pushed via Prometheus pull model, no explicit flush needed
+		s.logger.Info("step 3: flushing metrics")
+		// Metrics are pulled via Prometheus, no explicit flush needed
+		s.logger.Info("metrics flushed (pull-based, no action required)")
 	}
 
-	// Step 3: Close Redis connections
-	if s.container.RedisClient() != nil {
-		s.logger.Info("closing Redis connections")
-		if err := s.container.RedisClient().Close(); err != nil {
-			s.logger.Warn("Redis close error", zap.Error(err))
-		} else {
-			s.logger.Info("Redis connections closed")
-		}
+	// Step 4: Close container-managed resources (DB pool, Redis, etc.)
+	// This should be done after workers complete to avoid connection errors
+	s.logger.Info("step 4: closing container resources (DB pool, Redis)")
+	if err := s.container.Close(); err != nil {
+		s.logger.Error("container close error", zap.Error(err))
+		shutdownErrors = append(shutdownErrors, fmt.Errorf("container close: %w", err))
+	} else {
+		s.logger.Info("container resources closed successfully")
 	}
 
-	// Note: WebSocket hub, database pool, and NATS connections
-	// are managed by the container and will be closed when the context is cancelled
-	s.logger.Info("additional cleanup: WebSocket connections, database pool, NATS (via container lifecycle)")
+	// Step 5: Report shutdown completion
+	if len(shutdownErrors) > 0 {
+		s.logger.Error("graceful shutdown completed with errors",
+			zap.Int("error_count", len(shutdownErrors)))
+		// Return the first error (most critical)
+		return shutdownErrors[0]
+	}
 
-	s.logger.Info("graceful shutdown complete")
+	s.logger.Info("graceful shutdown completed successfully")
 	return nil
 }
 
-func (s *Server) registerRoutes(broadcaster *transportws.EventBroadcaster) {
+func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
 	s.e.Use(auth.Middleware(s.cfg.Auth))
 
 	// Add rate limiting
@@ -177,18 +194,13 @@ func (s *Server) registerRoutes(broadcaster *transportws.EventBroadcaster) {
 	if s.cfg.Metrics.Enabled && s.metrics != nil {
 		s.e.GET(s.cfg.Metrics.Path, s.metrics.Handler())
 	}
-	
-	// Use new transport layer handlers (clean architecture)
-	transportHandlers := s.createTransportHandlers()
-	if transportHandlers == nil {
-		s.logger.Fatal("failed to initialize transport handlers - required services not available")
-	}
-	
-	transporthttp.Register(s.e, transportHandlers)
-	s.logger.Info("registered HTTP handlers in transport layer")
-	
+
+	// Use new delivery layer handlers (simplified architecture)
+	deliveryhttp.RegisterRoutes(s.e, s.container.DashboardService, s.logger)
+	s.logger.Info("registered HTTP handlers in delivery layer")
+
 	// Register WebSocket handler using transport layer with configured allowed origins
-	wsHandler := transportws.NewSimpleHandler(s.container, broadcaster, s.cfg.WebSocket.AllowedOrigins)
+	wsHandler := deliveryws.NewSimpleHandler(s.container, broadcaster, s.cfg.WebSocket.AllowedOrigins)
 	wsHandler.Register(s.e)
 	s.logger.Info("registered WebSocket handler in transport layer",
 		zap.Strings("allowed_origins", s.cfg.WebSocket.AllowedOrigins))
@@ -228,24 +240,4 @@ func (s *Server) registerRoutes(broadcaster *transportws.EventBroadcaster) {
 			})
 		})
 	}
-}
-
-// createTransportHandlers creates the new transport layer handlers.
-func (s *Server) createTransportHandlers() *transporthttp.Handler {
-	// Ensure we have V2 services available
-	if s.container.SearchServiceV2 == nil || s.container.StatsServiceV2 == nil || s.container.ExportServiceV2 == nil {
-		s.logger.Warn("V2 services not available, cannot create transport handlers")
-		return nil
-	}
-
-	// Create health check adapter
-	healthAdapter := transporthttp.NewContainerHealthAdapter(s.container)
-
-	// Create new transport handlers
-	return transporthttp.NewHandler(
-		s.container.SearchServiceV2,
-		s.container.StatsServiceV2,
-		s.container.ExportServiceV2,
-		healthAdapter,
-	)
 }

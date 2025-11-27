@@ -40,19 +40,19 @@ func FromDomain(d *Telegram) *persistence.Telegram {
 	}
 }
 
-// SearchFilterToDomain converts persistence.SearchFilter to domain.SearchFilter
-func SearchFilterToDomain(p persistence.SearchFilter) SearchFilter {
-	return SearchFilter{
-		Query:       p.Query,
-		Type:        p.Type,
-		Source:      p.Source,
-		Destination: p.Destination,
-		Priority:    p.Priority,
+// SearchFilterToDomain converts persistence.SearchFilter to domain.SearchFilters
+func SearchFilterToDomain(p persistence.SearchFilter) SearchFilters {
+	return SearchFilters{
+		Query:        p.Query,
+		Types:        p.Type,
+		Sources:      p.Source,
+		Destinations: p.Destination,
+		Priorities:   p.Priority,
 		TimeRange: TimeWindow{
 			Start: p.TimeRange.Start,
 			End:   p.TimeRange.End,
 		},
-		Page: Pagination{
+		Pagination: Pagination{
 			Limit:  p.Page.Limit,
 			Offset: p.Page.Offset,
 			SortBy: p.Page.SortBy,

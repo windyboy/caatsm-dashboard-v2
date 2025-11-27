@@ -119,7 +119,7 @@ tasks:
   lint:
     desc: "Run golangci-lint"
     cmds:
-      - golangci-lint run -buildvcs=false ./...
+      - golangci-lint run ./...
 
   # ============================================
   # UnoCSS

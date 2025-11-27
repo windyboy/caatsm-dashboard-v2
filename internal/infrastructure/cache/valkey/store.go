@@ -28,7 +28,17 @@ func (s *Store) Set(ctx context.Context, key string, value []byte) error {
 
 // Get fetches a key.
 func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
-	return s.oldStore.Get(ctx, key)
+	data, err := s.oldStore.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, nil
+	}
+	if bytes, ok := data.([]byte); ok {
+		return bytes, nil
+	}
+	return nil, nil // Type assertion failed, treat as miss
 }
 
 // Delete removes a key from the cache.
@@ -44,4 +54,3 @@ func (s *Store) Clear(ctx context.Context) error {
 	// For now, return nil (can be enhanced later)
 	return nil
 }
-

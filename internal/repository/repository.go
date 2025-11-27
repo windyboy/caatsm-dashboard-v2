@@ -10,7 +10,7 @@ import (
 type TelegramStore interface {
 	Save(ctx context.Context, telegram *domain.Telegram) error
 	BulkSave(ctx context.Context, telegrams []*domain.Telegram) error
-	Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error)
+	Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error)
 }
 
 // AnalyticsStore provides aggregated metrics queries.

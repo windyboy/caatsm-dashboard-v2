@@ -81,3 +81,18 @@ func (e TelegramProcessed) OccurredAt() time.Time {
 	return e.At
 }
 
+// SearchPerformed is published when a search operation is completed.
+type SearchPerformed struct {
+	Query       string
+	ResultCount int64
+	Duration    time.Duration
+	Timestamp   time.Time
+}
+
+func (e SearchPerformed) EventType() string {
+	return "search.performed"
+}
+
+func (e SearchPerformed) OccurredAt() time.Time {
+	return e.Timestamp
+}

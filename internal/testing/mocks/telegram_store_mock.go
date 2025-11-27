@@ -29,7 +29,7 @@ func (m *TelegramStoreMock) BulkSave(ctx context.Context, telegrams []*domain.Te
 }
 
 // Search mocks the Search method
-func (m *TelegramStoreMock) Search(ctx context.Context, filter domain.SearchFilter) (*domain.SearchResult, error) {
+func (m *TelegramStoreMock) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
 	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

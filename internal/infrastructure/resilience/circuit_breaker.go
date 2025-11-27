@@ -14,17 +14,17 @@ import (
 type State string
 
 const (
-	StateClosed   State = "closed"   // Normal operation
-	StateOpen     State = "open"     // Failing, rejecting requests
+	StateClosed   State = "closed"    // Normal operation
+	StateOpen     State = "open"      // Failing, rejecting requests
 	StateHalfOpen State = "half_open" // Testing if service recovered
 )
 
 // CircuitBreaker implements the circuit breaker pattern for resilient service calls.
 type CircuitBreaker struct {
-	name          string
-	maxFailures   int
-	resetTimeout  time.Duration
-	halfOpenMax   int // Max attempts in half-open state before closing
+	name         string
+	maxFailures  int
+	resetTimeout time.Duration
+	halfOpenMax  int // Max attempts in half-open state before closing
 
 	mu            sync.RWMutex
 	state         State
@@ -51,6 +51,9 @@ type Config struct {
 
 // DefaultConfig returns a default circuit breaker configuration.
 func DefaultConfig(name string, logger *zap.Logger) Config {
+	if name == "" {
+		name = "unnamed"
+	}
 	return Config{
 		Name:         name,
 		MaxFailures:  5,
@@ -65,6 +68,15 @@ func NewCircuitBreaker(cfg Config) *CircuitBreaker {
 	if cfg.Logger == nil {
 		cfg.Logger = zap.NewNop()
 	}
+	if cfg.MaxFailures <= 0 {
+		cfg.MaxFailures = 5
+	}
+	if cfg.HalfOpenMax <= 0 {
+		cfg.HalfOpenMax = 3
+	}
+	if cfg.ResetTimeout <= 0 {
+		cfg.ResetTimeout = 60 * time.Second
+	}
 
 	return &CircuitBreaker{
 		name:         cfg.Name,
@@ -76,14 +88,25 @@ func NewCircuitBreaker(cfg Config) *CircuitBreaker {
 	}
 }
 
-// Call executes a function through the circuit breaker.
+// Call executes a function through the circuit breaker with panic recovery.
+// The function fn receives the context for timeout/cancellation propagation.
 // Returns the function result or an error if the circuit is open.
-func (cb *CircuitBreaker) Call(ctx context.Context, fn func() error) error {
+// If fn panics, the panic is recorded and re-raised after updating circuit state.
+func (cb *CircuitBreaker) Call(ctx context.Context, fn func(context.Context) error) error {
 	if err := cb.beforeCall(); err != nil {
 		return err
 	}
 
-	err := fn()
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in circuit breaker call: %v", r)
+			cb.afterCall(err)
+			panic(r) // Re-panic after recording
+		}
+	}()
+
+	err = fn(ctx)
 	cb.afterCall(err)
 
 	return err
@@ -104,7 +127,7 @@ func (cb *CircuitBreaker) beforeCall() error {
 			)
 		} else {
 			cb.rejectCount++
-			return fmt.Errorf("circuit breaker %s is open", cb.name)
+			return ErrCircuitOpen
 		}
 	}
 
@@ -112,7 +135,7 @@ func (cb *CircuitBreaker) beforeCall() error {
 	if cb.state == StateHalfOpen {
 		if cb.halfOpenCount >= cb.halfOpenMax {
 			cb.rejectCount++
-			return fmt.Errorf("circuit breaker %s half-open attempts exceeded", cb.name)
+			return ErrCircuitOpen
 		}
 		cb.halfOpenCount++
 	}
@@ -161,7 +184,8 @@ func (cb *CircuitBreaker) onFailure() {
 func (cb *CircuitBreaker) onSuccess() {
 	cb.successCount++
 
-	if cb.state == StateHalfOpen {
+	switch cb.state {
+	case StateHalfOpen:
 		// Success in half-open, close the circuit
 		cb.state = StateClosed
 		cb.failures = 0
@@ -169,7 +193,7 @@ func (cb *CircuitBreaker) onSuccess() {
 		cb.logger.Info("circuit breaker closed after successful half-open test",
 			zap.String("name", cb.name),
 		)
-	} else if cb.state == StateClosed {
+	case StateClosed:
 		// Reset failure count on success
 		cb.failures = 0
 	}
@@ -230,6 +254,6 @@ func (cb *CircuitBreaker) GetStats() Stats {
 	}
 }
 
-// ErrCircuitOpen is returned when the circuit breaker is open.
+// ErrCircuitOpen is returned when the circuit breaker is open and rejects a call.
+// Callers can use errors.Is(err, ErrCircuitOpen) to check for this condition.
 var ErrCircuitOpen = errors.New("circuit breaker is open")
-
