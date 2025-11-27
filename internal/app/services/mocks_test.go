@@ -95,14 +95,3 @@ func (m *mockSearchIndex) Delete(ctx context.Context, messageID string) error {
 	args := m.Called(ctx, messageID)
 	return args.Error(0)
 }
-
-// Mock EventBus
-type mockEventBus struct {
-	mock.Mock
-}
-
-func (m *mockEventBus) Publish(ctx context.Context, event interface{}) error {
-	args := m.Called(ctx, event)
-	return args.Error(0)
-}
-

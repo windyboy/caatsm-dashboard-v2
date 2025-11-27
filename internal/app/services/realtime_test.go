@@ -144,6 +144,10 @@ func TestRealtimeManager_ConcurrentReadsAndWrites(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
 			info := mgr.GetInfo()
+			if info == nil {
+				resultCh <- readResult{info: nil, uptime: ""}
+				continue
+			}
 			resultCh <- readResult{info: info, uptime: info.Uptime}
 		}
 		close(resultCh)
