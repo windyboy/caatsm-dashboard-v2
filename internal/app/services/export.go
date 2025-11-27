@@ -1,8 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"fmt"
+	"strconv"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
@@ -24,6 +27,14 @@ func NewExportService(searchSvc *SearchService, logger *zap.Logger) *ExportServi
 
 // Export exports search results in the specified format
 func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
+	// Validate format first (before expensive operations)
+	switch format {
+	case domain.ExportFormatCSV, domain.ExportFormatExcel, domain.ExportFormatPDF:
+		// Valid format, continue
+	default:
+		return nil, fmt.Errorf("unsupported export format: %s", format)
+	}
+
 	// Validate export limits
 	if err := e.validateExportFilters(&filters); err != nil {
 		return nil, fmt.Errorf("export validation failed: %w", err)
@@ -44,6 +55,7 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 	case domain.ExportFormatPDF:
 		return e.exportPDF(result)
 	default:
+		// Should never reach here due to validation above
 		return nil, fmt.Errorf("unsupported export format: %s", format)
 	}
 }
@@ -66,9 +78,52 @@ func (e *ExportService) validateExportFilters(filters *domain.SearchFilters) err
 
 // exportCSV exports data as CSV
 func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
-	// Simplified CSV export - would implement full CSV generation
 	e.logger.Info("exporting to CSV", zap.Int("records", len(result.Telegrams)))
-	return []byte("CSV export not yet implemented"), nil
+
+	// Create buffer to hold CSV data
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+
+	// Write CSV headers
+	headers := []string{
+		"message_id",
+		"type",
+		"time",
+		"flight_number",
+		"source",
+		"destination",
+		"priority",
+		"content",
+	}
+	if err := writer.Write(headers); err != nil {
+		return nil, fmt.Errorf("failed to write CSV headers: %w", err)
+	}
+
+	// Write data rows
+	for _, telegram := range result.Telegrams {
+		row := []string{
+			telegram.MessageID,
+			telegram.Type,
+			telegram.Time.Format("2006-01-02 15:04:05"),
+			telegram.FlightNumber,
+			telegram.Source,
+			telegram.Destination,
+			strconv.Itoa(telegram.Priority),
+			telegram.Content,
+		}
+		if err := writer.Write(row); err != nil {
+			return nil, fmt.Errorf("failed to write CSV row: %w", err)
+		}
+	}
+
+	// Flush any buffered data
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, fmt.Errorf("CSV writer error: %w", err)
+	}
+
+	e.logger.Info("CSV export completed", zap.Int("records", len(result.Telegrams)))
+	return buf.Bytes(), nil
 }
 
 // exportExcel exports data as Excel

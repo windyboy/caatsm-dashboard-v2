@@ -2,7 +2,7 @@
 
 import { createLogger } from "../utils/logger.ts";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3002/ws";
+const WS_URL = import.meta.env.VITE_WS_URL || (import.meta.env.DEV ? "/ws" : "ws://localhost:3002/ws");
 const logger = createLogger("WebSocket");
 
 // Constants

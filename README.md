@@ -61,8 +61,7 @@ The CAATSM Dashboard follows a **Simplified Clean Architecture** with clear laye
 
 For detailed architecture documentation, see:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture details
-- [ARCHITECTURE_REFACTOR_README.md](ARCHITECTURE_REFACTOR_README.md) - Migration history
-- [MIGRATION_COMPLETE.md](MIGRATION_COMPLETE.md) - Latest migration summary
+- [CODE_REVIEW.md](CODE_REVIEW.md) - Historical code review reference
 
 ## Getting Started
 

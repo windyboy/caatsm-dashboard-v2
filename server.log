@@ -1,0 +1,18 @@
+2025-11-27T14:18:26.046+0800	INFO	server/server.go:58	metrics enabled	{"path": "/metrics"}
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:68	redis client available for WebSocket
+2025-11-27T14:18:26.047+0800	INFO	ws/broadcaster.go:31	creating EventBroadcaster with Redis client
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:72	started Redis listener goroutine
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:200	registered HTTP handlers in delivery layer
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:205	registered WebSocket handler in transport layer	{"allowed_origins": ["http://localhost:3000", "http://localhost:5173"]}
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:221	serving static files from	{"dir": "frontend/.svelte-kit/output"}
+2025-11-27T14:18:26.047+0800	INFO	server/server.go:94	starting HTTP server	{"host": "0.0.0.0", "port": 3002}
+2025-11-27T14:18:26.047+0800	INFO	ws/broadcaster.go:85	StartRedisListener called
+2025-11-27T14:18:26.047+0800	INFO	ws/broadcaster.go:92	testing Redis connection...
+2025-11-27T14:18:26.047+0800	INFO	ws/broadcaster.go:97	redis connection verified
+2025-11-27T14:18:26.047+0800	INFO	ws/broadcaster.go:99	subscribing to Redis channel	{"channel": "stats:update"}
+2025-11-27T14:18:26.048+0800	INFO	ws/broadcaster.go:111	redis listener subscribed and ready	{"channel": "stats:update"}
+2025-11-27T14:18:38.686+0800	INFO	ws/handler_simple.go:61	WebSocket connection established	{"remote_addr": "::1"}
+2025-11-27T14:18:38.686+0800	DEBUG	ws/broadcaster.go:49	client subscribed	{"total_clients": 1}
+2025-11-27T14:18:38.700+0800	INFO	services/stats.go:60	stats retrieved	{"total_messages": 48, "by_type_count": 4, "by_priority_count": 3}
+2025-11-27T14:18:38.703+0800	INFO	services/search.go:92	search completed	{"query": "", "total": 48, "returned": 48, "duration": "2.343541ms"}
+2025-11-27T14:18:38.703+0800	INFO	ws/handler_simple.go:202	sending recent messages	{"count": 48}

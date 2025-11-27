@@ -3,8 +3,8 @@
 ## Architecture
 
 The project follows **Clean Architecture** with four layers (fully migrated, no legacy code):
-- **Transport Layer** (`internal/transport/`) - HTTP/WebSocket handlers with streaming export
-- **Application Layer** (`internal/application/`) - Use cases, event handlers, ports
+- **Transport Layer** (`internal/delivery/`) - HTTP/WebSocket handlers with streaming export
+- **Application Layer** (`internal/app/`) - Services, ports, container pattern
 - **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation (with time range limits)
 - **Infrastructure Layer** (`internal/infrastructure/`) - PostgreSQL, Meilisearch, Valkey, WebSocket hub
 
@@ -114,7 +114,7 @@ task clean:all            # Clean all including node_modules
 To run a specific test:
 ```bash
 go test ./internal/domain -v -run TestValidateTelegram
-go test ./internal/application -v -run TestTelegramService
+go test ./internal/app/services -v -run TestDashboardService
 ```
 
 ## Code Style Guidelines
@@ -157,8 +157,8 @@ caatsm-dashboard/
 │   ├── publish-stream/
 │   └── extract-dsn/
 ├── internal/
-│   ├── transport/         # HTTP/WebSocket handlers (外层)
-│   ├── application/       # Use cases, event handlers
+│   ├── delivery/          # HTTP/WebSocket handlers (transport layer)
+│   ├── app/               # Services, ports, container (application layer)
 │   ├── domain/            # Business logic, entities
 │   └── infrastructure/    # DB, cache, search, events
 ├── frontend/              # SvelteKit frontend
@@ -210,9 +210,9 @@ caatsm-dashboard/
 
 **Adding a New Feature:**
 1. Write domain logic in `internal/domain/`
-2. Add use case in `internal/application/`
+2. Add service in `internal/app/services/`
 3. Implement infrastructure in `internal/infrastructure/`
-4. Add HTTP/WS handlers in `internal/transport/`
+4. Add HTTP/WS handlers in `internal/delivery/`
 5. Write tests at each layer
 6. Run `make lint` and `make test`
 

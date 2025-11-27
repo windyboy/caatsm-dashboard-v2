@@ -90,19 +90,25 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 
 	// Publish event for real-time updates (non-blocking)
 	if w.eventBus != nil {
-		eventData := map[string]any{
-			"type":     "telegram_processed",
-			"telegram": domainTelegram,
-		}
-		if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
-			w.logger.Warn("failed to publish event",
-				zap.String("message_id", telegram.MessageID),
-				zap.Error(err),
-			)
+		// Convert domain model to persistence model for JSON compatibility
+		// This ensures proper snake_case JSON field names (message_id vs MessageID)
+		persistenceModel := domain.FromDomain(domainTelegram)
+		if persistenceModel == nil {
+			w.logger.Warn("failed to convert telegram for event",
+				zap.String("message_id", telegram.MessageID))
 		} else {
-			w.logger.Debug("event published",
-				zap.String("message_id", telegram.MessageID),
-			)
+			eventData := map[string]any{
+				"type":     "telegram_processed",
+				"telegram": persistenceModel,
+			}
+			if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
+				w.logger.Warn("failed to publish event",
+					zap.String("message_id", telegram.MessageID),
+					zap.Error(err))
+			} else {
+				w.logger.Debug("event published",
+					zap.String("message_id", telegram.MessageID))
+			}
 		}
 	}
 

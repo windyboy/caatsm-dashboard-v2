@@ -51,7 +51,7 @@ Run specific package tests:
 
 ```bash
 go test ./internal/domain -v
-go test ./internal/application/export -v
+go test ./internal/app/services -v
 go test ./internal/observability -v
 ```
 
@@ -131,7 +131,7 @@ go test ./internal/domain -run TestSearchFilters_Validate_TimeRangeTooLarge -v
 **Streaming Export**:
 ```bash
 # Test CSV export with large datasets
-go test ./internal/application/export -run TestExportStream_CSV_LargeDataset -v
+go test ./internal/app/services -run TestExportService_Export -v
 ```
 
 **Production Config Guards**:

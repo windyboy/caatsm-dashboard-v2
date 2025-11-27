@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
@@ -64,40 +65,45 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 		zap.Time("end_time", req.TimeRange.End),
 	)
 
+	// Result types that bundle data with errors
+	type searchResultOrError struct {
+		result *domain.SearchResult
+		err    error
+	}
+	type statsResultOrError struct {
+		result *domain.TrafficSummary
+		err    error
+	}
+	type realtimeResultOrError struct {
+		result *RealtimeInfo
+		err    error
+	}
+
 	// Parallel data fetching for better performance
-	searchChan := make(chan *domain.SearchResult, 1)
-	statsChan := make(chan *domain.TrafficSummary, 1)
-	realtimeChan := make(chan *RealtimeInfo, 1)
-	errChan := make(chan error, 3)
+	searchChan := make(chan searchResultOrError, 1)
+	statsChan := make(chan statsResultOrError, 1)
+	realtimeChan := make(chan realtimeResultOrError, 1)
 
 	// Fetch search results if requested
 	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
 		go func() {
 			result, err := ds.searchSvc.Search(ctx, req.SearchFilters)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			searchChan <- result
+			searchChan <- searchResultOrError{result: result, err: err}
 		}()
 	} else {
-		close(searchChan)
+		searchChan <- searchResultOrError{result: nil, err: nil}
 	}
 
 	// Fetch statistics
 	go func() {
 		stats, err := ds.statsSvc.GetStats(ctx, req.TimeRange)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		statsChan <- stats
+		statsChan <- statsResultOrError{result: stats, err: err}
 	}()
 
 	// Fetch realtime info
 	go func() {
 		info := ds.realtime.GetInfo()
-		realtimeChan <- info
+		realtimeChan <- realtimeResultOrError{result: info, err: nil}
 	}()
 
 	// Collect results
@@ -105,36 +111,35 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 	var statsResult *domain.TrafficSummary
 	var realtimeResult *RealtimeInfo
 
-	// Check for errors first
-	select {
-	case err := <-errChan:
-		return nil, err
-	default:
-	}
-
 	// Collect search results
-	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
-		select {
-		case searchResult = <-searchChan:
-		case err := <-errChan:
-			return nil, err
-		case <-ctx.Done():
-			return nil, ctx.Err()
+	select {
+	case sr := <-searchChan:
+		if sr.err != nil {
+			return nil, fmt.Errorf("search failed: %w", sr.err)
 		}
+		searchResult = sr.result
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	// Collect stats results
 	select {
-	case statsResult = <-statsChan:
-	case err := <-errChan:
-		return nil, err
+	case st := <-statsChan:
+		if st.err != nil {
+			return nil, fmt.Errorf("stats failed: %w", st.err)
+		}
+		statsResult = st.result
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
 	// Collect realtime results
 	select {
-	case realtimeResult = <-realtimeChan:
+	case rt := <-realtimeChan:
+		if rt.err != nil {
+			return nil, fmt.Errorf("realtime failed: %w", rt.err)
+		}
+		realtimeResult = rt.result
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

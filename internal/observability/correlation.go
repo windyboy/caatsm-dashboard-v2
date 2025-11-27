@@ -55,7 +55,7 @@ func generateCorrelationID() string {
 			logger.Error("crypto/rand failed, using time-based fallback for correlation ID",
 				zap.Error(err),
 				zap.Int("bytes_read", n))
-			defer logger.Sync()
+			defer func() { _ = logger.Sync() }()
 		}
 
 		// Fallback: use time-based ID to ensure uniqueness

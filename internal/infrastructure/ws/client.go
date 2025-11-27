@@ -14,24 +14,21 @@ import (
 const (
 	// Default client buffer size
 	defaultClientBufferSize = 100
-	
-	// Timeout for slow client detection
-	slowClientTimeout = 30 * time.Second
-	
+
 	// Maximum time to wait for message write
 	writeTimeout = 10 * time.Second
 )
 
 // Client represents a single WebSocket client connection with backpressure control.
 type Client struct {
-	conn      *websocket.Conn
-	send      chan []byte
-	hub       *Hub
-	remoteAddr string
+	conn        *websocket.Conn
+	send        chan []byte
+	hub         *Hub
+	remoteAddr  string
 	connectedAt time.Time
-	logger     *zap.Logger
-	mu         sync.Mutex
-	isClosed   bool
+	logger      *zap.Logger
+	mu          sync.Mutex
+	isClosed    bool
 }
 
 // NewClient creates a new client connection.
@@ -61,11 +58,11 @@ func (c *Client) ConnectedAt() time.Time {
 func (c *Client) SendMessage(msg []byte) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.isClosed {
 		return false
 	}
-	
+
 	select {
 	case c.send <- msg:
 		return true
@@ -92,14 +89,14 @@ func (c *Client) ReadPump(ctx context.Context) {
 		c.hub.unregister <- c
 		_ = c.conn.Close()
 	}()
-	
+
 	// Configure connection
-	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-	
+
 	// Read loop (mainly for pong messages and context cancellation)
 	for {
 		select {
@@ -127,35 +124,35 @@ func (c *Client) WritePump(ctx context.Context) {
 		ticker.Stop()
 		_ = c.conn.Close()
 	}()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.logger.Info("write pump context cancelled", zap.String("remote_addr", c.remoteAddr))
-			c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 			return
-			
+
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if !ok {
 				// Hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			
+
 			// Non-blocking write with timeout
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				c.logger.Warn("websocket write error", zap.Error(err))
 				return
 			}
-			
+
 			// Track successful write for metrics
 			c.hub.metrics.messagesSentInc()
-			
+
 		case <-ticker.C:
 			// Send ping to keep connection alive
-			c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.logger.Warn("failed to send ping", zap.Error(err))
 				return
@@ -168,11 +165,11 @@ func (c *Client) WritePump(ctx context.Context) {
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.isClosed {
 		return
 	}
-	
+
 	c.isClosed = true
 	close(c.send)
 }
@@ -181,11 +178,11 @@ func (c *Client) Close() {
 func (c *Client) IsSlow() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// If buffer is more than 80% full, consider it slow
 	bufferCapacity := cap(c.send)
 	bufferLength := len(c.send)
-	
+
 	return bufferLength > (bufferCapacity * 80 / 100)
 }
 
@@ -193,11 +190,11 @@ func (c *Client) IsSlow() bool {
 func (c *Client) BufferFillLevel() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if cap(c.send) == 0 {
 		return 0
 	}
-	
+
 	return (len(c.send) * 100) / cap(c.send)
 }
 
@@ -209,4 +206,3 @@ func (c *Client) GetIP() string {
 	}
 	return host
 }
-

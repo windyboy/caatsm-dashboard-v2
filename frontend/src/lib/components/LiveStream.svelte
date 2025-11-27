@@ -4,7 +4,7 @@
 
   Features:
   - Real-time WebSocket updates
-  - Auto-scroll to bottom for new messages
+  - Auto-scroll to top for new messages (newest first)
   - Limited message history (50 messages max)
   - Loading state when no messages
 -->
@@ -24,12 +24,12 @@
   $effect(() => {
     websocket.connect();
 
-    // Scroll to bottom when new messages arrive
+    // Scroll to top when new messages arrive (new messages appear at top)
     unsubscribe = messages.subscribe((msgs: Telegram[]) => {
       if (container && Array.isArray(msgs)) {
         setTimeout(() => {
           if (container) {
-            container.scrollTop = container.scrollHeight;
+            container.scrollTop = 0;
           }
         }, 50);
       }
