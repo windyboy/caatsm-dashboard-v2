@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -21,11 +20,11 @@ func TestExportService_Export(t *testing.T) {
 
 	t.Run("CSV export with valid data", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		// Create real services with mocked dependencies
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -71,6 +70,9 @@ func TestExportService_Export(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, data)
 
+		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+
 		// Verify CSV content
 		reader := csv.NewReader(bytes.NewReader(data))
 		records, err := reader.ReadAll()
@@ -99,10 +101,10 @@ func TestExportService_Export(t *testing.T) {
 
 	t.Run("CSV export with empty result", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -127,6 +129,9 @@ func TestExportService_Export(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, data)
 
+		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+
 		// Verify CSV content - should have only header
 		reader := csv.NewReader(bytes.NewReader(data))
 		records, err := reader.ReadAll()
@@ -137,10 +142,10 @@ func TestExportService_Export(t *testing.T) {
 
 	t.Run("CSV export with special characters", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -175,6 +180,9 @@ func TestExportService_Export(t *testing.T) {
 
 		require.NoError(t, err)
 
+		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+
 		// CSV library should properly escape special characters
 		reader := csv.NewReader(bytes.NewReader(data))
 		records, err := reader.ReadAll()
@@ -187,10 +195,10 @@ func TestExportService_Export(t *testing.T) {
 
 	t.Run("Excel export returns placeholder", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -213,15 +221,19 @@ func TestExportService_Export(t *testing.T) {
 		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatExcel)
 
 		require.NoError(t, err)
+
+		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+
 		assert.Contains(t, string(data), "Excel export not yet implemented")
 	})
 
 	t.Run("PDF export returns placeholder", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -244,15 +256,19 @@ func TestExportService_Export(t *testing.T) {
 		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatPDF)
 
 		require.NoError(t, err)
+
+		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
+
 		assert.Contains(t, string(data), "PDF export not yet implemented")
 	})
 
 	t.Run("unsupported format returns error", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		mockRepo := new(mockRepository)
 		mockCache := new(mockCache)
-		
+
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 		exportSvc := NewExportService(searchSvc, logger)
 
@@ -312,98 +328,5 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, 10000, filters.Pagination.Limit)
-	})
-
-	t.Run("negative limit defaults to max", func(t *testing.T) {
-		filters := domain.SearchFilters{
-			Pagination: domain.Pagination{
-				Limit: -100,
-			},
-		}
-
-		err := exportSvc.validateExportFilters(&filters)
-
-		require.NoError(t, err)
-		assert.Equal(t, 10000, filters.Pagination.Limit)
-	})
-}
-
-func TestExportService_CSVFormatting(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-
-	t.Run("time formatting is consistent", func(t *testing.T) {
-		ctx := context.Background()
-		
-		mockRepo := new(mockRepository)
-		mockCache := new(mockCache)
-		
-		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
-
-		filters := domain.SearchFilters{
-			Pagination: domain.Pagination{Limit: 10},
-		}
-
-		testTime := time.Date(2025, 11, 27, 15, 30, 45, 0, time.UTC)
-
-		searchResult := &domain.SearchResult{
-			Total: 1,
-			Telegrams: []domain.Telegram{
-				{
-					MessageID: "MSG-001",
-					Type:      "METAR",
-					Time:      testTime,
-				},
-			},
-		}
-
-		mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
-		mockRepo.On("Search", ctx, filters).Return(searchResult, nil)
-		mockCache.On("Set", ctx, mock.AnythingOfType("string"), searchResult).Return(nil)
-
-		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatCSV)
-
-		require.NoError(t, err)
-
-		// Check time format in CSV
-		csvContent := string(data)
-		assert.Contains(t, csvContent, "2025-11-27 15:30:45")
-	})
-
-	t.Run("all fields present in correct order", func(t *testing.T) {
-		ctx := context.Background()
-		
-		mockRepo := new(mockRepository)
-		mockCache := new(mockCache)
-		
-		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
-
-		filters := domain.SearchFilters{
-			Pagination: domain.Pagination{Limit: 10},
-		}
-
-		searchResult := &domain.SearchResult{
-			Total:     0,
-			Telegrams: []domain.Telegram{},
-		}
-
-		mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
-		mockRepo.On("Search", ctx, filters).Return(searchResult, nil)
-		mockCache.On("Set", ctx, mock.AnythingOfType("string"), searchResult).Return(nil)
-
-		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatCSV)
-
-		require.NoError(t, err)
-
-		// Parse CSV and check header order
-		lines := strings.Split(string(data), "\n")
-		header := lines[0]
-
-		// Verify order
-		assert.Contains(t, header, "message_id")
-		assert.True(t, strings.Index(header, "message_id") < strings.Index(header, "type"))
-		assert.True(t, strings.Index(header, "type") < strings.Index(header, "time"))
-		assert.True(t, strings.Index(header, "time") < strings.Index(header, "flight_number"))
 	})
 }

@@ -116,6 +116,13 @@ func TestRealtimeManager_ConcurrentReadsAndWrites(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
+	// Channel to collect read results for validation
+	type readResult struct {
+		info   *RealtimeInfo
+		uptime string
+	}
+	resultCh := make(chan readResult, iterations)
+
 	// Goroutine 1: Update connections
 	go func() {
 		defer wg.Done()
@@ -137,12 +144,21 @@ func TestRealtimeManager_ConcurrentReadsAndWrites(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
 			info := mgr.GetInfo()
-			assert.NotNil(t, info)
-			assert.NotEmpty(t, info.Uptime)
+			resultCh <- readResult{info: info, uptime: info.Uptime}
 		}
+		close(resultCh)
 	}()
 
 	wg.Wait()
+
+	// Validate all read results on main goroutine
+	readCount := 0
+	for result := range resultCh {
+		assert.NotNil(t, result.info)
+		assert.NotEmpty(t, result.uptime)
+		readCount++
+	}
+	assert.Equal(t, iterations, readCount, "should have collected all read results")
 
 	// Final read should work
 	finalInfo := mgr.GetInfo()
@@ -155,21 +171,27 @@ func TestRealtimeManager_MultipleReaders(t *testing.T) {
 	mgr.UpdateMessageRate(10.5)
 
 	numReaders := 10
+	readsPerReader := 100
 	var wg sync.WaitGroup
 	wg.Add(numReaders)
 
 	// Multiple concurrent readers
 	for i := 0; i < numReaders; i++ {
-		go func() {
+		go func(readerID int) {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for j := 0; j < readsPerReader; j++ {
 				info := mgr.GetInfo()
-				assert.NotNil(t, info)
-				// Values should be consistent
-				assert.GreaterOrEqual(t, info.ActiveConnections, 0)
-				assert.GreaterOrEqual(t, info.MessagesPerSecond, 0.0)
+				if info == nil {
+					t.Errorf("reader %d iteration %d: got nil info", readerID, j)
+					return
+				}
+				if info.ActiveConnections < 0 || info.MessagesPerSecond < 0.0 {
+					t.Errorf("reader %d iteration %d: got negative values (connections=%d, rate=%.2f)",
+						readerID, j, info.ActiveConnections, info.MessagesPerSecond)
+					return
+				}
 			}
-		}()
+		}(i)
 	}
 
 	wg.Wait()
@@ -202,4 +224,3 @@ func TestRealtimeManager_SequentialUpdates(t *testing.T) {
 	assert.Equal(t, 20, info.ActiveConnections) // Should be unchanged
 	assert.Equal(t, 15.0, info.MessagesPerSecond)
 }
-

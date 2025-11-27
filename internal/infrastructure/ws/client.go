@@ -91,9 +91,13 @@ func (c *Client) ReadPump(ctx context.Context) {
 	}()
 
 	// Configure connection
-	_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		c.logger.Warn("failed to set read deadline", zap.Error(err))
+	}
 	c.conn.SetPongHandler(func(string) error {
-		_ = c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+			c.logger.Warn("failed to set read deadline in pong handler", zap.Error(err))
+		}
 		return nil
 	})
 
@@ -134,7 +138,9 @@ func (c *Client) WritePump(ctx context.Context) {
 			return
 
 		case message, ok := <-c.send:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+				c.logger.Warn("failed to set write deadline", zap.Error(err))
+			}
 			if !ok {
 				// Hub closed the channel
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})

@@ -77,6 +77,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("logger.format", "json")
 	v.SetDefault("logger.enable_stacktrace", false)
 
+	// SECURITY: Default DSN is for local development only.
+	// For production, ALWAYS override via CAATSM_DATABASE_DSN environment variable
+	// or use PostgreSQL .pgpass file (with chmod 0600 permissions).
+	// See: https://www.postgresql.org/docs/current/libpq-pgpass.html
 	v.SetDefault("database.dsn", "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable")
 	v.SetDefault("database.max_open_connections", 25)
 	v.SetDefault("database.max_idle_connections", 10)

@@ -29,7 +29,7 @@ func TestDashboardService_Search(t *testing.T) {
 	dashboardSvc := NewDashboardService(searchSvc, statsSvc, exportSvc, realtimeMgr, logger)
 
 	filters := domain.SearchFilters{
-		Query: "test",
+		Query:      "test",
 		Pagination: domain.Pagination{Limit: 10},
 	}
 	expectedResult := &domain.SearchResult{Total: 5}
@@ -42,6 +42,9 @@ func TestDashboardService_Search(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, expectedResult, result)
+	mockCache.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
+	mockSearch.AssertExpectations(t)
 }
 
 func TestDashboardService_GetStats(t *testing.T) {
@@ -67,11 +70,12 @@ func TestDashboardService_GetStats(t *testing.T) {
 	mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
 	mockRepo.On("TrafficSummary", ctx, timeRange).Return(expectedStats, nil)
 	mockCache.On("Set", ctx, mock.AnythingOfType("string"), expectedStats).Return(nil)
-
 	result, err := dashboardSvc.GetStats(ctx, timeRange)
 
 	require.NoError(t, err)
 	assert.Equal(t, expectedStats, result)
+	mockCache.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
 }
 
 func TestDashboardService_GetRealtimeInfo(t *testing.T) {

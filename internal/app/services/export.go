@@ -78,6 +78,9 @@ func (e *ExportService) validateExportFilters(filters *domain.SearchFilters) err
 
 // exportCSV exports data as CSV
 func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
+	if result == nil {
+		result = &domain.SearchResult{}
+	}
 	e.logger.Info("exporting to CSV", zap.Int("records", len(result.Telegrams)))
 
 	// Create buffer to hold CSV data

@@ -38,7 +38,7 @@
     variant = 'primary',
     size = 'md',
     placeholder = '',
-    value = '',
+    value = $bindable(''),
     required = false,
     readonly = false,
     disabled = false,
