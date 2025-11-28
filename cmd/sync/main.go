@@ -54,6 +54,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create container", zap.Error(err))
 	}
+	defer container.Close()
 	logger.Info("application container initialized")
 
 	// Initialize NATS connection (needed for streaming consumer)

@@ -109,7 +109,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.username", "")
 	v.SetDefault("auth.password", "")
 	v.SetDefault("auth.jwt_secret", "")
-	v.SetDefault("auth.jwt_secret", "")
 
 	// SECURITY: Default allowed origins are for local development only.
 	// For production, ALWAYS override via CAATSM_WEBSOCKET_ALLOWED_ORIGINS environment variable

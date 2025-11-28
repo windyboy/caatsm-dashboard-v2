@@ -157,6 +157,8 @@ describe("WebSocketClient", () => {
         await vi.advanceTimersByTimeAsync(0);
       }
 
+      await vi.runAllTimersAsync();
+
       const finalAttempts = client.getReconnectAttempts();
       expect(finalAttempts).toBeGreaterThanOrEqual(maxAttempts);
     } finally {

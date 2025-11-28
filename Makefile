@@ -1,8 +1,9 @@
-.PHONY: help build test test-unit test-integration test-race lint dev clean \
+.PHONY: help build test test-unit test-integration test-race lint dev dev-run \
         frontend-dev frontend-build frontend-test frontend-test-unit \
-        dev-up dev-down migrate install
+        dev-up dev-down dev-logs migrate clean clean-all \
+        docker-build docker-up docker-down generate-test-data \
+        publish-stream publish-stream-fast publish-stream-slow
 
-# Default target
 .DEFAULT_GOAL := help
 
 help: ## Show this help message
@@ -10,106 +11,92 @@ help: ## Show this help message
 	@echo ''
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo 'Common Commands:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	@echo ''
-	@echo 'For more commands, run: task --list'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# ============================================
-# Core Development Commands (Quick Access)
-# ============================================
+# Core backend
+build: ## Build the API server binary
+	@go build -buildvcs=false -o bin/caatsm ./cmd/server
 
-build: ## Build the application
-	@task build
+test: ## Run all Go tests with coverage
+	@go test -cover ./...
 
-test: ## Run all tests with coverage
-	@task test
-
-test-unit: ## Run unit tests only
-	@task test:unit
+test-unit: ## Run unit tests only (short)
+	@go test -short ./...
 
 test-integration: ## Run integration tests only
-	@task test:integration
+	@go test -tags=integration ./...
 
 test-race: ## Run tests with race detector
-	@task test:race
+	@go test -race ./...
 
-test-pretty: ## Run tests with gotestsum (prettier output)
-	@task test:pretty
+lint: ## Run golangci-lint
+	@golangci-lint run ./...
 
-test-pretty-unit: ## Run unit tests with gotestsum
-	@task test:pretty:unit
+dev: ## Run backend with hot reload (air if available, else go run)
+	@if command -v air >/dev/null 2>&1; then \
+		air; \
+	else \
+		echo "air not found, running go run ./cmd/server"; \
+		go run ./cmd/server -config $${CAATSM_CONFIG:-config/config.local.toml}; \
+	fi
 
-lint: ## Run linter (golangci-lint)
-	@task lint
+dev-run: ## Run backend with local config
+	@go run ./cmd/server -config $${CAATSM_CONFIG:-config/config.local.toml}
 
-dev: ## Run backend with hot reload (air)
-	@task dev
+# Frontend
+frontend-dev: ## Run frontend dev server (npm)
+	@cd frontend && npm run dev
 
-clean: ## Clean build artifacts
-	@task clean
-
-# ============================================
-# Frontend Commands
-# ============================================
-
-frontend-dev: ## Run frontend dev server (Deno/npm)
-	@task frontend:dev
-
-frontend-build: ## Build frontend for production
-	@task frontend:build
+frontend-build: ## Build frontend for production (npm)
+	@cd frontend && npm run build
 
 frontend-test: ## Run frontend E2E tests (Playwright)
-	@task frontend:test
+	@cd frontend && npm test
 
 frontend-test-unit: ## Run frontend unit tests (Vitest)
-	@task frontend:test:unit
+	@cd frontend && npm run test:unit
 
-# ============================================
-# Development Environment
-# ============================================
-
-dev-up: ## Start development dependencies (Docker)
-	@task dev:up
+# Environment
+dev-up: ## Start development dependencies (docker-compose.dev.yml)
+	@docker compose -f docker-compose.dev.yml --env-file .env.local up -d
 
 dev-down: ## Stop development dependencies
-	@task dev:down
+	@docker compose -f docker-compose.dev.yml --env-file .env.local down --remove-orphans
 
-migrate: ## Run database migrations
-	@task migrate
+dev-logs: ## Tail dependency logs
+	@docker compose -f docker-compose.dev.yml --env-file .env.local logs -f
 
-# ============================================
-# Setup Commands
-# ============================================
+migrate: ## Run database migrations with goose
+	@goose -dir migrations postgres "$${CAATSM_DATABASE_DSN:-postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable}" up
 
-install: ## Install all dependencies (Go, npm, Deno)
-	@echo "Installing dependencies..."
-	@task install-deps
-	@task frontend:setup
-	@echo ""
-	@echo "✓ Installation complete!"
-	@echo "Next steps:"
-	@echo "  1. Create config: task dev:config"
-	@echo "  2. Start services: make dev-up"
-	@echo "  3. Run migrations: make migrate"
-	@echo "  4. Start backend: make dev"
-	@echo "  5. Start frontend: make frontend-dev"
+# Utilities
+generate-test-data: ## Generate sample telegram data (50 records)
+	@go run ./cmd/generate-test-data -count 50
 
-# ============================================
-# Legacy/Convenience Commands
-# ============================================
+publish-stream: ## Publish live messages to NATS
+	@go run ./cmd/publish-stream -config $${CAATSM_CONFIG:-config/config.local.toml} $${CLI_ARGS:-}
 
-tidy: ## Run go mod tidy
-	@go mod tidy
+publish-stream-fast: ## Publish messages quickly (1/sec, 50 total)
+	@CLI_ARGS="-interval 1s -total 50" $(MAKE) publish-stream
 
-run: build ## Build and run the application
-	@./bin/caatsm
+publish-stream-slow: ## Publish messages slowly (5s interval)
+	@CLI_ARGS="-interval 5s" $(MAKE) publish-stream
 
+# Docker
 docker-build: ## Build Docker image
-	@task docker:build
+	@docker build -t caatsm-dashboard:latest .
 
-docker-up: ## Start Docker Compose stack
-	@task docker:up
+docker-up: ## Start docker-compose stack
+	@docker compose up -d --build
 
-docker-down: ## Stop Docker Compose stack
-	@task docker:down
+docker-down: ## Stop docker-compose stack
+	@docker compose down --remove-orphans
+
+# Cleanup
+clean: ## Remove build artifacts and caches
+	@rm -rf bin/ tmp/ .cache/go-build
+	@rm -f coverage.out coverage.html
+	@rm -rf frontend/.svelte-kit frontend/build frontend/.vite
+
+clean-all: clean ## Clean everything including dependencies
+	@rm -rf node_modules frontend/node_modules
