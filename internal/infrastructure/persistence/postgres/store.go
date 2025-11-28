@@ -370,6 +370,9 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 		}
 		byType[t] = count
 	}
+	if err := typeRows.Err(); err != nil {
+		return nil, fmt.Errorf("type rows error: %w", err)
+	}
 
 	priorityQuery := fmt.Sprintf(`
 		SELECT priority, COUNT(*) as count
@@ -392,6 +395,9 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 			return nil, fmt.Errorf("scan priority: %w", err)
 		}
 		byPriority[p] = count
+	}
+	if err := priorityRows.Err(); err != nil {
+		return nil, fmt.Errorf("priority rows error: %w", err)
 	}
 
 	return &domain.TrafficSummary{

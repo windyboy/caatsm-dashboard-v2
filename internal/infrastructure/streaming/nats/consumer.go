@@ -173,7 +173,9 @@ func (c *Consumer) processMessages(ctx context.Context) {
 				if err == nats.ErrTimeout {
 					continue
 				}
-				// Log error but continue processing
+				if c.logger != nil {
+					c.logger.Warn("fetch messages failed", zap.Error(err))
+				}
 				continue
 			}
 
@@ -286,4 +288,3 @@ func (c *Consumer) Close() error {
 	}
 	return nil
 }
-

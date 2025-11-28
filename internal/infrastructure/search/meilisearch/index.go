@@ -120,8 +120,8 @@ func (i *Index) BulkIndex(ctx context.Context, telegrams []*domain.Telegram) err
 	idx := i.client.Index(i.index)
 
 	docs := make([]map[string]any, len(telegrams))
-	for i, telegram := range telegrams {
-		docs[i] = map[string]any{
+	for j, telegram := range telegrams {
+		docs[j] = map[string]any{
 			"message_id":    telegram.MessageID,
 			"type":          telegram.Type,
 			"time":          telegram.Time.Unix(),
