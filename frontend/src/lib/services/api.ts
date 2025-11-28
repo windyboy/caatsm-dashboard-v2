@@ -1,8 +1,41 @@
 // REST API client for Go backend
 
+import { createLogger } from "../utils/logger.ts";
 import type { SearchResult } from "../utils/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
+const logger = createLogger("API");
+
+function resolveApiBase(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // Default to backend port when running without the Vite proxy (e.g., preview/SSG)
+  if (import.meta.env.DEV) {
+    return "http://localhost:3002";
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return "http://localhost:3002";
+}
+
+const API_BASE_URL = resolveApiBase();
+
+function buildUrl(endpoint: string): string {
+  try {
+    const url = new URL(endpoint, API_BASE_URL);
+    return url.toString();
+  } catch (error) {
+    logger.error("Failed to build API URL", error, {
+      endpoint,
+      apiBase: API_BASE_URL,
+    });
+    return `${API_BASE_URL}${endpoint}`;
+  }
+}
 
 export interface SearchParams {
   query?: string;
@@ -35,7 +68,14 @@ export interface AutocompleteResult {
 }
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = buildUrl(endpoint);
+  const method = options?.method || "GET";
+
+  logger.debug("API request", {
+    url,
+    method,
+  });
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -46,8 +86,20 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: response.statusText }));
+    logger.error("API response error", new Error(error.error || response.statusText), {
+      url,
+      method,
+      status: response.status,
+      statusText: response.statusText,
+    });
     throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
   }
+
+  logger.info("API response success", {
+    url,
+    method,
+    status: response.status,
+  });
 
   return response.json();
 }
@@ -100,12 +152,27 @@ export async function exportData(
   if (params.priority !== undefined) searchParams.set("priority", params.priority.toString());
   searchParams.set("format", format);
 
-  const url = `${API_BASE_URL}/api/export?${searchParams.toString()}`;
+  const url = buildUrl(`/api/export?${searchParams.toString()}`);
+  logger.info("Starting export", {
+    url,
+    format,
+  });
+
   const response = await fetch(url);
 
   if (!response.ok) {
+    logger.error("Export failed", new Error(response.statusText), {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+    });
     throw new Error(`Export failed: ${response.statusText}`);
   }
+
+  logger.info("Export success", {
+    url,
+    status: response.status,
+  });
 
   return response.blob();
 }

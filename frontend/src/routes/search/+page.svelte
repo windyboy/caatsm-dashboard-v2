@@ -27,6 +27,12 @@
       const result = await search(params);
       telegrams = result.telegrams;
       total = result.total;
+      logger.info("Search succeeded", {
+        total: result.total,
+        query: params.query || "",
+        type: params.type || "any",
+        priority: params.priority ?? "any",
+      });
     } catch (err) {
       error = err instanceof Error ? err.message : "Search failed";
       logger.error("Search failed", err, {

@@ -6,6 +6,9 @@ import { writable } from "svelte/store";
 import { wsClient, type WebSocketMessage } from "../services/websocket.ts";
 import { messages } from "./messages.ts";
 import { stats } from "./stats.ts";
+import { createLogger } from "../utils/logger.ts";
+
+const logger = createLogger("WebSocketStore");
 
 function createWebSocketStore() {
   const { subscribe, set } = writable<boolean>(false);
@@ -26,9 +29,16 @@ function createWebSocketStore() {
   return {
     subscribe,
     connect: () => {
+      logger.info("Connecting WebSocket store", {
+        alreadyConnected: wsClient.isConnected(),
+      });
+
       // Only subscribe if we're in a browser environment and not already subscribed
       if (typeof window !== "undefined" && unsubscribe === null) {
         unsubscribe = wsClient.subscribe((message: WebSocketMessage) => {
+          logger.debug("Received WebSocket message", {
+            type: message.type,
+          });
           if (message.type === "message") {
             messages.add(message.data);
           } else if (message.type === "stats-total") {
@@ -45,6 +55,7 @@ function createWebSocketStore() {
       interval = setInterval(checkConnection, 1000);
     },
     disconnect: () => {
+      logger.info("Disconnecting WebSocket store");
       wsClient.disconnect();
       set(false);
       if (interval !== null) {
@@ -59,6 +70,7 @@ function createWebSocketStore() {
     },
     isConnected: () => wsClient.isConnected(),
     cleanup: () => {
+      logger.info("Cleaning up WebSocket store");
       if (interval !== null) {
         clearInterval(interval);
         interval = null;
