@@ -19,7 +19,7 @@ type Hub struct {
 	ipConnections map[string]int
 
 	// Configuration
-	config Config
+	Config Config
 
 	// Channels
 	register   chan *Client
@@ -32,6 +32,9 @@ type Hub struct {
 	// Context for graceful shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	// WaitGroup to track hub goroutine completion
+	wg sync.WaitGroup
 
 	// Logger
 	logger *zap.Logger
@@ -50,14 +53,19 @@ type Config struct {
 
 	// EnableMetrics enables metrics collection
 	EnableMetrics bool
+
+	// Timeouts holds configurable timeout values (uses defaults if nil)
+	Timeouts *TimeoutsConfig
 }
 
 // DefaultConfig returns default hub configuration.
 func DefaultConfig() Config {
+	timeouts := DefaultTimeouts()
 	return Config{
 		MaxConnectionsPerIP: 5,
 		ClientBufferSize:    100,
 		EnableMetrics:       false, // Default to disabled, enable via config
+		Timeouts:            &timeouts,
 	}
 }
 
@@ -72,7 +80,7 @@ func NewHub(config Config, logger *zap.Logger) *Hub {
 	hub := &Hub{
 		clients:       make(map[*Client]bool),
 		ipConnections: make(map[string]int),
-		config:        config,
+		Config:        config,
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
 		broadcast:     make(chan []byte, 256),
@@ -82,7 +90,11 @@ func NewHub(config Config, logger *zap.Logger) *Hub {
 		metrics:       NewHubMetrics(config.EnableMetrics),
 	}
 
-	go hub.run()
+	hub.wg.Add(1)
+	go func() {
+		defer hub.wg.Done()
+		hub.run()
+	}()
 
 	return hub
 }
@@ -114,12 +126,12 @@ func (h *Hub) handleRegister(client *Client) {
 
 	// Check connection limits per IP
 	clientIP := client.GetIP()
-	if h.config.MaxConnectionsPerIP > 0 {
+	if h.Config.MaxConnectionsPerIP > 0 {
 		currentConnections := h.ipConnections[clientIP]
-		if currentConnections >= h.config.MaxConnectionsPerIP {
+		if currentConnections >= h.Config.MaxConnectionsPerIP {
 			h.logger.Warn("connection limit exceeded for IP",
 				zap.String("ip", clientIP),
-				zap.Int("limit", h.config.MaxConnectionsPerIP))
+				zap.Int("limit", h.Config.MaxConnectionsPerIP))
 			client.Close()
 			h.metrics.connectionRejectedInc()
 			return
@@ -149,7 +161,7 @@ func (h *Hub) unregisterClient(client *Client) {
 
 	// Update IP connection count
 	clientIP := client.GetIP()
-	if h.config.MaxConnectionsPerIP > 0 {
+	if h.Config.MaxConnectionsPerIP > 0 {
 		h.ipConnections[clientIP]--
 		if h.ipConnections[clientIP] <= 0 {
 			delete(h.ipConnections, clientIP)
@@ -265,11 +277,24 @@ func (h *Hub) Context() context.Context {
 }
 
 // Close gracefully shuts down the hub.
+// It cancels the context, waits for the hub goroutine to finish (with timeout),
+// then closes all clients and cleans up resources.
 func (h *Hub) Close() {
 	h.cancel()
 
-	// Wait a bit for messages to drain
-	time.Sleep(100 * time.Millisecond)
+	// Wait for hub goroutine to finish, with timeout
+	done := make(chan struct{})
+	go func() {
+		h.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		h.logger.Debug("hub goroutine finished")
+	case <-time.After(5 * time.Second):
+		h.logger.Warn("hub shutdown timeout, proceeding with cleanup")
+	}
 
 	h.mu.Lock()
 	defer h.mu.Unlock()

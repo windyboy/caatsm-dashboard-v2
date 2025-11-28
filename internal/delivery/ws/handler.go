@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	writeWait  = 10 * time.Second
-	pongWait   = 60 * time.Second
-	pingPeriod = (pongWait * 9) / 10
+	writeWait      = 10 * time.Second
+	pongWait       = 60 * time.Second
+	pingPeriod     = (pongWait * 9) / 10
+	maxMessageSize = 512 * 1024 // 512KB - maximum message size allowed from peer
 )
 
 // Handler wraps the WebSocket hub and provides HTTP handlers.
@@ -163,6 +164,13 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 		h.logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
 	}
+
+	// Set message size limit for security (use hub config if available, otherwise default)
+	msgSizeLimit := int64(maxMessageSize)
+	if h.hub.Config.Timeouts != nil && h.hub.Config.Timeouts.MaxMessageSize > 0 {
+		msgSizeLimit = h.hub.Config.Timeouts.MaxMessageSize
+	}
+	conn.SetReadLimit(msgSizeLimit)
 
 	h.logger.Info("WebSocket connection established", zap.String("remote_addr", c.RealIP()))
 

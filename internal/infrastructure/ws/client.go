@@ -15,8 +15,10 @@ const (
 	// Default client buffer size
 	defaultClientBufferSize = 100
 
-	// Maximum time to wait for message write
+	// WebSocket connection timeouts
 	writeTimeout = 10 * time.Second
+	pongWait     = 60 * time.Second
+	pingPeriod   = (pongWait * 9) / 10
 )
 
 // Client represents a single WebSocket client connection with backpressure control.
@@ -29,13 +31,18 @@ type Client struct {
 	logger      *zap.Logger
 	mu          sync.Mutex
 	isClosed    bool
+	closeOnce   sync.Once
 }
 
 // NewClient creates a new client connection.
 func NewClient(conn *websocket.Conn, hub *Hub, logger *zap.Logger) *Client {
+	bufferSize := defaultClientBufferSize
+	if hub.Config.ClientBufferSize > 0 {
+		bufferSize = hub.Config.ClientBufferSize
+	}
 	return &Client{
 		conn:        conn,
-		send:        make(chan []byte, defaultClientBufferSize),
+		send:        make(chan []byte, bufferSize),
 		hub:         hub,
 		remoteAddr:  conn.RemoteAddr().String(),
 		connectedAt: time.Now(),
@@ -90,12 +97,15 @@ func (c *Client) ReadPump(ctx context.Context) {
 		_ = c.conn.Close()
 	}()
 
+	// Get timeout config (use defaults if not set)
+	timeouts := c.getTimeouts()
+
 	// Configure connection
-	if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+	if err := c.conn.SetReadDeadline(time.Now().Add(timeouts.PongWait)); err != nil {
 		c.logger.Warn("failed to set read deadline", zap.Error(err))
 	}
 	c.conn.SetPongHandler(func(string) error {
-		if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		if err := c.conn.SetReadDeadline(time.Now().Add(timeouts.PongWait)); err != nil {
 			c.logger.Warn("failed to set read deadline in pong handler", zap.Error(err))
 		}
 		return nil
@@ -123,7 +133,10 @@ func (c *Client) ReadPump(ctx context.Context) {
 // It sends periodic pings to keep the connection alive, and closes the connection
 // and unregisters the client when done.
 func (c *Client) WritePump(ctx context.Context) {
-	ticker := time.NewTicker(54 * time.Second)
+	// Get timeout config (use defaults if not set)
+	timeouts := c.getTimeouts()
+
+	ticker := time.NewTicker(timeouts.PingPeriod)
 	defer func() {
 		ticker.Stop()
 		_ = c.conn.Close()
@@ -133,12 +146,12 @@ func (c *Client) WritePump(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			c.logger.Info("write pump context cancelled", zap.String("remote_addr", c.remoteAddr))
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(timeouts.WriteWait))
 			_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 			return
 
 		case message, ok := <-c.send:
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+			if err := c.conn.SetWriteDeadline(time.Now().Add(timeouts.WriteWait)); err != nil {
 				c.logger.Warn("failed to set write deadline", zap.Error(err))
 			}
 			if !ok {
@@ -158,7 +171,7 @@ func (c *Client) WritePump(ctx context.Context) {
 
 		case <-ticker.C:
 			// Send ping to keep connection alive
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(timeouts.WriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.logger.Warn("failed to send ping", zap.Error(err))
 				return
@@ -167,17 +180,29 @@ func (c *Client) WritePump(ctx context.Context) {
 	}
 }
 
+// getTimeouts returns the timeout configuration, using defaults if not set.
+func (c *Client) getTimeouts() TimeoutsConfig {
+	if c.hub.Config.Timeouts != nil {
+		return *c.hub.Config.Timeouts
+	}
+	return DefaultTimeouts()
+}
+
 // Close closes the client connection.
+// Uses sync.Once to ensure the send channel is only closed once, preventing race conditions.
 func (c *Client) Close() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.isClosed {
+		c.mu.Unlock()
 		return
 	}
-
 	c.isClosed = true
-	close(c.send)
+	c.mu.Unlock()
+
+	// Use sync.Once to ensure channel is only closed once, preventing race with WritePump
+	c.closeOnce.Do(func() {
+		close(c.send)
+	})
 }
 
 // IsSlow detects if the client is slow based on buffer fill level.

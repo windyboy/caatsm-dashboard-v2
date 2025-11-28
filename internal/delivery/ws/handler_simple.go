@@ -16,10 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
-)
+// Constants are defined in handler.go (same package)
 
 // WebSocketMessage represents a WebSocket message sent to clients.
 type WebSocketMessage struct {

@@ -29,10 +29,13 @@ export interface TrafficSummary {
   byType: Record<string, number>;
 }
 
-export interface WebSocketMessage {
-  type: "message" | "stats-total" | "stats-priority" | "stats-type";
-  data: any;
-}
+// Discriminated union for type-safe WebSocket messages
+export type WebSocketMessage =
+  | { type: "message"; data: Telegram }
+  | { type: "stats-total"; data: { total: number } }
+  | { type: "stats-priority"; data: { byPriority: Record<number, number> } }
+  | { type: "stats-type"; data: { byType: Record<string, number> } }
+  | { type: "pong"; data?: never };
 
 export interface SearchFilter {
   query?: string;
