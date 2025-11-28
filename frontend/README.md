@@ -110,7 +110,7 @@ npm run test
 npx playwright test --headed
 
 # Run specific test file
-npx playwright test tests/example.spec.ts
+npx playwright test tests/api.test.ts
 
 # Generate test report
 npx playwright show-report
@@ -128,7 +128,7 @@ npx playwright show-report
 Tests are located in the `tests/` directory and follow Playwright's test structure:
 
 ```typescript
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test("search functionality", async ({ page }) => {
   await page.goto("/");
@@ -147,7 +147,6 @@ Current E2E tests cover:
 - WebSocket connections
 
 ````
-
 ## Unit Testing
 
 The frontend includes unit tests using Vitest to test business logic, stores, and services.
@@ -189,7 +188,7 @@ npm run test:unit:coverage
 Unit tests are located in the `tests/unit/` directory:
 
 ```typescript
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { get } from "svelte/store";
 import { messages } from "../../src/lib/stores/messages";
 
@@ -213,7 +212,6 @@ Current unit tests cover:
 - Business logic: Message limiting (MAX_MESSAGES = 50), exponential backoff
 
 ````
-
 ## Building
 
 ### With Deno

@@ -39,7 +39,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CORS())
 
-	e.Use(observability.Correlation())
+	e.Use(observability.CorrelationIDMiddleware())
 	e.Use(observability.RequestLogger(logger))
 
 	// Create initialization context with timeout for app setup

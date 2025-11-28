@@ -198,4 +198,3 @@ func (b *EventBroadcaster) Close() {
 	b.clients = make(map[chan []byte]bool)
 	b.logger.Info("all WebSocket clients disconnected")
 }
-

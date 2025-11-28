@@ -96,7 +96,7 @@ func TestHTTPAndWebSocketIntegration(t *testing.T) {
 	// HTTP integration: search endpoint returns payload the frontend expects
 	resp, err := http.Get(server.URL + "/api/search?query=test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var searchResp struct {
@@ -111,7 +111,7 @@ func TestHTTPAndWebSocketIntegration(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	expectedTypes := map[string]bool{
 		"stats-total":    false,
@@ -126,7 +126,7 @@ func TestHTTPAndWebSocketIntegration(t *testing.T) {
 		case <-readDeadline:
 			t.Fatalf("timeout waiting for all message types, got %+v", expectedTypes)
 		default:
-			conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 			_, data, err := conn.ReadMessage()
 			if err != nil {
 				continue

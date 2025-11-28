@@ -25,4 +25,3 @@ func (m *CacheMock) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	return args.Get(0).([]byte), args.Error(1)
 }
-

@@ -13,4 +13,3 @@ const (
 	MessageTypeStatsType     = "stats-type"
 	MessageTypeMessage       = "message"
 )
-

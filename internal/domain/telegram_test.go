@@ -199,7 +199,7 @@ func TestTelegram_Normalize(t *testing.T) {
 	// Verify the telegram has been normalized (uppercase fields)
 	assert.Equal(t, "TEST-001", tg.MessageID)
 	assert.Equal(t, "TEST123", tg.FlightNumber) // Normalize() uppercases flight numbers
-	assert.Equal(t, "ZBAA", tg.Source)           // Normalize() uppercases ICAO codes
-	assert.Equal(t, "ZSPD", tg.Destination)      // Normalize() uppercases ICAO codes
-	assert.Equal(t, "test content", tg.Content)  // Normalize() trims whitespace
+	assert.Equal(t, "ZBAA", tg.Source)          // Normalize() uppercases ICAO codes
+	assert.Equal(t, "ZSPD", tg.Destination)     // Normalize() uppercases ICAO codes
+	assert.Equal(t, "test content", tg.Content) // Normalize() trims whitespace
 }

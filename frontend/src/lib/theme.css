@@ -6,16 +6,16 @@
 
 :root {
   /* Base spacing unit: 4px */
-  --spacing-xs: 0.25rem;    /* 4px */
-  --spacing-sm: 0.5rem;     /* 8px */
-  --spacing-md: 0.75rem;    /* 12px */
-  --spacing-lg: 1rem;       /* 16px */
-  --spacing-xl: 1.25rem;    /* 20px */
-  --spacing-2xl: 1.5rem;    /* 24px */
-  --spacing-3xl: 2rem;      /* 32px */
-  --spacing-4xl: 2.5rem;    /* 40px */
-  --spacing-5xl: 3rem;      /* 48px */
-  --spacing-6xl: 4rem;      /* 64px */
+  --spacing-xs: 0.25rem; /* 4px */
+  --spacing-sm: 0.5rem; /* 8px */
+  --spacing-md: 0.75rem; /* 12px */
+  --spacing-lg: 1rem; /* 16px */
+  --spacing-xl: 1.25rem; /* 20px */
+  --spacing-2xl: 1.5rem; /* 24px */
+  --spacing-3xl: 2rem; /* 32px */
+  --spacing-4xl: 2.5rem; /* 40px */
+  --spacing-5xl: 3rem; /* 48px */
+  --spacing-6xl: 4rem; /* 64px */
 }
 
 /* ============================================================================
@@ -24,26 +24,26 @@
 
 :root {
   /* Font sizes */
-  --text-xs: 0.75rem;       /* 12px */
-  --text-sm: 0.875rem;      /* 14px */
-  --text-base: 1rem;        /* 16px */
-  --text-lg: 1.125rem;      /* 18px */
-  --text-xl: 1.25rem;       /* 20px */
-  --text-2xl: 1.5rem;       /* 24px */
-  --text-3xl: 1.875rem;     /* 30px */
-  --text-4xl: 2.25rem;      /* 36px */
-  --text-5xl: 3rem;         /* 48px */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-5xl: 3rem; /* 48px */
 
   /* Line heights */
-  --leading-xs: 1rem;       /* 16px */
-  --leading-sm: 1.25rem;    /* 20px */
-  --leading-base: 1.5rem;   /* 24px */
-  --leading-lg: 1.75rem;    /* 28px */
-  --leading-xl: 1.75rem;    /* 28px */
-  --leading-2xl: 2rem;      /* 32px */
-  --leading-3xl: 2.25rem;   /* 36px */
-  --leading-4xl: 2.5rem;    /* 40px */
-  --leading-5xl: 1;         /* 1 (relative to font-size) */
+  --leading-xs: 1rem; /* 16px */
+  --leading-sm: 1.25rem; /* 20px */
+  --leading-base: 1.5rem; /* 24px */
+  --leading-lg: 1.75rem; /* 28px */
+  --leading-xl: 1.75rem; /* 28px */
+  --leading-2xl: 2rem; /* 32px */
+  --leading-3xl: 2.25rem; /* 36px */
+  --leading-4xl: 2.5rem; /* 40px */
+  --leading-5xl: 1; /* 1 (relative to font-size) */
 
   /* Font weights */
   --font-thin: 100;
@@ -71,12 +71,12 @@
 
 :root {
   --radius-none: 0;
-  --radius-sm: 0.125rem;    /* 2px */
-  --radius-md: 0.375rem;    /* 6px */
-  --radius-lg: 0.5rem;      /* 8px */
-  --radius-xl: 0.75rem;     /* 12px */
-  --radius-2xl: 1rem;       /* 16px */
-  --radius-3xl: 1.5rem;     /* 24px */
+  --radius-sm: 0.125rem; /* 2px */
+  --radius-md: 0.375rem; /* 6px */
+  --radius-lg: 0.5rem; /* 8px */
+  --radius-xl: 0.75rem; /* 12px */
+  --radius-2xl: 1rem; /* 16px */
+  --radius-3xl: 1.5rem; /* 24px */
   --radius-full: 9999px;
 }
 
@@ -123,20 +123,20 @@
 
 /* Button */
 :root {
-  --button-height-xs: 1.5rem;    /* 24px */
-  --button-height-sm: 2rem;      /* 32px */
-  --button-height-md: 2.5rem;    /* 40px */
-  --button-height-lg: 3rem;      /* 48px */
-  --button-height-xl: 3.5rem;    /* 56px */
+  --button-height-xs: 1.5rem; /* 24px */
+  --button-height-sm: 2rem; /* 32px */
+  --button-height-md: 2.5rem; /* 40px */
+  --button-height-lg: 3rem; /* 48px */
+  --button-height-xl: 3.5rem; /* 56px */
 }
 
 /* Input */
 :root {
-  --input-height-xs: 1.5rem;     /* 24px */
-  --input-height-sm: 2rem;       /* 32px */
-  --input-height-md: 2.5rem;     /* 40px */
-  --input-height-lg: 3rem;       /* 48px */
-  --input-height-xl: 3.5rem;     /* 56px */
+  --input-height-xs: 1.5rem; /* 24px */
+  --input-height-sm: 2rem; /* 32px */
+  --input-height-md: 2.5rem; /* 40px */
+  --input-height-lg: 3rem; /* 48px */
+  --input-height-xl: 3.5rem; /* 56px */
 }
 
 /* Card */

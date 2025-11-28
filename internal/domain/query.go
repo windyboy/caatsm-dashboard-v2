@@ -42,4 +42,3 @@ const (
 	ExportFormatPDF   ExportFormat = "pdf"
 	ExportFormatJSON  ExportFormat = "json"
 )
-

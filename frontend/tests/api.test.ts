@@ -8,7 +8,7 @@
  * - 导出功能
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("REST API", () => {
   test("should load search page", async ({ page }) => {

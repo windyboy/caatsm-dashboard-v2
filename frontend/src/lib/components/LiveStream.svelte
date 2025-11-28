@@ -101,21 +101,38 @@
   });
 </script>
 
-<div   class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-4 sm:p-8 card-glow card-hover-pulse">
-  <div class="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-brand-200/40">
+<div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-4 sm:p-8 card-glow card-hover-pulse">
+  <div
+    class="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-brand-200/40"
+  >
     <div class="flex items-center gap-3">
       <div
         class="w-2 h-2 rounded-full {statusColor} shadow-lg animate-pulse"
         title={statusText}
       ></div>
       <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-6.938-6.49a8.5 8.5 0 0113.876 0M12 12v4"></path>
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-6.938-6.49a8.5 8.5 0 0113.876 0M12 12v4"
+        ></path>
       </svg>
-      <h2 class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent">Live Stream</h2>
+      <h2
+        class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
+      >
+        Live Stream
+      </h2>
     </div>
     <div class="flex items-center gap-2">
       <span
-        class="text-xs {statusColor === 'bg-green-500' ? 'text-success-700 bg-gradient-to-r from-success-50 to-brand-50 border-success-200/60' : statusColor === 'bg-yellow-500' ? 'text-yellow-700 bg-gradient-to-r from-yellow-50 to-yellow-50 border-yellow-200/60' : statusColor === 'bg-red-500' ? 'text-red-700 bg-gradient-to-r from-red-50 to-red-50 border-red-200/60' : 'text-gray-700 bg-gradient-to-r from-gray-50 to-gray-50 border-gray-200/60'} px-3 py-1 rounded-md font-medium border shadow-md"
+        class="text-xs {statusColor === 'bg-green-500'
+          ? 'text-success-700 bg-gradient-to-r from-success-50 to-brand-50 border-success-200/60'
+          : statusColor === 'bg-yellow-500'
+            ? 'text-yellow-700 bg-gradient-to-r from-yellow-50 to-yellow-50 border-yellow-200/60'
+            : statusColor === 'bg-red-500'
+              ? 'text-red-700 bg-gradient-to-r from-red-50 to-red-50 border-red-200/60'
+              : 'text-gray-700 bg-gradient-to-r from-gray-50 to-gray-50 border-gray-200/60'} px-3 py-1 rounded-md font-medium border shadow-md"
       >
         {statusText}
       </span>
@@ -132,7 +149,9 @@
   >
     {#if typedMessages.length === 0}
       <div class="text-center py-12">
-        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-brand-200 to-accent-200"></div>
+        <div
+          class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-brand-200 to-accent-200"
+        ></div>
         <p class="text-sm text-slate-500 font-medium">
           {#if currentStatus === "connecting"}
             Connecting...

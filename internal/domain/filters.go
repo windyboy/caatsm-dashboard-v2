@@ -13,13 +13,13 @@ const (
 // SearchFilters represents domain-level search criteria for telegrams.
 // This is the domain concept, separate from infrastructure concerns like JSON tags.
 type SearchFilters struct {
-	Query       string
-	Types       []string
-	Sources     []string
+	Query        string
+	Types        []string
+	Sources      []string
 	Destinations []string
-	Priorities  []int
-	TimeRange   TimeWindow
-	Pagination  Pagination
+	Priorities   []int
+	TimeRange    TimeWindow
+	Pagination   Pagination
 }
 
 // TimeWindow defines a time range for filtering telegrams.
@@ -48,7 +48,7 @@ func (f *SearchFilters) Validate() error {
 		if f.TimeRange.Start.After(f.TimeRange.End) {
 			return ErrInvalidFilter{Field: "time_range", Reason: "start must be before end"}
 		}
-		
+
 		// Check maximum time range duration
 		duration := f.TimeRange.End.Sub(f.TimeRange.Start)
 		maxDuration := time.Duration(MaxTimeRangeDays) * 24 * time.Hour
@@ -98,4 +98,3 @@ type ErrInvalidFilter struct {
 func (e ErrInvalidFilter) Error() string {
 	return "invalid filter: " + e.Field + " " + e.Reason
 }
-

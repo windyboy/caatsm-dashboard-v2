@@ -50,4 +50,3 @@ func (i *Index) Search(ctx context.Context, query string, filter string, limit, 
 func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error) {
 	return i.oldIndex.SearchAutocomplete(ctx, query, limit, attributes)
 }
-

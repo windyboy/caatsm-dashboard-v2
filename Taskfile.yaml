@@ -370,15 +370,21 @@ tasks:
         elif [ -f "${CAATSM_CONFIG:-config/config.local.toml}" ]; then
           CONFIG_FILE="${CAATSM_CONFIG:-config/config.local.toml}"
           # Run extract-dsn without suppressing stderr so users can see config errors
-          # stderr will be displayed to the terminal, stdout (DSN) is captured
-          if DSN=$(go run ./cmd/extract-dsn -config "$CONFIG_FILE"); then
+          # In bash command substitution, stderr goes to terminal, stdout is captured
+          # We temporarily disable 'set -e' to handle command failure gracefully
+          set +e
+          DSN=$(go run ./cmd/extract-dsn -config "$CONFIG_FILE")
+          EXTRACT_EXIT=$?
+          set -e
+          if [ $EXTRACT_EXIT -eq 0 ]; then
             DSN=$(echo "$DSN" | tr -d '\n\r')
             if [ -z "$DSN" ]; then
               echo "Warning: extract-dsn returned empty DSN, using default" >&2
               DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
             fi
           else
-            # Command failed - error messages were already displayed to stderr
+            # Command failed - stderr was already displayed to the user
+            echo "Error: Failed to extract DSN from config file '$CONFIG_FILE'" >&2
             echo "Falling back to default development DSN" >&2
             DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
           fi

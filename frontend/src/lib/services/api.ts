@@ -33,10 +33,10 @@ function buildUrl(endpoint: string): string {
       endpoint,
       apiBase: API_BASE_URL,
     });
-    
+
     // Normalize base: trim trailing slashes
     const normalizedBase = API_BASE_URL.replace(/\/+$/, "");
-    
+
     // Normalize endpoint: ensure it starts with exactly one slash
     let normalizedEndpoint = endpoint.trim();
     if (normalizedEndpoint === "") {
@@ -45,7 +45,7 @@ function buildUrl(endpoint: string): string {
       // Remove any leading slashes and add exactly one
       normalizedEndpoint = "/" + normalizedEndpoint.replace(/^\/+/, "");
     }
-    
+
     return normalizedBase + normalizedEndpoint;
   }
 }

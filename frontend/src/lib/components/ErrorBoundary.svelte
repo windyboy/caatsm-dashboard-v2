@@ -1,37 +1,42 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
-  import { createLogger } from '$lib/utils/logger';
-  import Button from './ui/Button.svelte';
+  import type { Snippet } from "svelte";
+  import { createLogger } from "$lib/utils/logger";
+  import Button from "./ui/Button.svelte";
 
-  const logger = createLogger('ErrorBoundary');
+  const logger = createLogger("ErrorBoundary");
 
   interface Props {
     fallbackMessage?: string;
     showRetry?: boolean;
     context?: Record<string, unknown>;
     onerror?: (detail: { error: Error; context?: Record<string, unknown> }) => void;
-    children?: Snippet<[{ handleError: (err: Error | unknown, additionalContext?: Record<string, unknown>) => void }]>;
+    children?: Snippet<
+      [{ handleError: (err: Error | unknown, additionalContext?: Record<string, unknown>) => void }]
+    >;
   }
 
   let {
-    fallbackMessage = 'Something went wrong. Please try again.',
+    fallbackMessage = "Something went wrong. Please try again.",
     showRetry = true,
     context = {},
     onerror,
-    children
+    children,
   }: Props = $props();
 
   let error = $state<Error | null>(null);
   let errorId = $state<string | null>(null);
 
-  export function handleError(err: Error | unknown, additionalContext: Record<string, unknown> = {}) {
+  export function handleError(
+    err: Error | unknown,
+    additionalContext: Record<string, unknown> = {}
+  ) {
     const errorObj = err instanceof Error ? err : new Error(String(err));
     error = errorObj;
     errorId = `error-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const fullContext = { ...context, ...additionalContext, errorId };
 
-    logger.error('Component error caught by ErrorBoundary', errorObj, fullContext);
+    logger.error("Component error caught by ErrorBoundary", errorObj, fullContext);
     onerror?.({ error: errorObj, context: fullContext });
   }
 
@@ -65,9 +70,7 @@
         </details>
       {/if}
       {#if showRetry}
-        <Button onclick={retry} variant="primary">
-          Try Again
-        </Button>
+        <Button onclick={retry} variant="primary">Try Again</Button>
       {/if}
     </div>
   </div>

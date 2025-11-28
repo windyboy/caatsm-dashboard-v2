@@ -143,7 +143,7 @@ func TestMakeCheckOriginFunc(t *testing.T) {
 			if tt.requestOrigin != "" {
 				req.Header.Set("Origin", tt.requestOrigin)
 			}
-			
+
 			result := checkOrigin(req)
 			if result != tt.expected {
 				t.Errorf("checkOrigin(%s) = %v, want %v", tt.requestOrigin, result, tt.expected)
@@ -219,4 +219,3 @@ func TestNormalizeOrigin(t *testing.T) {
 		})
 	}
 }
-

@@ -2,8 +2,8 @@
 // Note: Subscription is set up in connect() to avoid SSR issues.
 // In SvelteKit, module-level stores are safe for SSR as each request gets a fresh module context.
 
-import { writable, derived } from "svelte/store";
-import { wsClient, type WebSocketStatus } from "../services/websocket.ts";
+import { derived, writable } from "svelte/store";
+import { type WebSocketStatus, wsClient } from "../services/websocket.ts";
 import type { WebSocketMessage } from "../utils/types.ts";
 import { messages } from "./messages.ts";
 import { stats } from "./stats.ts";
@@ -42,10 +42,10 @@ function createWebSocketStore() {
           statusUnsubscribe = wsClient.onStatusChange((newStatus) => {
             logger.debug("WebSocket status changed", { status: newStatus });
             status.set(newStatus);
-            
+
             // Update reconnect attempts
             reconnectAttempts.set(wsClient.getReconnectAttempts());
-            
+
             // Clear error on successful connection
             if (newStatus === "connected") {
               error.set(null);
@@ -61,7 +61,7 @@ function createWebSocketStore() {
             logger.debug("Received WebSocket message", {
               type: message.type,
             });
-            
+
             // Use discriminated union for type-safe handling
             switch (message.type) {
               case "message":
@@ -83,7 +83,7 @@ function createWebSocketStore() {
           });
         }
       }
-      
+
       wsClient.connect();
     },
 
@@ -93,7 +93,7 @@ function createWebSocketStore() {
       status.set("disconnected");
       error.set(null);
       reconnectAttempts.set(0);
-      
+
       // Unsubscribe when disconnecting
       if (messageUnsubscribe !== null) {
         messageUnsubscribe();
@@ -117,7 +117,7 @@ function createWebSocketStore() {
       status.set("disconnected");
       error.set(null);
       reconnectAttempts.set(0);
-      
+
       // Unsubscribe from WebSocket messages to prevent memory leaks
       if (messageUnsubscribe !== null) {
         messageUnsubscribe();

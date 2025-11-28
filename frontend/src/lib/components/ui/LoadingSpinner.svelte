@@ -16,32 +16,32 @@
   interface Props extends LoadingSpinnerProps {}
 
   let {
-    size = 'md',
-    variant = 'primary',
-    message = '',
+    size = "md",
+    variant = "primary",
+    message = "",
     overlay = false,
-    overlayColor = 'rgba(255, 255, 255, 0.8)',
-    class: className = ''
+    overlayColor = "rgba(255, 255, 255, 0.8)",
+    class: className = "",
   }: Props = $props();
 
   // Size classes using Daisy UI
   const sizeClasses = {
-    xs: 'loading-xs',
-    sm: 'loading-sm',
-    md: 'loading-md',
-    lg: 'loading-lg',
-    xl: 'loading-xl'
+    xs: "loading-xs",
+    sm: "loading-sm",
+    md: "loading-md",
+    lg: "loading-lg",
+    xl: "loading-xl",
   };
 
   // Variant classes using Daisy UI
   const variantClasses = {
-    primary: 'text-primary',
-    secondary: 'text-secondary',
-    outline: 'text-primary',
-    ghost: 'text-base-content',
-    success: 'text-success',
-    warning: 'text-warning',
-    danger: 'text-error'
+    primary: "text-primary",
+    secondary: "text-secondary",
+    outline: "text-primary",
+    ghost: "text-base-content",
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-error",
   };
 </script>
 
@@ -49,7 +49,8 @@
   {#if overlay}
     <div class="loading-overlay" style="background-color: {overlayColor}">
       <div class="loading-content">
-        <span class="loading loading-spinner {sizeClasses[size!]} {variantClasses[variant!]}"></span>
+        <span class="loading loading-spinner {sizeClasses[size!]} {variantClasses[variant!]}"
+        ></span>
 
         {#if message}
           <p class="loading-message">{message}</p>

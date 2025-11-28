@@ -1,6 +1,11 @@
 # Binaries
 /bin/
 /tmp/
+/server
+/sync
+
+# Build artifacts in tmp
+tmp/
 
 # Build artifacts
 public/css/app.css
@@ -15,6 +20,9 @@ public/css/app.css
 coverage.out
 coverage.html
 *.coverprofile
+
+# Log files
+*.log
 
 # Node
 node_modules/

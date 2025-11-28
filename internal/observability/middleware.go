@@ -41,12 +41,12 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 				zap.Int("status", status),
 				zap.Duration("latency", latency),
 			}
-			
+
 			// Add correlation ID if available
 			if correlationID := CorrelationIDFromContext(req.Context()); correlationID != "" {
 				fields = append(fields, zap.String("correlation_id", correlationID))
 			}
-			
+
 			// Add request ID if available
 			if requestID != "" {
 				fields = append(fields, zap.String("request_id", requestID))
@@ -56,9 +56,9 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 				// Check if the response is hijacked (WebSocket upgrade)
 				// For WebSocket connections, the status is typically 101 (Switching Protocols)
 				// After hijacking, we shouldn't try to write errors to the response
-				isWebSocket := status == http.StatusSwitchingProtocols || 
+				isWebSocket := status == http.StatusSwitchingProtocols ||
 					(req.Header.Get("Upgrade") == "websocket" && status == 0)
-				
+
 				if isWebSocket {
 					// Response is hijacked (WebSocket connection)
 					// Log the error but don't return it to avoid Echo trying to write to hijacked connection
@@ -66,7 +66,7 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 					logger.Warn("request completed with error (hijacked connection)", fields...)
 					return nil
 				}
-				
+
 				fields = append(fields, zap.Error(err))
 				// Only log as error for 5xx status codes, warn for 4xx
 				if status >= 500 {
@@ -83,10 +83,4 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 			return nil
 		}
 	}
-}
-
-// Correlation enriches request context with correlation identifiers.
-// Deprecated: Use CorrelationIDMiddleware instead for better correlation ID support.
-func Correlation() echo.MiddlewareFunc {
-	return CorrelationIDMiddleware()
 }

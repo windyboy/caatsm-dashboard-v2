@@ -186,4 +186,3 @@ func TestDefaultRedactionPolicy(t *testing.T) {
 	assert.True(t, policy.RedactIPs)
 	assert.True(t, policy.RedactPhones)
 }
-

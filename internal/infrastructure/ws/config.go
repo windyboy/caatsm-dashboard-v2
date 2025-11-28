@@ -57,4 +57,3 @@ type ErrInvalidConfig struct {
 func (e ErrInvalidConfig) Error() string {
 	return "invalid config: " + e.Field + " - " + e.Reason
 }
-

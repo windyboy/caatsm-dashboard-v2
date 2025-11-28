@@ -219,4 +219,3 @@ func TestSearchFilters_TimeRangeValidation(t *testing.T) {
 	assert.Error(t, err, "filter validation should fail for > 90 day range")
 	assert.Contains(t, err.Error(), "range cannot exceed", "error should mention range limit")
 }
-

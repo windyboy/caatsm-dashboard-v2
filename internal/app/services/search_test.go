@@ -240,4 +240,3 @@ func TestSearchService_CacheKeyGeneration(t *testing.T) {
 		assert.Len(t, key, len("search:")+32) // MD5 hash is 32 hex chars
 	})
 }
-

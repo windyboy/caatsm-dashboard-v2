@@ -72,4 +72,3 @@ const (
 	ExportFormatExcel ExportFormat = "xlsx"
 	ExportFormatPDF   ExportFormat = "pdf"
 )
-

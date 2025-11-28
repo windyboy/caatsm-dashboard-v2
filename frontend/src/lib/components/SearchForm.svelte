@@ -103,28 +103,49 @@
     handleSearch();
   }
 
-  function getSuggestionValue(suggestion: string | { value: string; type: string; label: string }): string {
+  function getSuggestionValue(
+    suggestion: string | { value: string; type: string; label: string }
+  ): string {
     return typeof suggestion === "string" ? suggestion : suggestion.value;
   }
 
-  function getSuggestionLabel(suggestion: string | { value: string; type: string; label: string }): string {
+  function getSuggestionLabel(
+    suggestion: string | { value: string; type: string; label: string }
+  ): string {
     if (typeof suggestion === "string") return "";
     return suggestion.label || suggestion.type || "";
   }
 </script>
 
-<div   class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
+<div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
   <div class="mb-6 pb-4 border-b border-brand-200/40">
     <div class="flex items-center gap-3">
-      <div class="p-2 rounded-lg bg-gradient-to-r from-brand-100 to-accent-100 border border-brand-200/50">
+      <div
+        class="p-2 rounded-lg bg-gradient-to-r from-brand-100 to-accent-100 border border-brand-200/50"
+      >
         <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          ></path>
         </svg>
       </div>
-      <h2 class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent">Search Telegrams</h2>
+      <h2
+        class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
+      >
+        Search Telegrams
+      </h2>
     </div>
   </div>
-  <form class="space-y-6" onsubmit={(e) => { e.preventDefault(); handleSearch(); }}>
+  <form
+    class="space-y-6"
+    onsubmit={(e) => {
+      e.preventDefault();
+      handleSearch();
+    }}
+  >
     <div>
       <label class="block text-sm font-semibold text-slate-700 mb-2.5" for="query">Keywords</label>
       <div class="relative">
@@ -149,7 +170,9 @@
                 onclick={() => selectSuggestion(suggestion)}
               >
                 {#if label}
-                  <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[4rem]">
+                  <span
+                    class="text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[4rem]"
+                  >
                     {label}:
                   </span>
                 {/if}
@@ -163,7 +186,12 @@
     <div class="grid gap-5 md:grid-cols-2">
       <div class="flex items-center gap-2 mb-2">
         <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+          ></path>
         </svg>
         <span class="text-sm font-semibold text-brand-700">Filters</span>
       </div>
@@ -231,27 +259,27 @@
       </div>
     </div>
     <div class="flex justify-end gap-3 pt-4 border-t border-slate-200/60">
-        <button
-          type="button"
-          class="rounded-lg bg-gradient-to-r from-slate-100/80 to-slate-200/60 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:from-slate-200/90 hover:to-slate-300/70 transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 border-0 ripple btn-hover-lift"
-          onclick={(e) => {
-            e.preventDefault();
-            query = "";
-            type = "";
-            priority = "";
-            start_time = "";
-            end_time = "";
-            onreset?.();
-          }}
-        >
-         Reset
-       </button>
-       <button
-         type="submit"
-         class="rounded-lg bg-gradient-to-r from-brand-500 to-accent-500 px-6 py-2.5 text-sm font-semibold text-white hover:from-brand-600 hover:to-accent-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 ripple btn-hover-lift"
-       >
-         Search
-       </button>
+      <button
+        type="button"
+        class="rounded-lg bg-gradient-to-r from-slate-100/80 to-slate-200/60 px-6 py-2.5 text-sm font-semibold text-slate-700 hover:from-slate-200/90 hover:to-slate-300/70 transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105 border-0 ripple btn-hover-lift"
+        onclick={(e) => {
+          e.preventDefault();
+          query = "";
+          type = "";
+          priority = "";
+          start_time = "";
+          end_time = "";
+          onreset?.();
+        }}
+      >
+        Reset
+      </button>
+      <button
+        type="submit"
+        class="rounded-lg bg-gradient-to-r from-brand-500 to-accent-500 px-6 py-2.5 text-sm font-semibold text-white hover:from-brand-600 hover:to-accent-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 ripple btn-hover-lift"
+      >
+        Search
+      </button>
     </div>
   </form>
 </div>

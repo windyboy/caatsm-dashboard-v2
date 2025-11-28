@@ -16,10 +16,10 @@
 
   function getTypeColorClass(type: string | undefined | null): string {
     // Handle undefined/null/empty type
-    if (!type || typeof type !== 'string') {
+    if (!type || typeof type !== "string") {
       return "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 group-hover:from-slate-100 group-hover:to-slate-200 border-slate-200/50";
     }
-    
+
     const typeLower = type.toLowerCase();
     if (typeLower === "aftn") {
       return "bg-gradient-to-r from-brand-50 to-brand-100 text-brand-700 group-hover:from-brand-100 group-hover:to-brand-200 border-brand-200/50";
@@ -35,7 +35,7 @@
 
   function formatTime(timeStr: string | undefined | null): string {
     if (!timeStr) {
-      return '';
+      return "";
     }
     const date = new Date(timeStr);
     if (isNaN(date.getTime())) {
@@ -56,7 +56,7 @@
         <span
           class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-brand-100 to-accent-100 text-brand-800 border border-brand-200/50 shadow-sm group-hover:from-brand-200 group-hover:to-accent-200 transition-all duration-300"
         >
-          {telegram.message_id || 'N/A'}
+          {telegram.message_id || "N/A"}
         </span>
 
         <!-- Flight Number -->
@@ -80,7 +80,7 @@
 
   <!-- Message Content -->
   <p class="text-sm text-slate-800 mb-3 break-words leading-relaxed">
-    {telegram.content || ''}
+    {telegram.content || ""}
   </p>
 
   <!-- Tags -->

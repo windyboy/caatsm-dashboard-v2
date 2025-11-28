@@ -101,9 +101,10 @@ export const createLogger = (prefix: string): Logger => {
   // Can be overridden with VITE_LOG_LEVEL env var (debug, info, warn, error)
   const validLevels: LogLevel[] = ["debug", "info", "warn", "error"];
   const rawEnvLevel = import.meta.env.VITE_LOG_LEVEL as string | undefined;
-  const envLogLevel = rawEnvLevel && validLevels.includes(rawEnvLevel as LogLevel) 
-    ? (rawEnvLevel as LogLevel) 
-    : undefined;
+  const envLogLevel =
+    rawEnvLevel && validLevels.includes(rawEnvLevel as LogLevel)
+      ? (rawEnvLevel as LogLevel)
+      : undefined;
   const defaultLevel = isDev ? "warn" : "info";
   const minLevel = envLogLevel || defaultLevel;
   return new Logger(prefix, true, minLevel);

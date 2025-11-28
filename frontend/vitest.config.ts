@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
-import { resolve, dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname =
@@ -42,7 +42,6 @@ export default defineConfig({
       "tests/**/*.spec.ts",
       "tests/api.test.ts",
       "tests/websocket.test.ts",
-      "tests/example.spec.ts",
     ],
     coverage: {
       provider: "v8",

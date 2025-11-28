@@ -57,20 +57,16 @@ func (h *Handler) Autocomplete(c echo.Context) error {
 		}
 	}
 
-	// Check if client wants structured suggestions with labels
-	withTypes := c.QueryParam("with_types") == "true"
-
-	if withTypes {
-		// Try to get typed suggestions if the service supports it
-		// For now, we'll always return structured format for better UX
-		// The frontend will handle both formats
-	}
-
 	suggestions, err := h.dashboardSvc.Autocomplete(c.Request().Context(), query, size)
 	if err != nil {
 		h.logger.Error("autocomplete failed", zap.Error(err))
 		return handleError(c, err)
 	}
+
+	// Pre-compile regexps for performance
+	flightRegexp := regexp.MustCompile(`^[A-Z]{2,3}\d{3,4}$`)
+	liveRegexp := regexp.MustCompile(`^LIVE-`)
+	airportRegexp := regexp.MustCompile(`^[A-Z]{4}$`)
 
 	// Format suggestions with labels for better readability
 	formattedSuggestions := make([]map[string]interface{}, 0, len(suggestions))
@@ -80,14 +76,14 @@ func (h *Handler) Autocomplete(c echo.Context) error {
 		label := ""
 
 		// Flight numbers: typically 2-3 letters + 3-4 digits (e.g., CA320, AF413)
-		if matched, _ := regexp.MatchString(`^[A-Z]{2,3}\d{3,4}$`, sug); matched {
+		if flightRegexp.MatchString(sug) {
 			sugType = "flight_number"
 			label = "Flight"
-		} else if matched, _ := regexp.MatchString(`^LIVE-`, sug); matched {
+		} else if liveRegexp.MatchString(sug) {
 			// Message IDs: start with LIVE-
 			sugType = "message_id"
 			label = "Message ID"
-		} else if matched, _ := regexp.MatchString(`^[A-Z]{4}$`, sug); matched {
+		} else if airportRegexp.MatchString(sug) {
 			// Airport codes: 4 letters (ICAO)
 			sugType = "airport"
 			label = "Airport"

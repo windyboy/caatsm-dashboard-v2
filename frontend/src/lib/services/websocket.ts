@@ -166,7 +166,7 @@ export class WebSocketClient {
           }
 
           const parsed = JSON.parse(event.data);
-          
+
           // Handle pong messages for health checks
           if (parsed && typeof parsed === "object" && parsed.type === "pong") {
             this.handlePong();
@@ -234,7 +234,11 @@ export class WebSocketClient {
         this.ws = null;
         this.setStatus("disconnected");
 
-        if (this.shouldReconnect && !this.isPaused && this.reconnectAttempts < this.maxReconnectAttempts) {
+        if (
+          this.shouldReconnect &&
+          !this.isPaused &&
+          this.reconnectAttempts < this.maxReconnectAttempts
+        ) {
           this.scheduleReconnect();
         } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           logger.warn("Max reconnection attempts reached", {
@@ -268,17 +272,29 @@ export class WebSocketClient {
     if (!validTypes.includes(msg.type)) {
       return false;
     }
-    
+
     // Type-specific validation
     switch (msg.type) {
       case "message":
         return typeof msg.data === "object" && msg.data !== null;
       case "stats-total":
-        return typeof msg.data === "object" && msg.data !== null && typeof (msg.data as any).total === "number";
+        return (
+          typeof msg.data === "object" &&
+          msg.data !== null &&
+          typeof (msg.data as any).total === "number"
+        );
       case "stats-priority":
-        return typeof msg.data === "object" && msg.data !== null && typeof (msg.data as any).byPriority === "object";
+        return (
+          typeof msg.data === "object" &&
+          msg.data !== null &&
+          typeof (msg.data as any).byPriority === "object"
+        );
       case "stats-type":
-        return typeof msg.data === "object" && msg.data !== null && typeof (msg.data as any).byType === "object";
+        return (
+          typeof msg.data === "object" &&
+          msg.data !== null &&
+          typeof (msg.data as any).byType === "object"
+        );
       case "pong":
         return true; // pong has no data requirement
       default:
@@ -338,7 +354,7 @@ export class WebSocketClient {
       this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
       this.maxReconnectDelay
     );
-    
+
     // Add jitter (0-30% of delay) to prevent thundering herd
     const jitter = Math.random() * 0.3 * baseDelay;
     const delay = baseDelay + jitter;

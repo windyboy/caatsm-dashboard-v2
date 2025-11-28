@@ -33,4 +33,3 @@ func (m *AnalyticsStoreMock) RouteStats(ctx context.Context, limit int) ([]domai
 	}
 	return args.Get(0).([]domain.RouteStat), args.Error(1)
 }
-

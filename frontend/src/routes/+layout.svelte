@@ -11,6 +11,6 @@
   let { children }: Props = $props();
 </script>
 
-<ErrorBoundary context={{ component: 'layout' }}>
+<ErrorBoundary context={{ component: "layout" }}>
   {@render children?.()}
 </ErrorBoundary>

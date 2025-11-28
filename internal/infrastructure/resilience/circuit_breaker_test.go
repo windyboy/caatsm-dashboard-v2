@@ -581,4 +581,3 @@ func TestCircuitBreaker_ContextTimeout(t *testing.T) {
 		t.Errorf("expected context.DeadlineExceeded error, got %v", err)
 	}
 }
-

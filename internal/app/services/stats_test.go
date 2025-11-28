@@ -320,4 +320,3 @@ func TestStatsService_CacheKeyGeneration(t *testing.T) {
 		assert.Contains(t, key, "stats:")
 	})
 }
-

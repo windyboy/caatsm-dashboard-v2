@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { get } from "svelte/store";
 import { messages } from "../../src/lib/stores/messages";
 import { stats } from "../../src/lib/stores/stats";

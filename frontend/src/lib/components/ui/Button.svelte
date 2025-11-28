@@ -24,17 +24,17 @@
   }
 
   let {
-    variant = 'primary',
-    size = 'md',
+    variant = "primary",
+    size = "md",
     disabled = false,
     loading = false,
     ripple = true,
-    type = 'button',
+    type = "button",
     href = undefined,
     fullWidth = false,
-    class: className = '',
+    class: className = "",
     onclick,
-    children
+    children,
   }: Props = $props();
 
   // Base classes using Daisy UI
@@ -48,7 +48,7 @@
     ghost: "btn-ghost",
     success: "btn-success",
     warning: "btn-warning",
-    danger: "btn-error"
+    danger: "btn-error",
   };
 
   // Size classes using Daisy UI
@@ -57,13 +57,15 @@
     sm: "btn-sm",
     md: "btn-md",
     lg: "btn-lg",
-    xl: "btn-xl"
+    xl: "btn-xl",
   };
 
   // Computed values with $derived
   const loadingClass = $derived(loading ? "loading" : "");
   const widthClass = $derived(fullWidth ? "w-full" : "");
-  const classes = $derived(`${baseClasses} ${variantClasses[variant!]} ${sizeClasses[size!]} ${loadingClass} ${widthClass} ${className}`.trim());
+  const classes = $derived(
+    `${baseClasses} ${variantClasses[variant!]} ${sizeClasses[size!]} ${loadingClass} ${widthClass} ${className}`.trim()
+  );
 
   function handleClick(event: Event) {
     if (disabled || loading) {
@@ -86,7 +88,13 @@
     {@render children?.()}
   </a>
 {:else}
-  <button {type} {disabled} aria-disabled={disabled || loading} class={classes} onclick={handleClick}>
+  <button
+    {type}
+    {disabled}
+    aria-disabled={disabled || loading}
+    class={classes}
+    onclick={handleClick}
+  >
     {@render children?.()}
   </button>
 {/if}
