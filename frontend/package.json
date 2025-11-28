@@ -19,6 +19,7 @@
     "test:unit:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "daisyui": "5.5.5",
     "lucide-svelte": "0.460.0"
   },
   "devDependencies": {

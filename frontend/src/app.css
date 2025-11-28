@@ -1,6 +1,9 @@
 /* UnoCSS 通过 virtual:uno.css 在 +layout.svelte 中导入 */
 /* PresetWind4 内置了 reset 样式，不需要单独导入 */
 
+/* Import DaisyUI styles */
+@import 'daisyui/daisyui.css';
+
 /* Import design system theme variables */
 @import './lib/theme.css';
 
