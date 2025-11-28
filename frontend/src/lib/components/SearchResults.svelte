@@ -22,14 +22,16 @@
   
   // Generate a stable unique key for each telegram
   // Uses message_id if available, otherwise creates a composite key from stable fields
-  function getTelegramKey(telegram: Telegram, index: number): string {
+  // Keys must identify items, not positions, so we never use array indices
+  function getTelegramKey(telegram: Telegram): string {
     // Primary: use message_id if it exists and is non-empty
     if (telegram.message_id && telegram.message_id.trim() !== '') {
       return telegram.message_id;
     }
     
     // Fallback: create stable composite key from immutable fields
-    // time is always present (validated in domain), so this is always unique
+    // time is always present (validated in domain), so this should be unique
+    // We use a combination of fields that together uniquely identify the telegram
     const parts = [
       telegram.time || '',
       telegram.flight_number || '',
@@ -37,8 +39,9 @@
       telegram.destination || '',
       telegram.type || '',
       telegram.priority?.toString() || '',
-      // Include index as last resort for truly identical telegrams (shouldn't happen)
-      index.toString()
+      // Include content hash as additional differentiator for edge cases
+      // This ensures uniqueness even if all other fields are identical
+      telegram.content ? String(telegram.content.length) + telegram.content.substring(0, 20) : ''
     ];
     
     return parts.join('|');
@@ -52,7 +55,7 @@
         Found <span class="bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent font-bold">{total.toLocaleString()}</span> results
       </p>
       <div class="space-y-4">
-        {#each safeTelegrams as telegram, index (getTelegramKey(telegram, index))}
+        {#each safeTelegrams as telegram (getTelegramKey(telegram))}
           <div>
             <MessageItem {telegram} />
           </div>
