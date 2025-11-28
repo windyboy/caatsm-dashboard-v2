@@ -3,7 +3,9 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -56,6 +58,8 @@ func (h *SimpleHandler) HandleWebSocket(c echo.Context) error {
 		h.container.Logger.Error("failed to upgrade to websocket", zap.Error(err))
 		return err
 	}
+	// Note: After upgrade, the connection is hijacked and Echo's middleware
+	// should not try to write to the response. We handle errors internally.
 	defer func() { _ = ws.Close() }()
 
 	h.container.Logger.Info("WebSocket connection established", zap.String("remote_addr", c.RealIP()))
@@ -125,8 +129,18 @@ func (h *SimpleHandler) HandleWebSocket(c echo.Context) error {
 		case <-pingTicker.C:
 			_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := ws.WriteMessage(websocket.PingMessage, nil); err != nil {
+				// Check for broken pipe or connection closed errors
+				var sysErr syscall.Errno
+				if errors.As(err, &sysErr) && (sysErr == syscall.EPIPE || sysErr == syscall.ECONNRESET) {
+					// Client disconnected, return nil to avoid Echo middleware error handling
+					return nil
+				}
+				if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
+					// Client closed connection, return nil
+					return nil
+				}
 				h.container.Logger.Warn("failed to send ping", zap.Error(err))
-				return err
+				return nil // Return nil to prevent Echo from trying to write to hijacked connection
 			}
 		case <-ctx.Done():
 			h.container.Logger.Info("WebSocket connection context cancelled")
@@ -334,9 +348,27 @@ func (h *SimpleHandler) handleBroadcastEvent(ctx context.Context, ws *websocket.
 }
 
 // writeWebSocketMessage writes a WebSocket message to the client.
+// It handles broken pipe errors gracefully when the client disconnects.
 func (h *SimpleHandler) writeWebSocketMessage(ws *websocket.Conn, msg WebSocketMessage) error {
 	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-	return ws.WriteJSON(msg)
+	err := ws.WriteJSON(msg)
+	if err != nil {
+		// Check for broken pipe or connection closed errors
+		// These are expected when the client disconnects
+		var sysErr syscall.Errno
+		if errors.As(err, &sysErr) && (sysErr == syscall.EPIPE || sysErr == syscall.ECONNRESET) {
+			// Client disconnected, this is expected behavior
+			return nil
+		}
+		// Check for websocket close errors
+		if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
+			// Client closed connection normally or abnormally
+			return nil
+		}
+		// For other errors, return them
+		return err
+	}
+	return nil
 }
 
 // Register registers the WebSocket route.

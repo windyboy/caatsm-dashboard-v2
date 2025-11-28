@@ -31,9 +31,20 @@
   let priority = $state("");
   let start_time = $state("");
   let end_time = $state("");
-  let suggestions = $state<string[]>([]);
+  let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
   let autocompleteTimeout = $state<number | null>(null);
+
+  function toIsoString(value: string): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return undefined;
+    }
+    return date.toISOString();
+  }
 
   async function handleAutocomplete() {
     if (autocompleteTimeout) {
@@ -49,7 +60,17 @@
     autocompleteTimeout = setTimeout(async () => {
       try {
         const result = await autocomplete(query, 5);
-        suggestions = result.suggestions;
+        // Handle both old format (string[]) and new format (AutocompleteSuggestion[])
+        if (result.suggestions.length > 0 && typeof result.suggestions[0] === "string") {
+          // Old format: convert to new format
+          suggestions = (result.suggestions as string[]).map((s) => ({
+            value: s,
+            type: "text",
+            label: "",
+          }));
+        } else {
+          suggestions = result.suggestions as Array<{ value: string; type: string; label: string }>;
+        }
         showSuggestions = suggestions.length > 0;
       } catch (error) {
         logger.error("Autocomplete failed", error, {
@@ -63,19 +84,32 @@
   }
 
   function handleSearch() {
+    const startISO = toIsoString(start_time);
+    const endISO = toIsoString(end_time);
+
     onsearch?.({
       query,
       type: type || undefined,
       priority: priority ? parseInt(priority) : undefined,
-      start_time: start_time || undefined,
-      end_time: end_time || undefined,
+      start_time: startISO,
+      end_time: endISO,
     });
   }
 
-  function selectSuggestion(suggestion: string) {
-    query = suggestion;
+  function selectSuggestion(suggestion: string | { value: string; type: string; label: string }) {
+    const value = typeof suggestion === "string" ? suggestion : suggestion.value;
+    query = value;
     showSuggestions = false;
     handleSearch();
+  }
+
+  function getSuggestionValue(suggestion: string | { value: string; type: string; label: string }): string {
+    return typeof suggestion === "string" ? suggestion : suggestion.value;
+  }
+
+  function getSuggestionLabel(suggestion: string | { value: string; type: string; label: string }): string {
+    if (typeof suggestion === "string") return "";
+    return suggestion.label || suggestion.type || "";
   }
 </script>
 
@@ -106,13 +140,20 @@
           <div
             class="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 max-h-48 overflow-y-auto"
           >
-            {#each suggestions as suggestion (suggestion)}
+            {#each suggestions as suggestion (getSuggestionValue(suggestion))}
+              {@const value = getSuggestionValue(suggestion)}
+              {@const label = getSuggestionLabel(suggestion)}
               <button
                 type="button"
-                class="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700"
-                onclick={() => selectSuggestion(String(suggestion))}
+                class="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 flex items-center gap-2"
+                onclick={() => selectSuggestion(suggestion)}
               >
-                {suggestion}
+                {#if label}
+                  <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[4rem]">
+                    {label}:
+                  </span>
+                {/if}
+                <span class="flex-1 font-medium">{value}</span>
               </button>
             {/each}
           </div>

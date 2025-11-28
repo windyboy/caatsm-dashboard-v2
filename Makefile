@@ -34,6 +34,12 @@ test-integration: ## Run integration tests only
 test-race: ## Run tests with race detector
 	@task test:race
 
+test-pretty: ## Run tests with gotestsum (prettier output)
+	@task test:pretty
+
+test-pretty-unit: ## Run unit tests with gotestsum
+	@task test:pretty:unit
+
 lint: ## Run linter (golangci-lint)
 	@task lint
 

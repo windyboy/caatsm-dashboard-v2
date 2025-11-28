@@ -14,7 +14,12 @@
 
   let { telegram }: Props = $props();
 
-  function getTypeColorClass(type: string): string {
+  function getTypeColorClass(type: string | undefined | null): string {
+    // Handle undefined/null/empty type
+    if (!type || typeof type !== 'string') {
+      return "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 group-hover:from-slate-100 group-hover:to-slate-200 border-slate-200/50";
+    }
+    
     const typeLower = type.toLowerCase();
     if (typeLower === "aftn") {
       return "bg-gradient-to-r from-brand-50 to-brand-100 text-brand-700 group-hover:from-brand-100 group-hover:to-brand-200 border-brand-200/50";
@@ -28,7 +33,10 @@
     return "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 group-hover:from-slate-100 group-hover:to-slate-200 border-slate-200/50";
   }
 
-  function formatTime(timeStr: string): string {
+  function formatTime(timeStr: string | undefined | null): string {
+    if (!timeStr) {
+      return '';
+    }
     const date = new Date(timeStr);
     if (isNaN(date.getTime())) {
       return timeStr;
@@ -48,7 +56,7 @@
         <span
           class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-brand-100 to-accent-100 text-brand-800 border border-brand-200/50 shadow-sm group-hover:from-brand-200 group-hover:to-accent-200 transition-all duration-300"
         >
-          {telegram.message_id}
+          {telegram.message_id || 'N/A'}
         </span>
 
         <!-- Flight Number -->
@@ -72,26 +80,30 @@
 
   <!-- Message Content -->
   <p class="text-sm text-slate-800 mb-3 break-words leading-relaxed">
-    {telegram.content}
+    {telegram.content || ''}
   </p>
 
   <!-- Tags -->
   <div class="flex flex-wrap gap-2">
     <!-- Type Tag -->
-    <span
-      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border-0 transition-colors {getTypeColorClass(
-        telegram.type
-      )}"
-    >
-      {telegram.type}
-    </span>
+    {#if telegram.type}
+      <span
+        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border-0 transition-colors {getTypeColorClass(
+          telegram.type
+        )}"
+      >
+        {telegram.type}
+      </span>
+    {/if}
 
     <!-- Priority -->
-    <span
-      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border border-accent-200/50 bg-gradient-to-r from-accent-50 to-accent-100 text-accent-700 group-hover:from-accent-100 group-hover:to-accent-200 transition-all duration-300"
-    >
-      Priority {telegram.priority}
-    </span>
+    {#if telegram.priority}
+      <span
+        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border border-accent-200/50 bg-gradient-to-r from-accent-50 to-accent-100 text-accent-700 group-hover:from-accent-100 group-hover:to-accent-200 transition-all duration-300"
+      >
+        Priority {telegram.priority}
+      </span>
+    {/if}
 
     <!-- Route -->
     {#if telegram.source && telegram.destination}
@@ -103,3 +115,17 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .message-card-glow {
+    background: rgba(252, 252, 253, 0.9);
+    backdrop-filter: blur(10px);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.04),
+      0 2px 4px rgba(0, 0, 0, 0.02),
+      0 0 0 0.5px rgba(0, 0, 0, 0.03),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    border: 0.5px solid rgba(226, 232, 240, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+</style>

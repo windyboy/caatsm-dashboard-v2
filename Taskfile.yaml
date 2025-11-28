@@ -24,7 +24,7 @@ tasks:
       - go mod tidy
 
   install-deps:
-    desc: "Install all dependencies (npm, goose, air)"
+    desc: "Install all dependencies (npm, goose, air, gotestsum)"
     cmds:
       - |
         echo "Installing dependencies..."
@@ -52,6 +52,15 @@ tasks:
           echo "✓ air installed"
         else
           echo "✓ air is already installed"
+        fi
+      - |
+        # Install gotestsum for better test output
+        if ! command -v gotestsum > /dev/null 2>&1; then
+          echo "Installing gotestsum..."
+          go install gotest.tools/gotestsum@latest || exit 1
+          echo "✓ gotestsum installed"
+        else
+          echo "✓ gotestsum is already installed"
         fi
 
   # ============================================
@@ -87,6 +96,31 @@ tasks:
     desc: "Run tests with race detector"
     cmds:
       - go test -race ./...
+
+  test:pretty:
+    desc: "Run all tests with gotestsum (prettier output)"
+    cmds:
+      - |
+        set -e
+        if ! command -v gotestsum > /dev/null 2>&1; then
+          echo "gotestsum not found. Run 'task install-deps' first."
+          exit 1
+        fi
+        gotestsum -- -race -coverprofile=coverage.out -timeout=5m ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - 'echo "Coverage report generated at coverage.html"'
+
+  test:pretty:unit:
+    desc: "Run unit tests with gotestsum (short mode)"
+    cmds:
+      - |
+        set -e
+        if ! command -v gotestsum > /dev/null 2>&1; then
+          echo "gotestsum not found. Run 'task install-deps' first."
+          exit 1
+        fi
+        gotestsum -- -race -coverprofile=coverage.out -short -timeout=2m ./...
+      - go tool cover -html=coverage.out -o coverage.html
 
   # ============================================
   # Development

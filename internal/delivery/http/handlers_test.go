@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,8 +10,47 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/windy/caatsm-dashboard/internal/app/services"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap/zaptest"
 )
+
+type mockDashboardService struct {
+	lastExportFilters domain.SearchFilters
+	lastExportFormat  domain.ExportFormat
+	lastStatsRange    domain.TimeWindow
+	statsResult       *domain.TrafficSummary
+	exportData        []byte
+}
+
+func (m *mockDashboardService) GetDashboardData(ctx context.Context, req *services.DashboardRequest) (*services.DashboardResponse, error) {
+	return nil, nil
+}
+
+func (m *mockDashboardService) Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error) {
+	return nil, nil
+}
+
+func (m *mockDashboardService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
+	m.lastStatsRange = timeRange
+	if m.statsResult != nil {
+		return m.statsResult, nil
+	}
+	return &domain.TrafficSummary{}, nil
+}
+
+func (m *mockDashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
+	m.lastExportFilters = filters
+	m.lastExportFormat = format
+	if m.exportData != nil {
+		return m.exportData, nil
+	}
+	return []byte("export"), nil
+}
+
+func (m *mockDashboardService) Autocomplete(ctx context.Context, query string, size int) ([]string, error) {
+	return []string{}, nil
+}
 
 // Note: Full handler tests would require integration tests with real services.
 // These are simplified tests that verify basic functionality without mocking
@@ -102,6 +142,66 @@ func TestHandler_Health(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "ok")
 		assert.Contains(t, rec.Body.String(), "dashboard")
 	})
+}
+
+func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockSvc := &mockDashboardService{
+		exportData: []byte("data"),
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/export?query=test&type=AFTN&source=HND&destination=LAX&priority=2&start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z&format=xlsx", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	handler := &Handler{
+		dashboardSvc: mockSvc,
+		logger:       logger,
+	}
+
+	err := handler.Export(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, domain.ExportFormatExcel, mockSvc.lastExportFormat)
+	assert.Equal(t, "test", mockSvc.lastExportFilters.Query)
+	assert.Equal(t, []string{"AFTN"}, mockSvc.lastExportFilters.Types)
+	assert.Equal(t, []string{"HND"}, mockSvc.lastExportFilters.Sources)
+	assert.Equal(t, []string{"LAX"}, mockSvc.lastExportFilters.Destinations)
+	assert.Equal(t, []int{2}, mockSvc.lastExportFilters.Priorities)
+	assert.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), mockSvc.lastExportFilters.TimeRange.Start)
+	assert.Equal(t, time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC), mockSvc.lastExportFilters.TimeRange.End)
+	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", rec.Header().Get(echo.HeaderContentType))
+	assert.Equal(t, "attachment; filename=telegrams.xlsx", rec.Header().Get("Content-Disposition"))
+}
+
+func TestHandler_StatsTotal_UsesTimeRange(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	mockSvc := &mockDashboardService{
+		statsResult: &domain.TrafficSummary{
+			TotalMessages: 42,
+			ByPriority:    map[int]int64{1: 2},
+			ByType:        map[string]int64{"AFTN": 5},
+		},
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/stats/total?start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	handler := &Handler{
+		dashboardSvc: mockSvc,
+		logger:       logger,
+	}
+
+	err := handler.StatsTotal(c)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), mockSvc.lastStatsRange.Start)
+	assert.Equal(t, time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC), mockSvc.lastStatsRange.End)
 }
 
 // TODO: Add integration tests with full service stack for:

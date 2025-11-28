@@ -63,8 +63,32 @@ export interface StatsType {
   byType: Record<string, number>;
 }
 
+export interface AutocompleteSuggestion {
+  value: string;
+  type: string;
+  label: string;
+}
+
 export interface AutocompleteResult {
-  suggestions: string[];
+  suggestions: AutocompleteSuggestion[] | string[];
+}
+
+function buildSearchParamsFromParams(params: SearchParams): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  if (params.query) searchParams.set("query", params.query);
+  if (params.type) searchParams.set("type", params.type);
+  if (params.source) searchParams.set("source", params.source);
+  if (params.destination) searchParams.set("destination", params.destination);
+  if (params.priority !== undefined) searchParams.set("priority", params.priority.toString());
+  if (params.start_time) searchParams.set("start_time", params.start_time);
+  if (params.end_time) searchParams.set("end_time", params.end_time);
+  if (params.limit !== undefined) searchParams.set("limit", params.limit.toString());
+  if (params.offset !== undefined) searchParams.set("offset", params.offset.toString());
+  if (params.sort_by) searchParams.set("sort_by", params.sort_by);
+  if (params.order) searchParams.set("order", params.order);
+
+  return searchParams;
 }
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -105,19 +129,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 export async function search(params: SearchParams): Promise<SearchResult> {
-  const searchParams = new URLSearchParams();
-
-  if (params.query) searchParams.set("query", params.query);
-  if (params.type) searchParams.set("type", params.type);
-  if (params.source) searchParams.set("source", params.source);
-  if (params.destination) searchParams.set("destination", params.destination);
-  if (params.priority !== undefined) searchParams.set("priority", params.priority.toString());
-  if (params.start_time) searchParams.set("start_time", params.start_time);
-  if (params.end_time) searchParams.set("end_time", params.end_time);
-  if (params.limit !== undefined) searchParams.set("limit", params.limit.toString());
-  if (params.offset !== undefined) searchParams.set("offset", params.offset.toString());
-  if (params.sort_by) searchParams.set("sort_by", params.sort_by);
-  if (params.order) searchParams.set("order", params.order);
+  const searchParams = buildSearchParamsFromParams(params);
 
   return request<SearchResult>(`/api/search?${searchParams.toString()}`);
 }
@@ -143,13 +155,8 @@ export async function exportData(
   format: "csv" | "xlsx" | "pdf",
   params: SearchParams
 ): Promise<Blob> {
-  const searchParams = new URLSearchParams();
+  const searchParams = buildSearchParamsFromParams(params);
 
-  if (params.query) searchParams.set("query", params.query);
-  if (params.type) searchParams.set("type", params.type);
-  if (params.source) searchParams.set("source", params.source);
-  if (params.destination) searchParams.set("destination", params.destination);
-  if (params.priority !== undefined) searchParams.set("priority", params.priority.toString());
   searchParams.set("format", format);
 
   const url = buildUrl(`/api/export?${searchParams.toString()}`);

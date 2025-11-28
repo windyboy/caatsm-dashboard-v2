@@ -101,10 +101,32 @@ func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters
 	return result, nil
 }
 
-// Autocomplete provides search suggestions
+// AutocompleteSuggestion represents a single autocomplete suggestion with its type
+type AutocompleteSuggestion struct {
+	Value string `json:"value"`
+	Type  string `json:"type"`
+	Label string `json:"label"`
+}
+
+// Autocomplete provides search suggestions with type labels for better readability
 func (s *SearchService) Autocomplete(ctx context.Context, query string, limit int) ([]string, error) {
+	suggestions, err := s.AutocompleteWithTypes(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to simple string array for backward compatibility
+	result := make([]string, len(suggestions))
+	for i, sug := range suggestions {
+		result[i] = sug.Value
+	}
+	return result, nil
+}
+
+// AutocompleteWithTypes provides search suggestions with type information
+func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string, limit int) ([]AutocompleteSuggestion, error) {
 	if query == "" {
-		return []string{}, nil
+		return []AutocompleteSuggestion{}, nil
 	}
 
 	if limit <= 0 {
@@ -130,12 +152,20 @@ func (s *SearchService) Autocomplete(ctx context.Context, query string, limit in
 		s.logger.Warn("autocomplete response has nil hits",
 			zap.String("query", query),
 		)
-		return []string{}, nil
+		return []AutocompleteSuggestion{}, nil
 	}
 
-	// Extract suggestions from typed hits
-	seen := make(map[string]bool)
-	suggestions := make([]string, 0, limit)
+	// Map attribute names to display labels
+	attrLabels := map[string]string{
+		"flight_number": "Flight",
+		"message_id":    "Message ID",
+		"source":        "From",
+		"destination":   "To",
+	}
+
+	// Extract suggestions from typed hits with type information
+	seen := make(map[string]bool) // key: "type:value"
+	suggestions := make([]AutocompleteSuggestion, 0, limit)
 
 	for _, hit := range searchResp.Hits {
 		if len(suggestions) >= limit {
@@ -161,8 +191,9 @@ func (s *SearchService) Autocomplete(ctx context.Context, query string, limit in
 			return nil, fmt.Errorf("failed to unmarshal hit: %w", err)
 		}
 
-		// Extract values from each attribute
-		for _, attr := range attributes {
+		// Extract values from each attribute with priority order
+		priorityOrder := []string{"flight_number", "message_id", "source", "destination"}
+		for _, attr := range priorityOrder {
 			if len(suggestions) >= limit {
 				break
 			}
@@ -177,10 +208,20 @@ func (s *SearchService) Autocomplete(ctx context.Context, query string, limit in
 				continue
 			}
 
-			// Add to suggestions if not already seen
-			if !seen[strVal] {
-				suggestions = append(suggestions, strVal)
-				seen[strVal] = true
+			// Create unique key for deduplication
+			key := fmt.Sprintf("%s:%s", attr, strVal)
+			if !seen[key] {
+				label := attrLabels[attr]
+				if label == "" {
+					label = attr
+				}
+
+				suggestions = append(suggestions, AutocompleteSuggestion{
+					Value: strVal,
+					Type:  attr,
+					Label: label,
+				})
+				seen[key] = true
 			}
 		}
 	}

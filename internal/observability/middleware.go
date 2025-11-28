@@ -53,6 +53,20 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 			}
 
 			if err != nil {
+				// Check if the response is hijacked (WebSocket upgrade)
+				// For WebSocket connections, the status is typically 101 (Switching Protocols)
+				// After hijacking, we shouldn't try to write errors to the response
+				isWebSocket := status == http.StatusSwitchingProtocols || 
+					(req.Header.Get("Upgrade") == "websocket" && status == 0)
+				
+				if isWebSocket {
+					// Response is hijacked (WebSocket connection)
+					// Log the error but don't return it to avoid Echo trying to write to hijacked connection
+					fields = append(fields, zap.Error(err))
+					logger.Warn("request completed with error (hijacked connection)", fields...)
+					return nil
+				}
+				
 				fields = append(fields, zap.Error(err))
 				// Only log as error for 5xx status codes, warn for 4xx
 				if status >= 500 {

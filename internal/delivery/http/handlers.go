@@ -1,13 +1,16 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app/services"
 	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -22,14 +25,23 @@ const (
 	MaxExportLimit = 10000
 )
 
+// DashboardService defines the application boundary used by this transport layer.
+type DashboardService interface {
+	GetDashboardData(ctx context.Context, req *services.DashboardRequest) (*services.DashboardResponse, error)
+	Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error)
+	GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error)
+	Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error)
+	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
+}
+
 // Handler handles HTTP requests for the dashboard
 type Handler struct {
-	dashboardSvc *services.DashboardService
+	dashboardSvc DashboardService
 	logger       *zap.Logger
 }
 
 // NewHandler creates a new HTTP handler
-func NewHandler(dashboardSvc *services.DashboardService, logger *zap.Logger) *Handler {
+func NewHandler(dashboardSvc DashboardService, logger *zap.Logger) *Handler {
 	return &Handler{
 		dashboardSvc: dashboardSvc,
 		logger:       logger,
@@ -76,16 +88,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	}
 
 	// Parse time range for stats
-	if startStr := c.QueryParam("start_time"); startStr != "" {
-		if start, err := parseTime(startStr); err == nil {
-			req.TimeRange.Start = start
-		}
-	}
-	if endStr := c.QueryParam("end_time"); endStr != "" {
-		if end, err := parseTime(endStr); err == nil {
-			req.TimeRange.End = end
-		}
-	}
+	req.TimeRange = buildTimeWindow(c)
 
 	// Get dashboard data
 	result, err := h.dashboardSvc.GetDashboardData(c.Request().Context(), req)
@@ -147,17 +150,7 @@ func (h *Handler) Search(c echo.Context) error {
 		filters.Pagination.Order = order
 	}
 
-	// Parse time range
-	if startStr := c.QueryParam("start_time"); startStr != "" {
-		if start, err := parseTime(startStr); err == nil {
-			filters.TimeRange.Start = start
-		}
-	}
-	if endStr := c.QueryParam("end_time"); endStr != "" {
-		if end, err := parseTime(endStr); err == nil {
-			filters.TimeRange.End = end
-		}
-	}
+	filters.TimeRange = buildTimeWindow(c)
 
 	// Execute search
 	result, err := h.dashboardSvc.Search(c.Request().Context(), filters)
@@ -166,28 +159,47 @@ func (h *Handler) Search(c echo.Context) error {
 		return handleError(c, err)
 	}
 
+	// Ensure telegrams is always a non-nil slice (empty array instead of nil)
+	domainTelegrams := result.Telegrams
+	if domainTelegrams == nil {
+		domainTelegrams = []domain.Telegram{}
+	}
+
+	// Convert domain.Telegram to persistence.Telegram for proper JSON serialization
+	// This ensures snake_case field names (message_id, flight_number, etc.) are used
+	telegrams := make([]persistence.Telegram, len(domainTelegrams))
+	for i, dt := range domainTelegrams {
+		pt := domain.FromDomain(&dt)
+		if pt == nil {
+			// This should never happen, but handle gracefully
+			h.logger.Warn("failed to convert domain telegram to persistence model",
+				zap.String("message_id", dt.MessageID),
+				zap.Int("index", i))
+			// Create empty persistence model as fallback
+			telegrams[i] = persistence.Telegram{}
+			continue
+		}
+		telegrams[i] = *pt
+	}
+
+	// Convert page object to have proper JSON field names
+	page := map[string]interface{}{
+		"limit":   result.Page.Limit,
+		"offset":  result.Page.Offset,
+		"sort_by": result.Page.SortBy,
+		"order":   result.Page.Order,
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"telegrams": result.Telegrams,
+		"telegrams": telegrams,
 		"total":     result.Total,
-		"page":      result.Page,
+		"page":      page,
 	})
 }
 
 // Stats handles GET /api/stats - statistics endpoints
 func (h *Handler) Stats(c echo.Context) error {
-	timeRange := domain.TimeWindow{}
-
-	// Parse time range
-	if startStr := c.QueryParam("start_time"); startStr != "" {
-		if start, err := parseTime(startStr); err == nil {
-			timeRange.Start = start
-		}
-	}
-	if endStr := c.QueryParam("end_time"); endStr != "" {
-		if end, err := parseTime(endStr); err == nil {
-			timeRange.End = end
-		}
-	}
+	timeRange := buildTimeWindow(c)
 
 	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
 	if err != nil {
@@ -214,8 +226,21 @@ func (h *Handler) Export(c echo.Context) error {
 	if types := c.QueryParam("type"); types != "" {
 		filters.Types = []string{types}
 	}
+	if source := c.QueryParam("source"); source != "" {
+		filters.Sources = []string{source}
+	}
+	if dest := c.QueryParam("destination"); dest != "" {
+		filters.Destinations = []string{dest}
+	}
+	if priorityStr := c.QueryParam("priority"); priorityStr != "" {
+		if priority, err := strconv.Atoi(priorityStr); err == nil {
+			filters.Priorities = []int{priority}
+		}
+	}
 
-	formatStr := c.QueryParam("format")
+	filters.TimeRange = buildTimeWindow(c)
+
+	formatStr := strings.ToLower(c.QueryParam("format"))
 	if formatStr == "" {
 		formatStr = "csv"
 	}
@@ -224,13 +249,14 @@ func (h *Handler) Export(c echo.Context) error {
 	switch formatStr {
 	case "csv":
 		format = domain.ExportFormatCSV
-	case "excel":
+	case "xlsx", "excel":
 		format = domain.ExportFormatExcel
+		formatStr = "xlsx"
 	case "pdf":
 		format = domain.ExportFormatPDF
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid format. supported: csv, excel, pdf",
+			"error": "invalid format. supported: csv, xlsx, pdf",
 		})
 	}
 
@@ -294,6 +320,23 @@ func getUserID(c echo.Context) (string, error) {
 
 func parseTime(timeStr string) (time.Time, error) {
 	return time.Parse(time.RFC3339, timeStr)
+}
+
+func buildTimeWindow(c echo.Context) domain.TimeWindow {
+	timeRange := domain.TimeWindow{}
+
+	if startStr := c.QueryParam("start_time"); startStr != "" {
+		if start, err := parseTime(startStr); err == nil {
+			timeRange.Start = start
+		}
+	}
+	if endStr := c.QueryParam("end_time"); endStr != "" {
+		if end, err := parseTime(endStr); err == nil {
+			timeRange.End = end
+		}
+	}
+
+	return timeRange
 }
 
 func handleError(c echo.Context, err error) error {

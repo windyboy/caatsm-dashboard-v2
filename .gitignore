@@ -36,3 +36,4 @@ deno.lock
 !.env.example
 !.env.local.example
 
+.cache

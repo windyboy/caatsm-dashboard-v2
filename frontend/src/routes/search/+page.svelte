@@ -25,7 +25,8 @@
     error = null;
     try {
       const result = await search(params);
-      telegrams = result.telegrams;
+      // Ensure telegrams is always an array, never null
+      telegrams = result.telegrams ?? [];
       total = result.total;
       logger.info("Search succeeded", {
         total: result.total,
