@@ -2,7 +2,24 @@
 
 import { createLogger } from "../utils/logger.ts";
 
-const WS_URL = import.meta.env.VITE_WS_URL || (import.meta.env.DEV ? "/ws" : "ws://localhost:3002/ws");
+function resolveWebSocketUrl(): string {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+
+  // Prefer backend port directly when running without the Vite proxy
+  if (import.meta.env.DEV) {
+    return "ws://localhost:3002/ws";
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${window.location.host}/ws`;
+  }
+
+  return "ws://localhost:3002/ws";
+}
+
 const logger = createLogger("WebSocket");
 
 // Constants
@@ -49,6 +66,10 @@ export class WebSocketClient {
   private shouldReconnect = true;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private getWebSocketUrl(): string {
+    return resolveWebSocketUrl();
+  }
+
   /**
    * Connects to the WebSocket server. Safe to call multiple times.
    * If already connected, this is a no-op.
@@ -59,12 +80,20 @@ export class WebSocketClient {
       return; // Already connected
     }
 
+    const wsUrl = this.getWebSocketUrl();
+    this.shouldReconnect = true;
+
     try {
-      this.ws = new WebSocket(WS_URL);
+      logger.info("Attempting WebSocket connection", {
+        url: wsUrl,
+        hasReconnectTimer: this.reconnectTimer !== null,
+        reconnectAttempts: this.reconnectAttempts,
+      });
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         logger.info("Connection established", {
-          url: WS_URL,
+          url: wsUrl,
           readyState: this.ws?.readyState,
         });
         this.reconnectAttempts = 0;
@@ -127,6 +156,7 @@ export class WebSocketClient {
               typeof event.data === "string"
                 ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
                 : undefined,
+            url: wsUrl,
           });
         }
       };
@@ -135,7 +165,7 @@ export class WebSocketClient {
         logger.error("Connection error", new Error("WebSocket connection error"), {
           eventType: event.type,
           readyState: this.ws?.readyState,
-          url: WS_URL,
+          url: wsUrl,
           reconnectAttempts: this.reconnectAttempts,
         });
       };
@@ -160,7 +190,7 @@ export class WebSocketClient {
       };
     } catch (error) {
       logger.error("Failed to create connection", error, {
-        url: WS_URL,
+        url: wsUrl,
         reconnectAttempts: this.reconnectAttempts,
       });
       this.scheduleReconnect();
@@ -190,6 +220,11 @@ export class WebSocketClient {
   private scheduleReconnect(): void {
     if (this.reconnectTimer !== null) {
       return; // Already scheduled
+    }
+
+    if (!this.shouldReconnect) {
+      logger.debug("Reconnection skipped because reconnect flag is disabled");
+      return;
     }
 
     this.reconnectAttempts++;
@@ -249,8 +284,10 @@ export class WebSocketClient {
       });
     }
     this.handlers.add(handler);
+    logger.debug("Handler subscribed", { handlerCount: this.handlers.size });
     return () => {
       this.handlers.delete(handler);
+      logger.debug("Handler unsubscribed", { handlerCount: this.handlers.size });
     };
   }
 
