@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nats-io/nats.go"
+	natsClient "github.com/nats-io/nats.go"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	natsClient "github.com/windy/caatsm-dashboard/internal/platform/nats"
+	natsStreaming "github.com/windy/caatsm-dashboard/internal/infrastructure/streaming/nats"
 	"go.uber.org/zap"
 )
 
@@ -64,7 +64,7 @@ func generateTelegram(counter int) *persistence.Telegram {
 	}
 }
 
-func publishTelegram(js nats.JetStreamContext, telegram *persistence.Telegram, logger *zap.Logger) error {
+func publishTelegram(js natsClient.JetStreamContext, telegram *persistence.Telegram, logger *zap.Logger) error {
 	// Marshal telegram to JSON
 	data, err := json.Marshal(telegram)
 	if err != nil {
@@ -116,19 +116,19 @@ func main() {
 	)
 
 	// Connect to NATS
-	conn, js, err := natsClient.Connect(ctx, cfg.NATS)
+	conn, js, err := natsStreaming.Connect(ctx, cfg.NATS)
 	if err != nil {
 		logger.Fatal("connect to NATS", zap.Error(err))
 	}
 	defer conn.Close()
 
 	// Ensure stream exists
-	streamCfg := &nats.StreamConfig{
+	streamCfg := &natsClient.StreamConfig{
 		Name:      cfg.NATS.Stream,
 		Subjects:  []string{"telegrams.>"},
-		Retention: nats.LimitsPolicy,
+		Retention: natsClient.LimitsPolicy,
 		MaxAge:    24 * time.Hour * 30,
-		Storage:   nats.FileStorage,
+		Storage:   natsClient.FileStorage,
 	}
 
 	_, err = js.AddStream(streamCfg)

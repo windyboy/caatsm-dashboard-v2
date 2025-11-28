@@ -11,8 +11,7 @@ import (
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
-	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
 	"go.uber.org/zap"
 )
 
@@ -91,13 +90,13 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 
 	// Initialize database connection
-	pool, err := postgresClient.NewPool(ctx, cfg.Database)
+	pool, err := postgres.NewPool(ctx, cfg.Database)
 	if err != nil {
 		logger.Fatal("create postgres pool", zap.Error(err))
 	}
 	defer pool.Close()
 
-	store := pgstore.New(pool)
+	store := postgres.New(pool)
 
 	// Clear existing data if requested
 	if *clear {

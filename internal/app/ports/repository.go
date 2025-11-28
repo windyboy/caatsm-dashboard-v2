@@ -40,3 +40,9 @@ type SearchIndex interface {
 type EventPublisher interface {
 	Publish(ctx context.Context, event domain.Event) error
 }
+
+// StreamConsumer processes live telegram events from NATS JetStream.
+type StreamConsumer interface {
+	Start(ctx context.Context) error
+	Close() error
+}

@@ -11,8 +11,8 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	meiliRepo "github.com/windy/caatsm-dashboard/internal/repository/meili"
-	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
+	meilisearch "github.com/windy/caatsm-dashboard/internal/infrastructure/search/meilisearch"
 	testhelpers "github.com/windy/caatsm-dashboard/internal/testing"
 	"go.uber.org/zap/zaptest"
 )
@@ -30,8 +30,8 @@ func TestWorker_Integration_SaveTelegram(t *testing.T) {
 	defer env.Cleanup(ctx)
 
 	// Initialize repositories
-	store := pgstore.New(env.Pool)
-	searchIndex := meiliRepo.New(env.Meili, "telegrams-test")
+	store := postgres.New(env.Pool)
+	searchIndex := meilisearch.New(env.Meili, "telegrams-test")
 
 	// Initialize event bus
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")

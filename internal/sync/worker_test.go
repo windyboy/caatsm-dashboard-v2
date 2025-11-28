@@ -59,10 +59,10 @@ func TestWorker_Handle(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+		for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup mocks
-			storeMock := new(mocks.TelegramStoreMock)
+			storeMock := new(mocks.RepositoryMock)
 			searchMock := new(mocks.SearchIndexMock)
 			eventBusMock := new(mocks.EventBusMock)
 			logger := zaptest.NewLogger(t)

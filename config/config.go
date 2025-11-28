@@ -39,7 +39,6 @@ type LoggerConfig struct {
 	Level            string `mapstructure:"level"`
 	Format           string `mapstructure:"format"`
 	EnableStacktrace bool   `mapstructure:"enable_stacktrace"`
-	RedactPII        bool   `mapstructure:"redact_pii"`
 }
 
 type TracingConfig struct {

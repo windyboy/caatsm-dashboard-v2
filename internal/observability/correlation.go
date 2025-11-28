@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"go.uber.org/zap"
 )
 
 // CorrelationIDMiddleware enhances requests with correlation IDs that flow through all layers.
@@ -43,15 +42,6 @@ func generateCorrelationID() string {
 	b := make([]byte, 8)
 	n, err := rand.Read(b)
 	if err != nil {
-		// Log the error for observability
-		logger, _ := zap.NewProduction()
-		if logger != nil {
-			logger.Error("crypto/rand failed, using time-based fallback for correlation ID",
-				zap.Error(err),
-				zap.Int("bytes_read", n))
-			defer func() { _ = logger.Sync() }()
-		}
-
 		// Fallback: use time-based ID to ensure uniqueness
 		// Combine timestamp with any partial bytes read
 		timestamp := time.Now().UnixNano()
@@ -63,15 +53,4 @@ func generateCorrelationID() string {
 		return fmt.Sprintf("%016x", timestamp)
 	}
 	return hex.EncodeToString(b)
-}
-
-// GetCorrelationID extracts correlation ID from Echo context.
-func GetCorrelationID(c echo.Context) string {
-	if correlationID := c.Request().Header.Get("X-Correlation-ID"); correlationID != "" {
-		return correlationID
-	}
-	if correlationID := c.Response().Header().Get("X-Correlation-ID"); correlationID != "" {
-		return correlationID
-	}
-	return CorrelationIDFromContext(c.Request().Context())
 }

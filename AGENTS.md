@@ -2,13 +2,17 @@
 
 ## Architecture
 
-The project follows **Clean Architecture** with four layers (fully migrated, no legacy code):
-- **Transport Layer** (`internal/delivery/`) - HTTP/WebSocket handlers with streaming export
+The project follows **Clean Architecture** with four layers (fully optimized, zero wrapper patterns):
+- **Delivery Layer** (`internal/delivery/`) - HTTP/WebSocket handlers with streaming export
 - **Application Layer** (`internal/app/`) - Services, ports, container pattern
 - **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation (with time range limits)
-- **Infrastructure Layer** (`internal/infrastructure/`) - PostgreSQL, Meilisearch, Valkey, WebSocket hub
+- **Infrastructure Layer** (`internal/infrastructure/`) - **Direct port implementations** (PostgreSQL, Meilisearch, Valkey, NATS, WebSocket hub)
 
-Dependencies flow inward: outer layers depend on inner layers, never the reverse.
+**Key Architecture Principles**:
+- Dependencies flow inward: outer layers depend on inner layers, never the reverse
+- **Infrastructure directly implements `app/ports` interfaces** - no wrapper layers
+- **No `internal/repository/` package** - removed wrapper pattern (Dec 2025)
+- Container only exposes port interfaces, ensuring proper dependency inversion
 
 **Production Features**:
 - Time range validation: Max 90 days to prevent unbounded queries
@@ -145,11 +149,11 @@ go test ./internal/app/services -v -run TestDashboardService
 **General:**
 - No comments unless explaining complex business logic
 - Use dependency injection pattern
-- Follow clean architecture: domain → application → infrastructure → transport
+- Follow clean architecture: domain → application → infrastructure → delivery
 - Domain layer must have no external dependencies (✅ enforced)
 - Application layer depends only on domain and port interfaces (✅ enforced)
-- Infrastructure implements application ports (✅ enforced)
-- All legacy handlers/services/models have been removed (✅ complete)
+- Infrastructure **directly implements** application ports (✅ enforced, no wrapper layers)
+- All legacy handlers/services/models/repository wrappers have been removed (✅ complete)
 
 ## Project Structure
 
@@ -162,10 +166,18 @@ caatsm-dashboard/
 │   ├── publish-stream/
 │   └── extract-dsn/
 ├── internal/
-│   ├── delivery/          # HTTP/WebSocket handlers (transport layer)
+│   ├── delivery/          # HTTP/WebSocket handlers (delivery layer)
 │   ├── app/               # Services, ports, container (application layer)
-│   ├── domain/            # Business logic, entities
-│   └── infrastructure/    # DB, cache, search, events
+│   │   ├── services/      # Application services
+│   │   └── ports/         # Port interfaces (Repository, Cache, SearchIndex, etc.)
+│   ├── domain/            # Business logic, entities, validation
+│   └── infrastructure/    # Direct port implementations
+│       ├── persistence/   # PostgreSQL (implements ports.Repository)
+│       ├── search/        # Meilisearch (implements ports.SearchIndex)
+│       ├── cache/         # Valkey/Redis (implements ports.Cache)
+│       ├── streaming/     # NATS consumer (implements ports.StreamConsumer)
+│       ├── event/         # Event bus
+│       └── ws/            # WebSocket hub
 ├── frontend/              # SvelteKit frontend
 │   ├── src/
 │   │   ├── routes/       # Pages
@@ -215,11 +227,15 @@ caatsm-dashboard/
 
 **Adding a New Feature:**
 1. Write domain logic in `internal/domain/`
-2. Add service in `internal/app/services/`
-3. Implement infrastructure in `internal/infrastructure/`
-4. Add HTTP/WS handlers in `internal/delivery/`
-5. Write tests at each layer
-6. Run `make lint` and `make test`
+2. Define port interface in `internal/app/ports/` (if needed)
+3. Add service in `internal/app/services/`
+4. Implement infrastructure in `internal/infrastructure/` (directly implements ports)
+5. Add HTTP/WS handlers in `internal/delivery/`
+6. Wire dependencies in `internal/app/app.go` Container
+7. Write tests at each layer
+8. Run `make lint` and `make test`
+
+**Note**: Infrastructure implementations should directly implement port interfaces from `app/ports/`. No wrapper layers or intermediate abstractions.
 
 **Database Changes:**
 1. Create migration: `goose -dir migrations create <name> sql`

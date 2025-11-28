@@ -11,9 +11,8 @@ import (
 
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/streaming/nats"
 	"github.com/windy/caatsm-dashboard/internal/observability"
-	natsClient "github.com/windy/caatsm-dashboard/internal/platform/nats"
-	natsrepo "github.com/windy/caatsm-dashboard/internal/repository/nats"
 	"github.com/windy/caatsm-dashboard/internal/sync"
 	"go.uber.org/zap"
 )
@@ -58,21 +57,21 @@ func main() {
 	logger.Info("application container initialized")
 
 	// Initialize NATS connection (needed for streaming consumer)
-	nc, js, err := natsClient.Connect(ctx, cfg.NATS)
+	nc, js, err := nats.Connect(ctx, cfg.NATS)
 	if err != nil {
 		logger.Fatal("connect nats", zap.Error(err))
 	}
 	defer nc.Close()
 
 	// Initialize NATS consumer
-	streamConsumer := natsrepo.New(js, cfg.NATS.Stream, cfg.NATS.Consumer)
+	streamConsumer := nats.New(js, cfg.NATS.Stream, cfg.NATS.Consumer)
 
-	// Create worker with new architecture dependencies
+	// Create worker with port interfaces
 	worker := sync.NewWorker(
 		streamConsumer,
-		container.TelegramStore, // repository.TelegramStore
-		container.SearchIndex,   // repository.SearchIndex
-		container.EventBus,      // event.EventBus
+		container.Repo,   // ports.Repository
+		container.Search, // ports.SearchIndex
+		container.EventBus,
 		logger,
 	)
 	if err := worker.Run(ctx); err != nil {

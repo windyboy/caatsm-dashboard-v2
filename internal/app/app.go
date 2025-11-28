@@ -6,19 +6,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	meilisearch "github.com/meilisearch/meilisearch-go"
+	meilisearchClient "github.com/meilisearch/meilisearch-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/app/services"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache/valkey"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	meiliClient "github.com/windy/caatsm-dashboard/internal/platform/meili"
-	postgresClient "github.com/windy/caatsm-dashboard/internal/platform/postgres"
-	redisClient "github.com/windy/caatsm-dashboard/internal/platform/redis"
-	"github.com/windy/caatsm-dashboard/internal/repository"
-	"github.com/windy/caatsm-dashboard/internal/repository/cache"
-	meiliRepo "github.com/windy/caatsm-dashboard/internal/repository/meili"
-	pgstore "github.com/windy/caatsm-dashboard/internal/repository/postgres"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
+	meilisearch "github.com/windy/caatsm-dashboard/internal/infrastructure/search/meilisearch"
 	"go.uber.org/zap"
 )
 
@@ -34,16 +30,12 @@ type Container struct {
 	Pub      ports.EventPublisher
 	EventBus event.EventBus // Redis pub/sub for real-time updates
 
-	// Concrete repository types (for components that need direct access)
-	TelegramStore repository.TelegramStore
-	SearchIndex   repository.SearchIndex
-
 	// Application services
 	DashboardService *services.DashboardService
 
 	// Client references for health checks
 	pool     *pgxpool.Pool
-	meiliSvc meilisearch.ServiceManager
+	meiliSvc meilisearchClient.ServiceManager
 	redisCli redis.UniversalClient
 }
 
@@ -55,19 +47,19 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	}
 
 	// Initialize database connection
-	pool, err := postgresClient.NewPool(ctx, cfg.Database)
+	pool, err := postgres.NewPool(ctx, cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
 
 	// Initialize Meilisearch client
-	meiliSvc, err := meiliClient.NewClient(cfg.Meilisearch)
+	meiliSvc, err := meilisearch.NewClient(cfg.Meilisearch)
 	if err != nil {
 		return nil, fmt.Errorf("create meilisearch client: %w", err)
 	}
 
 	// Initialize Redis client
-	redisCli, err := redisClient.NewClient(cfg.Redis)
+	redisCli, err := valkey.NewClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("create redis client: %w", err)
 	}
@@ -75,9 +67,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	// Initialize event bus for real-time updates
 	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
 
-	// Initialize repositories
-	store := pgstore.New(pool)
-	meiliIndex := meiliRepo.New(meiliSvc, cfg.Meilisearch.Index)
+	// Initialize infrastructure implementations
+	store := postgres.New(pool)
+	meiliIndex := meilisearch.New(meiliSvc, cfg.Meilisearch.Index)
 
 	// Ensure Meilisearch index is set up
 	if err := meiliIndex.EnsureIndex(ctx); err != nil {
@@ -85,18 +77,14 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	}
 
 	// Initialize cache
-	cacheStore := cache.New(redisCli, 5*time.Minute)
+	cacheStore := valkey.New(redisCli, 5*time.Minute)
 
 	// Set infrastructure ports
 	container.Repo = store        // implements ports.Repository
-	container.Cache = cacheStore  // implements ports.Cache
-	container.Search = meiliIndex // implements ports.SearchIndex
-	container.EventBus = eventBus // Redis pub/sub for real-time updates
+	container.Cache = cacheStore   // implements ports.Cache
+	container.Search = meiliIndex  // implements ports.SearchIndex
+	container.EventBus = eventBus  // Redis pub/sub for real-time updates
 	// Note: ports.EventPublisher not assigned (different interface signature)
-
-	// Set concrete repository types (for direct access)
-	container.TelegramStore = store    // repository.TelegramStore
-	container.SearchIndex = meiliIndex // repository.SearchIndex
 
 	searchService := services.NewSearchService(store, cacheStore, meiliIndex, nil, logger)
 

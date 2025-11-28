@@ -40,12 +40,12 @@ The CAATSM Dashboard follows a **Simplified Clean Architecture** with clear laye
 └─────────────────────────────────────────┘
 ```
 
-**Key Components** (Post-Migration, Nov 2025):
+**Key Components** (Post-Optimization, Dec 2025):
 - **Frontend**: Deno + Svelte + SvelteKit (real-time dashboard via WebSocket)
 - **Delivery**: HTTP REST API + WebSocket handlers (`internal/delivery/`)
 - **App**: Unified services with Container pattern for DI (`internal/app/`)
 - **Domain**: Business entities, events, validation rules (`internal/domain/`)
-- **Infrastructure**: Repository implementations (`internal/infrastructure/`)
+- **Infrastructure**: Direct port implementations (`internal/infrastructure/`) - **no wrapper layers**
 
 **Data Flow**:
 - NATS JetStream → Sync Worker → Repository → DB + Search Index + EventBus
@@ -57,7 +57,7 @@ The CAATSM Dashboard follows a **Simplified Clean Architecture** with clear laye
 - ✅ Production config guards (prevents insecure defaults in prod)
 - ✅ Rate limiting (10 req/sec, configurable)
 - ✅ WebSocket backpressure handling (auto-disconnects slow clients)
-- ✅ Simplified architecture (legacy application layer removed Nov 2025)
+- ✅ **Optimized architecture** (removed wrapper patterns, infrastructure directly implements ports - Dec 2025)
 
 For detailed architecture documentation, see:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture details
@@ -371,28 +371,21 @@ caatsm/
 │   ├── loader.go           # Viper config loader
 │   └── config.toml         # Default configuration
 ├── internal/
-│   ├── app/                # Dependency injection container
+│   ├── app/                # Application layer (services, ports, container)
+│   │   ├── services/       # Application services (dashboard, search, stats, export)
+│   │   └── ports/          # Port interfaces (Repository, Cache, SearchIndex, etc.)
 │   ├── domain/             # Domain layer (business entities, events, validation)
-│   ├── application/        # Application layer (use cases, handlers, events)
-│   │   ├── search/         # Search use cases
-│   │   ├── stats/          # Statistics use cases
-│   │   ├── export/         # Export use cases
-│   │   ├── health/         # Health checks & degradation policies
-│   │   ├── handlers/       # Event handlers (persistence, indexing)
-│   │   ├── events/         # Event dispatcher
-│   │   └── ports/          # Repository interfaces
-│   ├── infrastructure/     # Infrastructure layer (external adapters)
-│   │   ├── persistence/    # PostgreSQL repository
-│   │   ├── search/         # Meilisearch indexing
-│   │   ├── cache/          # Valkey cache
-│   │   ├── events/         # Event bus implementations
+│   ├── infrastructure/     # Infrastructure layer (direct port implementations)
+│   │   ├── persistence/    # PostgreSQL store (implements ports.Repository)
+│   │   ├── search/         # Meilisearch index (implements ports.SearchIndex)
+│   │   ├── cache/          # Valkey/Redis cache (implements ports.Cache)
+│   │   ├── streaming/      # NATS consumer (implements ports.StreamConsumer)
+│   │   ├── event/          # Event bus implementations
 │   │   ├── ws/             # WebSocket hub
 │   │   └── resilience/     # Circuit breakers
-│   ├── transport/          # Transport layer (HTTP/WebSocket)
+│   ├── delivery/           # Delivery layer (HTTP/WebSocket handlers)
 │   │   ├── http/           # HTTP handlers
 │   │   └── ws/             # WebSocket handlers
-│   ├── repository/         # Data repositories (postgres, meilisearch, nats)
-│   ├── platform/           # External client wrappers
 │   ├── sync/               # Message sync worker
 │   ├── metrics/            # Prometheus metrics
 │   ├── observability/      # Logging, correlation IDs, middleware

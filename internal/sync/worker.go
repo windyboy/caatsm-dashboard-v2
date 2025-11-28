@@ -4,28 +4,27 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	"github.com/windy/caatsm-dashboard/internal/repository"
-	natsrepo "github.com/windy/caatsm-dashboard/internal/repository/nats"
 	"go.uber.org/zap"
 )
 
 // Worker coordinates streaming telegram ingestion and indexing.
 type Worker struct {
-	consumer repository.StreamConsumer
-	store    repository.TelegramStore
-	search   repository.SearchIndex
+	consumer ports.StreamConsumer
+	store    ports.Repository
+	search   ports.SearchIndex
 	eventBus event.EventBus
 	logger   *zap.Logger
 }
 
 // NewWorker creates a Worker instance.
 func NewWorker(
-	consumer repository.StreamConsumer,
-	store repository.TelegramStore,
-	search repository.SearchIndex,
+	consumer ports.StreamConsumer,
+	store ports.Repository,
+	search ports.SearchIndex,
 	eventBus event.EventBus,
 	logger *zap.Logger,
 ) *Worker {
@@ -122,9 +121,17 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 	return nil
 }
 
+// NATSConsumer is an interface for NATS-specific consumer operations.
+type NATSConsumer interface {
+	ports.StreamConsumer
+	SetHandler(handler func(context.Context, *persistence.Telegram) error)
+	SetLogger(logger *zap.Logger)
+}
+
 // Run starts the worker loop.
 func (w *Worker) Run(ctx context.Context) error {
-	if natsConsumer, ok := w.consumer.(*natsrepo.Consumer); ok {
+	// Set handler and logger if consumer supports it
+	if natsConsumer, ok := w.consumer.(NATSConsumer); ok {
 		natsConsumer.SetHandler(w.Handle)
 		natsConsumer.SetLogger(w.logger)
 	}

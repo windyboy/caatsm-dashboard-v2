@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/repository"
 )
 
-// SearchIndexMock is a mock implementation of repository.SearchIndex
+// SearchIndexMock is a mock implementation of ports.SearchIndex
 type SearchIndexMock struct {
 	mock.Mock
 }
 
-// Ensure SearchIndexMock implements repository.SearchIndex
-var _ repository.SearchIndex = (*SearchIndexMock)(nil)
+// Ensure SearchIndexMock implements ports.SearchIndex
+var _ ports.SearchIndex = (*SearchIndexMock)(nil)
 
 // Index mocks the Index method
 func (m *SearchIndexMock) Index(ctx context.Context, telegram *domain.Telegram) error {

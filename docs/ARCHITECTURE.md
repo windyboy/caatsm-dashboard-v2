@@ -4,7 +4,7 @@
 
 The CAATSM Dashboard follows **Clean Architecture** principles with clear separation of concerns across layers. The architecture is designed for maintainability, testability, and scalability.
 
-**Current Status**: ✅ **Simplified Architecture Migration Complete** (Nov 27, 2025) - Legacy `internal/application/` removed, new `internal/app/` with Container pattern.
+**Current Status**: ✅ **Clean Architecture Optimization Complete** (Dec 2025) - Removed old repository layer, infrastructure now directly implements port interfaces. Zero wrapper patterns, simplified structure.
 
 ## Architecture Layers
 
@@ -38,12 +38,14 @@ The system follows a **Simplified Clean Architecture** with clear layer separati
 
 **Dependency Rule**: Dependencies point **inward**. Outer layers depend on inner layers, never the reverse.
 
-**Key Changes** (Nov 2025 Migration):
+**Key Changes** (Dec 2025 Optimization):
 - ✅ `internal/application/` → `internal/app/` (simplified)
 - ✅ `internal/transport/` → `internal/delivery/` (renamed for clarity)
 - ✅ Introduced `app.Container` for centralized dependency injection
-- ✅ Sync worker migrated to use Container pattern
-- ✅ Removed unnecessary abstraction layers
+- ✅ **Removed `internal/repository/` package** - infrastructure directly implements ports
+- ✅ **Eliminated wrapper pattern** - no more unnecessary indirection
+- ✅ Infrastructure implementations directly implement `app/ports` interfaces
+- ✅ Simplified dependency graph - cleaner, more maintainable
 
 ## Layer Details
 
@@ -101,15 +103,16 @@ The system follows a **Simplified Clean Architecture** with clear layer separati
 type Container struct {
     Config       *config.AppConfig
     Logger       *zap.Logger
-    Repo         ports.Repository
-    Cache        ports.Cache
-    Search       ports.SearchIndex
-    EventBus     event.EventBus
-    TelegramStore repository.TelegramStore  // For direct access
-    SearchIndex   repository.SearchIndex     // For direct access
+    Repo         ports.Repository      // PostgreSQL implementation
+    Cache        ports.Cache           // Valkey/Redis implementation
+    Search       ports.SearchIndex     // Meilisearch implementation
+    Pub          ports.EventPublisher
+    EventBus     event.EventBus        // Redis pub/sub
     DashboardService *services.DashboardService
 }
 ```
+
+**Note**: Container only exposes port interfaces, not concrete types. This ensures proper dependency inversion.
 
 **Production Features**:
 - ✅ Streaming CSV export with chunking (1000 records per chunk)
@@ -119,26 +122,32 @@ type Container struct {
 
 ### 3. Infrastructure Layer (`internal/infrastructure/`)
 
-**Purpose**: External concerns and implementations. Adapts external systems to application ports.
+**Purpose**: External concerns and implementations. **Directly implements application port interfaces** without intermediate layers.
 
 **Contains**:
-- Repository implementations
+- Repository implementations (directly implement `ports.Repository`)
+- Search index implementations (directly implement `ports.SearchIndex`)
+- Cache implementations (directly implement `ports.Cache`)
+- Stream consumer implementations (directly implement `ports.StreamConsumer`)
 - External service clients
 - WebSocket hub with backpressure
 - Event bus implementations
 - Resilience patterns (circuit breakers)
 
 **Depends On**:
-- Application ports (implements interfaces defined in application layer)
+- Application ports (directly implements interfaces defined in `app/ports`)
 - Domain types (for data conversion)
 
 **Key Packages**:
-- `infrastructure/persistence/postgres/` - PostgreSQL repository with TimescaleDB
-- `infrastructure/search/meilisearch/` - Meilisearch indexing
-- `infrastructure/cache/valkey/` - Valkey/Redis caching
-- `infrastructure/events/` - Event bus implementations (Redis-based)
+- `infrastructure/persistence/postgres/` - PostgreSQL store implementing `ports.Repository`
+- `infrastructure/search/meilisearch/` - Meilisearch index implementing `ports.SearchIndex`
+- `infrastructure/cache/valkey/` - Valkey/Redis cache implementing `ports.Cache`
+- `infrastructure/streaming/nats/` - NATS consumer implementing `ports.StreamConsumer`
+- `infrastructure/event/` - Event bus implementations (Redis-based)
 - `infrastructure/ws/` - WebSocket hub with **backpressure control** and **slow client detection**
 - `infrastructure/resilience/` - Circuit breakers
+
+**Architecture Principle**: Infrastructure implementations directly implement port interfaces. No wrapper layers or intermediate abstractions. This keeps the codebase simple and maintainable.
 
 ### 4. Delivery Layer (`internal/delivery/`) - **Renamed (Nov 2025)**
 
@@ -297,24 +306,6 @@ All logs include:
 - Correlation IDs (flow through all layers)
 - Request IDs
 - Layer information
-- Context enrichment via `LoggerFromContext()`
-- **PII redaction** (configurable)
-
-### PII Redaction
-
-PII redaction policy (`internal/observability/redaction.go`):
-- ✅ Email redaction
-- ✅ IP address redaction (IPv4 and IPv6)
-- ✅ Phone number redaction
-- ✅ Content truncation (configurable max length)
-- ✅ Message ID masking
-- ✅ Flight number partial redaction
-
-**Configuration**:
-```toml
-[logger]
-redact_pii = true  # Enable in production
-```
 
 ### Correlation IDs
 
@@ -376,7 +367,7 @@ View with Swagger UI or OpenAPI editors.
 4. **Streaming Export**: Chunked CSV export prevents OOM for large datasets
 5. **Production Validation**: Config guards prevent insecure defaults in production
 6. **Resilience First**: Health checks, graceful shutdown, circuit breakers
-7. **Observability**: Distributed tracing, structured logging, PII redaction, metrics
+7. **Observability**: Distributed tracing, structured logging, metrics
 
 ## Production Features
 
@@ -384,7 +375,6 @@ View with Swagger UI or OpenAPI editors.
 - ✅ Rate limiting (10 req/sec, configurable)
 - ✅ Input validation with whitelist-based filtering
 - ✅ Production config validation
-- ✅ PII redaction in logs
 - ✅ SQL injection prevention
 
 ### Performance
@@ -447,11 +437,17 @@ View with Swagger UI or OpenAPI editors.
 - OpenTelemetry tracing infrastructure
 - E2E integration tests
 - OpenAPI 3.1 specification
-- PII redaction policy
 
 ✅ **Phase 4 Complete**: Final production readiness
 - Enhanced health checks (NATS, WebSocket)
 - Comprehensive graceful shutdown
 - Documentation updates
 
-**Result**: 100% clean architecture, zero legacy code, production-ready.
+✅ **Phase 5 Complete**: Architecture optimization (Dec 2025)
+- **Removed `internal/repository/` package** - eliminated wrapper pattern
+- Infrastructure implementations directly implement `app/ports` interfaces
+- Simplified dependency injection - Container only uses port interfaces
+- Updated all command tools and tests to use new structure
+- Zero wrapper layers, cleaner codebase
+
+**Result**: 100% clean architecture, zero legacy code, zero wrapper patterns, production-ready.

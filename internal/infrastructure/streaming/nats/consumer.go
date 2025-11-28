@@ -1,4 +1,4 @@
-package natsrepo
+package nats
 
 import (
 	"context"
@@ -9,9 +9,44 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/windy/caatsm-dashboard/config"
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"go.uber.org/zap"
 )
+
+// Connect creates a NATS connection and JetStream context.
+func Connect(ctx context.Context, cfg config.NATSConfig) (*nats.Conn, nats.JetStreamContext, error) {
+	opts := []nats.Option{
+		nats.Name("caatsm-dashboard"),
+		nats.Timeout(cfg.ConnectTimeout),
+		nats.RetryOnFailedConnect(true),
+	}
+
+	if cfg.ConnectTimeout <= 0 {
+		opts = append(opts, nats.Timeout(5*time.Second))
+	}
+
+	conn, err := nats.Connect(cfg.URL, opts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("connect to nats: %w", err)
+	}
+
+	js, err := conn.JetStream()
+	if err != nil {
+		_ = conn.Drain()
+		return nil, nil, fmt.Errorf("jetstream context: %w", err)
+	}
+
+	if ctx != nil {
+		go func() {
+			<-ctx.Done()
+			_ = conn.Drain()
+		}()
+	}
+
+	return conn, js, nil
+}
 
 // Consumer wraps a JetStream consumer for telegram ingestion.
 type Consumer struct {
@@ -27,6 +62,9 @@ type Consumer struct {
 func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
 	return &Consumer{js: js, stream: stream, consumer: consumer}
 }
+
+// Ensure Consumer implements ports.StreamConsumer
+var _ ports.StreamConsumer = (*Consumer)(nil)
 
 // SetLogger sets the logger for the consumer.
 func (c *Consumer) SetLogger(logger *zap.Logger) {
@@ -248,3 +286,4 @@ func (c *Consumer) Close() error {
 	}
 	return nil
 }
+

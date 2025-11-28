@@ -101,7 +101,7 @@ go test -tags=integration ./internal/testing -v
 - `config/config_test.go` - Production config validation
 
 **Observability**:
-- `internal/observability/redaction_test.go` - PII redaction (email, IP, phone)
+- `internal/observability/` - Logger, middleware, correlation IDs
 
 ### Test Statistics (Nov 2025)
 
@@ -114,7 +114,7 @@ Key Test Areas:
   ✅ Sync worker (newly migrated)
   ✅ Event broadcasting
   ✅ WebSocket handling
-  ✅ Observability/redaction
+  ✅ Observability
 ```
 
 **Integration**:
@@ -140,11 +140,6 @@ go test ./internal/app/services -run TestExportService_Export -v
 go test ./config -run TestAppConfig_Validate_ProductionDefaults -v
 ```
 
-**PII Redaction**:
-```bash
-# Test email/IP/phone redaction
-go test ./internal/observability -run TestRedact -v
-```
 
 ## Frontend Testing
 
@@ -456,28 +451,6 @@ docker run -d --name jaeger \
 3. Select service "caatsm-dashboard"
 4. View distributed traces
 
-## PII Redaction Testing
-
-### Test Redaction in Logs
-
-Enable PII redaction in config:
-
-```toml
-[logger]
-redact_pii = true
-```
-
-Test that sensitive data is redacted:
-
-```bash
-# Send request with sensitive data
-curl "http://localhost:3002/api/search?query=test@example.com+192.168.1.1+555-1234"
-
-# Check logs - should show:
-# - [EMAIL_REDACTED]
-# - [IP_REDACTED]
-# - [PHONE_REDACTED]
-```
 
 ## Browser Compatibility
 
@@ -575,7 +548,6 @@ Current test coverage includes:
 - ✅ Domain validation (time ranges, input sanitization)
 - ✅ Streaming export (large datasets)
 - ✅ Production config validation
-- ✅ PII redaction (email, IP, phone)
 - ✅ Health checks (all dependencies)
 - ✅ WebSocket backpressure
 - ✅ Rate limiting
