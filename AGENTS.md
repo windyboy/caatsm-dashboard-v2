@@ -64,18 +64,23 @@ task lint                 # Run golangci-lint
 task dev                  # Run backend with hot reload
 task dev:run              # Run with local config file
 task tidy                 # Run go mod tidy
-task install-deps         # Install Go tools (goose, air)
+```
+
+**Installation:**
+```bash
+task install              # Install all dependencies (Go + frontend)
+task install:deno         # Install Deno if not available
 ```
 
 **Frontend (Deno/Svelte):**
 ```bash
 task frontend:setup       # Full setup: install Deno + cache dependencies
-task frontend:install-deno # Install Deno if not available
-task frontend:install     # Pre-cache dependencies with Deno
+task install:deno         # Install Deno if not available
+task frontend:install     # Pre-cache dependencies with Deno (or npm fallback)
 task frontend:dev         # Run dev server (Deno, fallback to npm)
-task frontend:build       # Build for production
-task frontend:test        # Run E2E tests (Playwright)
-task frontend:test:unit   # Run unit tests (Vitest)
+task frontend:build       # Build for production (Deno, fallback to npm)
+task frontend:test        # Run E2E tests (Playwright via Deno, fallback to npm)
+task frontend:test:unit   # Run unit tests (Vitest via Deno, fallback to npm)
 ```
 
 **Development Environment:**

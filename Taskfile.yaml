@@ -52,30 +52,99 @@ tasks:
     cmds:
       - go run ./cmd/server -config ${CAATSM_CONFIG:-config/config.local.toml}
 
+  # Installation
+  install:
+    desc: "Install all dependencies (Go modules, Deno, frontend)"
+    cmds:
+      - echo "Installing Go dependencies..."
+      - go mod download
+      - go mod tidy
+      - echo "Setting up frontend..."
+      - task: frontend:setup
+
+  install:deno:
+    desc: "Install Deno if not available"
+    cmds:
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          echo "Deno is already installed: $(deno --version)"
+        else
+          echo "Installing Deno..."
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "Deno installed. Please add Deno to your PATH or restart your shell."
+        fi
+
+  frontend:install:
+    desc: "Cache frontend dependencies with Deno (or npm fallback)"
+    dir: frontend
+    cmds:
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          echo "Caching frontend dependencies with Deno..."
+          deno task --quiet || deno cache deno.json || true
+          echo "Frontend dependencies cached."
+        else
+          echo "Deno not found, using npm..."
+          npm install
+        fi
+
+  frontend:setup:
+    desc: "Full frontend setup (install Deno + cache dependencies)"
+    cmds:
+      - echo "Setting up frontend..."
+      - |
+        if ! command -v deno >/dev/null 2>&1; then
+          echo "Deno not found. Installing..."
+          task install:deno || echo "Please install Deno manually: curl -fsSL https://deno.land/install.sh | sh"
+        fi
+      - task: frontend:install
+
   # Frontend
   frontend:dev:
-    desc: "Run frontend dev server (npm)"
+    desc: "Run frontend dev server (Deno, fallback to npm)"
     dir: frontend
     cmds:
-      - npm run dev
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          deno task dev
+        else
+          echo "deno not found, using npm"
+          npm run dev
+        fi
 
   frontend:build:
-    desc: "Build frontend for production (npm)"
+    desc: "Build frontend for production (Deno, fallback to npm)"
     dir: frontend
     cmds:
-      - npm run build
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          deno task build
+        else
+          echo "deno not found, using npm"
+          npm run build
+        fi
 
   frontend:test:
-    desc: "Run frontend E2E tests (Playwright)"
+    desc: "Run frontend E2E tests (Playwright via Deno, fallback to npm)"
     dir: frontend
     cmds:
-      - npm test
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          deno task test
+        else
+          npm test
+        fi
 
   frontend:test:unit:
-    desc: "Run frontend unit tests (Vitest)"
+    desc: "Run frontend unit tests (Vitest via Deno, fallback to npm)"
     dir: frontend
     cmds:
-      - npm run test:unit
+      - |
+        if command -v deno >/dev/null 2>&1; then
+          deno task test:unit
+        else
+          npm run test:unit
+        fi
 
   # Environment
   dev:up:

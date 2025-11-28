@@ -153,7 +153,28 @@ npm run dev
 ```bash
 git clone https://github.com/windy/caatsm-dashboard.git
 cd caatsm-dashboard
+
+# Install all dependencies (Go modules + frontend setup)
+make install
+# or
+task install
+
+# This will:
+# - Download Go dependencies (go mod download && go mod tidy)
+# - Install Deno if not available
+# - Cache frontend dependencies with Deno (or npm fallback)
+```
+
+**Manual Installation** (if you prefer step-by-step):
+```bash
+# Go dependencies
+go mod download
 go mod tidy
+
+# Frontend setup (Deno recommended)
+make frontend-setup
+# or
+task frontend:setup
 ```
 
 ### Configuration
@@ -397,20 +418,22 @@ caatsm/
 ### Available Commands
 
 ```bash
-make help          # Show all available commands
-make build         # Build the application
-make test          # Run tests
-make lint          # Run linter
-make run           # Run the application
-make dev           # Run with hot reload (air)
-make docker-build  # Build Docker image
-make docker-up     # Start Docker Compose stack
-make docker-down   # Stop Docker Compose stack
-make install-deno  # Install Deno if not available
-make frontend-setup # Full frontend setup (Deno + dependencies)
-make frontend-dev  # Run frontend dev server
-make frontend-build # Build frontend for production
-make frontend-test # Run frontend tests
+make help            # Show all available commands
+make install         # Install all dependencies (Go + frontend)
+make build           # Build the application
+make test            # Run tests
+make lint            # Run linter
+make dev             # Run with hot reload (air)
+make docker-build    # Build Docker image
+make docker-up       # Start Docker Compose stack
+make docker-down     # Stop Docker Compose stack
+make install-deno    # Install Deno if not available
+make frontend-setup  # Full frontend setup (Deno + dependencies)
+make frontend-install # Cache frontend dependencies (Deno/npm)
+make frontend-dev    # Run frontend dev server (Deno/npm)
+make frontend-build  # Build frontend for production (Deno/npm)
+make frontend-test   # Run frontend E2E tests (Playwright)
+make frontend-test-unit # Run frontend unit tests (Vitest)
 ```
 
 ### Taskfile
@@ -418,22 +441,24 @@ make frontend-test # Run frontend tests
 Alternatively, use Taskfile:
 
 ```bash
-task dev            # Start hot reload server
-task build          # Build server binary
-task test           # Run tests
-task lint           # Run linter
-task install:deno   # Install Deno if not available
-task frontend:setup # Full frontend setup (Deno + dependencies)
-task frontend:dev   # Run frontend dev server
-task frontend:build # Build frontend for production
-task frontend:test  # Run frontend tests
-task frontend:install # Pre-cache frontend dependencies with Deno
-task dev:up         # Start development dependencies (Docker/Podman)
-task dev:down       # Stop development dependencies
-task dev:logs       # Show logs from development dependencies
-task dev:run        # Run application with local config file
-task sync           # Run sync worker to consume messages from NATS
-task migrate        # Run database migrations
+task install         # Install all dependencies (Go + frontend)
+task dev             # Start hot reload server
+task build           # Build server binary
+task test            # Run tests
+task lint            # Run linter
+task install:deno    # Install Deno if not available
+task frontend:setup  # Full frontend setup (Deno + dependencies)
+task frontend:install # Cache frontend dependencies (Deno/npm)
+task frontend:dev    # Run frontend dev server (Deno/npm)
+task frontend:build  # Build frontend for production (Deno/npm)
+task frontend:test   # Run frontend E2E tests (Playwright)
+task frontend:test:unit # Run frontend unit tests (Vitest)
+task dev:up          # Start development dependencies (Docker/Podman)
+task dev:down        # Stop development dependencies
+task dev:logs        # Show logs from development dependencies
+task dev:run         # Run application with local config file
+task sync            # Run sync worker to consume messages from NATS
+task migrate         # Run database migrations
 task generate-test-data  # Generate test telegram data for development
 task publish-stream      # Publish live messages to NATS for testing
 task docker:up      # Start full Docker Compose stack
@@ -452,14 +477,18 @@ make frontend-setup
 
 **With Deno (Recommended)**:
 ```bash
-# Using Taskfile/Makefile (recommended)
-task frontend:dev   # Start development server
-task frontend:build # Build for production
-task frontend:test  # Run tests
+# Using Taskfile/Makefile (recommended - uses Deno, falls back to npm)
+task frontend:setup  # Full setup (install Deno + cache dependencies)
+task frontend:dev    # Start development server (Deno/npm)
+task frontend:build  # Build for production (Deno/npm)
+task frontend:test   # Run E2E tests (Playwright)
+task frontend:test:unit # Run unit tests (Vitest)
 # or
+make frontend-setup
 make frontend-dev
 make frontend-build
 make frontend-test
+make frontend-test-unit
 
 # Or manually in frontend directory
 cd frontend

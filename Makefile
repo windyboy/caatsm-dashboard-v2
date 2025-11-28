@@ -1,4 +1,5 @@
 .PHONY: help build test test-unit test-integration test-race lint dev dev-run \
+        install install-deno frontend-install frontend-setup \
         frontend-dev frontend-build frontend-test frontend-test-unit \
         dev-up dev-down dev-logs migrate clean clean-all \
         docker-build docker-up docker-down generate-test-data \
@@ -43,18 +44,71 @@ dev: ## Run backend with hot reload (air if available, else go run)
 dev-run: ## Run backend with local config
 	@go run ./cmd/server -config $${CAATSM_CONFIG:-config/config.local.toml}
 
-# Frontend
-frontend-dev: ## Run frontend dev server (npm)
-	@cd frontend && npm run dev
+# Installation
+install: ## Install all dependencies (Go modules, Deno, frontend)
+	@echo "Installing Go dependencies..."
+	@go mod download
+	@go mod tidy
+	@echo "Setting up frontend..."
+	@$(MAKE) frontend-setup
 
-frontend-build: ## Build frontend for production (npm)
-	@cd frontend && npm run build
+install-deno: ## Install Deno if not available
+	@if command -v deno >/dev/null 2>&1; then \
+		echo "Deno is already installed: $$(deno --version)"; \
+	else \
+		echo "Installing Deno..."; \
+		curl -fsSL https://deno.land/install.sh | sh; \
+		echo "Deno installed. Please add Deno to your PATH or restart your shell."; \
+	fi
+
+frontend-install: ## Cache frontend dependencies with Deno (or npm fallback)
+	@cd frontend && if command -v deno >/dev/null 2>&1; then \
+		echo "Caching frontend dependencies with Deno..."; \
+		deno task --quiet || deno cache deno.json || true; \
+		echo "Frontend dependencies cached."; \
+	else \
+		echo "Deno not found, using npm..."; \
+		npm install; \
+	fi
+
+frontend-setup: ## Full frontend setup (install Deno + cache dependencies)
+	@echo "Setting up frontend..."
+	@if ! command -v deno >/dev/null 2>&1; then \
+		echo "Deno not found. Installing..."; \
+		$(MAKE) install-deno || echo "Please install Deno manually: curl -fsSL https://deno.land/install.sh | sh"; \
+	fi
+	@$(MAKE) frontend-install
+
+# Frontend
+frontend-dev: ## Run frontend dev server (Deno, fallback to npm)
+	@cd frontend && if command -v deno >/dev/null 2>&1; then \
+		deno task dev; \
+	else \
+		echo "deno not found, using npm"; \
+		npm run dev; \
+	fi
+
+frontend-build: ## Build frontend for production (Deno, fallback to npm)
+	@cd frontend && if command -v deno >/dev/null 2>&1; then \
+		deno task build; \
+	else \
+		echo "deno not found, using npm"; \
+		npm run build; \
+	fi
 
 frontend-test: ## Run frontend E2E tests (Playwright)
-	@cd frontend && npm test
+	@cd frontend && if command -v deno >/dev/null 2>&1; then \
+		deno task test; \
+	else \
+		npm test; \
+	fi
 
-frontend-test-unit: ## Run frontend unit tests (Vitest)
-	@cd frontend && npm run test:unit
+frontend-test-unit: ## Run frontend unit tests (Vitest via Deno, fallback to npm)
+	@cd frontend && if command -v deno >/dev/null 2>&1; then \
+		deno task test:unit; \
+	else \
+		npm run test:unit; \
+	fi
 
 # Environment
 dev-up: ## Start development dependencies (docker-compose.dev.yml)

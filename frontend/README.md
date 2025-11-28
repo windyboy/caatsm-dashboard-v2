@@ -13,6 +13,20 @@ You can use either **Deno** or **Node.js** for development:
 
 ### Setup with Deno (Recommended)
 
+**From project root (recommended):**
+```bash
+# One-command setup (installs Deno if needed, caches dependencies)
+make frontend-setup
+# or
+task frontend:setup
+
+# Then start development
+make frontend-dev
+# or
+task frontend:dev
+```
+
+**From frontend directory:**
 ```bash
 # No installation needed! Deno downloads dependencies automatically
 # Start development server
