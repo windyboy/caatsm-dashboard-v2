@@ -137,30 +137,37 @@ func (h *Hub) handleRegister(client *Client) {
 		zap.Int("total_clients", len(h.clients)))
 }
 
+// unregisterClient removes a client from the hub.
+// The caller must hold h.mu write lock.
+func (h *Hub) unregisterClient(client *Client) {
+	if _, ok := h.clients[client]; !ok {
+		return
+	}
+
+	delete(h.clients, client)
+	client.Close()
+
+	// Update IP connection count
+	clientIP := client.GetIP()
+	if h.config.MaxConnectionsPerIP > 0 {
+		h.ipConnections[clientIP]--
+		if h.ipConnections[clientIP] <= 0 {
+			delete(h.ipConnections, clientIP)
+		}
+	}
+
+	h.metrics.activeConnectionsDec()
+
+	h.logger.Info("client unregistered",
+		zap.String("remote_addr", client.RemoteAddr()),
+		zap.Int("total_clients", len(h.clients)))
+}
+
 // handleUnregister removes a client from the hub.
 func (h *Hub) handleUnregister(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
-	if _, ok := h.clients[client]; ok {
-		delete(h.clients, client)
-		client.Close()
-
-		// Update IP connection count
-		clientIP := client.GetIP()
-		if h.config.MaxConnectionsPerIP > 0 {
-			h.ipConnections[clientIP]--
-			if h.ipConnections[clientIP] <= 0 {
-				delete(h.ipConnections, clientIP)
-			}
-		}
-
-		h.metrics.activeConnectionsDec()
-
-		h.logger.Info("client unregistered",
-			zap.String("remote_addr", client.RemoteAddr()),
-			zap.Int("total_clients", len(h.clients)))
-	}
+	h.unregisterClient(client)
 }
 
 // handleBroadcast sends a message to all registered clients.
@@ -200,16 +207,15 @@ func (h *Hub) handleBroadcast(message []byte) {
 			zap.Int("dropped", dropped))
 	}
 
-	// Unregister slow clients with non-blocking sends to avoid deadlock
-	for _, client := range slowClients {
-		select {
-		case h.unregister <- client:
-			// Successfully queued for unregistration
-		default:
-			// Channel is full, log and skip
-			h.logger.Warn("unregister channel full, slow client not queued",
-				zap.String("remote_addr", client.RemoteAddr()))
+	// Unregister slow clients synchronously while holding write lock
+	// This avoids deadlock since handleBroadcast runs in the run() goroutine
+	// and cannot send to the unbuffered unregister channel
+	if len(slowClients) > 0 {
+		h.mu.Lock()
+		for _, client := range slowClients {
+			h.unregisterClient(client)
 		}
+		h.mu.Unlock()
 	}
 }
 

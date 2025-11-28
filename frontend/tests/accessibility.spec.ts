@@ -27,18 +27,23 @@ test.describe('Accessibility Tests', () => {
 
     // Test tab navigation
     await page.keyboard.press('Tab');
-    let focusedElement = await page.evaluate(() => document.activeElement?.tagName);
-    expect(focusedElement).toBeDefined();
+    const focusedElement = await page.evaluate(() => {
+      const el = document.activeElement;
+      return el && el !== document.body && el !== document.documentElement ? el.tagName : null;
+    });
+    expect(focusedElement).not.toBeNull();
 
     // Continue tabbing through interactive elements
     for (let i = 0; i < 10; i++) {
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(100); // Small delay for visual feedback
     }
 
     // Should be able to tab through all interactive elements without getting stuck
-    const finalFocusedElement = await page.evaluate(() => document.activeElement?.tagName);
-    expect(finalFocusedElement).toBeDefined();
+    const finalFocusedElement = await page.evaluate(() => {
+      const el = document.activeElement;
+      return el && el !== document.body && el !== document.documentElement ? el.tagName : null;
+    });
+    expect(finalFocusedElement).not.toBeNull();
   });
 
   test('search page keyboard navigation', async ({ page }) => {
@@ -167,27 +172,47 @@ test.describe('Accessibility Tests', () => {
     // Ensure element exists
     await expect(firstFocusable).toBeVisible();
 
-    // Capture baseline (unfocused state)
-    await expect(firstFocusable).toHaveScreenshot('focus-unfocused.png', {
-      animations: 'disabled',
-      maxDiffPixels: 100
+    // Get styles before focus
+    const unfocusedStyles = await firstFocusable.evaluate(el => {
+      const computed = globalThis.getComputedStyle(el);
+      return {
+        outline: computed.outline,
+        outlineWidth: computed.outlineWidth,
+        outlineColor: computed.outlineColor,
+        borderColor: computed.borderColor,
+        boxShadow: computed.boxShadow
+      };
     });
 
     // Focus the element
     await page.keyboard.press('Tab');
     await page.waitForTimeout(50); // Small delay for focus styles to apply
 
-    // Capture focused state - this will fail if no visual difference (i.e., no focus indicator)
-    await expect(firstFocusable).toHaveScreenshot('focus-focused.png', {
-      animations: 'disabled',
-      maxDiffPixels: 100
-    });
-
-    // The two screenshots should be different, proving a visible focus indicator exists
-    // If they're identical, Playwright will use the same screenshot name, which we can detect
-    // by verifying the focused element has actual focus
+    // Verify element is focused
     const isFocused = await firstFocusable.evaluate(el => el === document.activeElement);
     expect(isFocused).toBe(true);
+
+    // Get styles after focus
+    const focusedStyles = await firstFocusable.evaluate(el => {
+      const computed = globalThis.getComputedStyle(el);
+      return {
+        outline: computed.outline,
+        outlineWidth: computed.outlineWidth,
+        outlineColor: computed.outlineColor,
+        borderColor: computed.borderColor,
+        boxShadow: computed.boxShadow
+      };
+    });
+
+    // Verify at least one focus style property changed
+    const hasVisibleFocusIndicator = 
+      unfocusedStyles.outline !== focusedStyles.outline ||
+      unfocusedStyles.outlineWidth !== focusedStyles.outlineWidth ||
+      unfocusedStyles.outlineColor !== focusedStyles.outlineColor ||
+      unfocusedStyles.borderColor !== focusedStyles.borderColor ||
+      unfocusedStyles.boxShadow !== focusedStyles.boxShadow;
+    
+    expect(hasVisibleFocusIndicator).toBe(true);
   });
 
   test('page has proper heading structure', async ({ page }) => {

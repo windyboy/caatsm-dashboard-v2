@@ -207,11 +207,11 @@
 
   // Size classes using design tokens
   const sizeClasses = {
-    xs: "h-(--input-height-xs) px-2 py-1 text-xs",
-    sm: "h-(--input-height-sm) px-3 py-1.5 text-sm",
-    md: "h-(--input-height-md) px-4 py-2 text-sm",
-    lg: "h-(--input-height-lg) px-4 py-2 text-base",
-    xl: "h-(--input-height-xl) px-6 py-3 text-lg"
+    xs: "h-[var(--input-height-xs)] px-2 py-1 text-xs",
+    sm: "h-[var(--input-height-sm)] px-3 py-1.5 text-sm",
+    md: "h-[var(--input-height-md)] px-4 py-2 text-sm",
+    lg: "h-[var(--input-height-lg)] px-4 py-2 text-base",
+    xl: "h-[var(--input-height-xl)] px-6 py-3 text-lg"
   };
 
   // Computed classes with $derived

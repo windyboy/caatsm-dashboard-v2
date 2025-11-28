@@ -88,22 +88,24 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	cacheStore := cache.New(redisCli, 5*time.Minute)
 
 	// Set infrastructure ports
-	container.Repo = store          // implements ports.Repository
-	container.Cache = cacheStore    // implements ports.Cache
-	container.Search = meiliIndex   // implements ports.SearchIndex
-	container.EventBus = eventBus   // Redis pub/sub for real-time updates
+	container.Repo = store        // implements ports.Repository
+	container.Cache = cacheStore  // implements ports.Cache
+	container.Search = meiliIndex // implements ports.SearchIndex
+	container.EventBus = eventBus // Redis pub/sub for real-time updates
 	// Note: ports.EventPublisher not assigned (different interface signature)
 
 	// Set concrete repository types (for direct access)
-	container.TelegramStore = store     // repository.TelegramStore
-	container.SearchIndex = meiliIndex  // repository.SearchIndex
+	container.TelegramStore = store    // repository.TelegramStore
+	container.SearchIndex = meiliIndex // repository.SearchIndex
+
+	searchService := services.NewSearchService(store, cacheStore, meiliIndex, nil, logger)
 
 	// Initialize application services
 	container.DashboardService = services.NewDashboardService(
-		services.NewSearchService(store, cacheStore, meiliIndex, nil, logger),
+		searchService,
 		services.NewStatsService(store, cacheStore, logger),
 		services.NewExportService(
-			services.NewSearchService(store, cacheStore, meiliIndex, nil, logger),
+			searchService,
 			logger,
 		),
 		services.NewRealtimeManager(),

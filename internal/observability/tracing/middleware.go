@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.36.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -48,13 +48,13 @@ func Middleware(enabled bool) echo.MiddlewareFunc {
 		ctx, span := tracer.Start(ctx, spanName,
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
-				semconv.HTTPMethod(req.Method),
+				semconv.HTTPRequestMethodKey.String(req.Method),
 				semconv.HTTPRoute(c.Path()),
-				semconv.HTTPScheme(scheme),
-				semconv.HTTPTarget(req.URL.Path),
-				semconv.HTTPURL(scheme+"://"+req.Host+req.RequestURI),
-				semconv.HTTPUserAgent(req.UserAgent()),
-				semconv.NetHostName(req.Host),
+				semconv.URLScheme(scheme),
+				semconv.URLPath(req.URL.Path),
+				semconv.URLFull(scheme+"://"+req.Host+req.RequestURI),
+				semconv.UserAgentOriginal(req.UserAgent()),
+				semconv.ServerAddress(req.Host),
 			),
 		)
 			defer span.End()
@@ -70,7 +70,7 @@ func Middleware(enabled bool) echo.MiddlewareFunc {
 
 			// Set span status based on response
 			status := c.Response().Status
-			span.SetAttributes(semconv.HTTPStatusCode(status))
+			span.SetAttributes(semconv.HTTPResponseStatusCode(status))
 
 			if err != nil {
 				span.RecordError(err)

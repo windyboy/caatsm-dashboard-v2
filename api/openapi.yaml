@@ -423,8 +423,8 @@ paths:
       summary: Export telegrams
       description: |
         Export search results to CSV, Excel, or PDF format with streaming support.
-        CSV exports use chunked streaming to handle 50k+ records without memory issues.
-        Maximum export limit is 10,000 records.
+        CSV exports use chunked streaming to efficiently handle the maximum 10,000 records without memory issues.
+        Maximum export limit is 10,000 records per request.
       tags:
         - export
       parameters:

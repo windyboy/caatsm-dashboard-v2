@@ -76,16 +76,18 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 	)
 
 	// Index to Meilisearch (non-blocking - log errors but continue)
-	if err := w.search.Index(ctx, domainTelegram); err != nil {
-		w.logger.Warn("failed to index telegram",
-			zap.String("message_id", telegram.MessageID),
-			zap.Error(err),
-		)
-		// Continue - indexing failure should not block the flow
-	} else {
-		w.logger.Info("telegram indexed",
-			zap.String("message_id", telegram.MessageID),
-		)
+	if w.search != nil {
+		if err := w.search.Index(ctx, domainTelegram); err != nil {
+			w.logger.Warn("failed to index telegram",
+				zap.String("message_id", telegram.MessageID),
+				zap.Error(err),
+			)
+			// Continue - indexing failure should not block the flow
+		} else {
+			w.logger.Info("telegram indexed",
+				zap.String("message_id", telegram.MessageID),
+			)
+		}
 	}
 
 	// Publish event for real-time updates (non-blocking)
@@ -124,6 +126,7 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 func (w *Worker) Run(ctx context.Context) error {
 	if natsConsumer, ok := w.consumer.(*natsrepo.Consumer); ok {
 		natsConsumer.SetHandler(w.Handle)
+		natsConsumer.SetLogger(w.logger)
 	}
 
 	if err := w.consumer.Start(ctx); err != nil {

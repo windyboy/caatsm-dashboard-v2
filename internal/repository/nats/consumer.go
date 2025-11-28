@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"go.uber.org/zap"
 )
 
 // Consumer wraps a JetStream consumer for telegram ingestion.
@@ -18,11 +20,17 @@ type Consumer struct {
 	consumer string
 	sub      *nats.Subscription
 	handler  func(context.Context, *persistence.Telegram) error
+	logger   *zap.Logger
 }
 
 // New creates a Consumer from JetStream context.
 func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
 	return &Consumer{js: js, stream: stream, consumer: consumer}
+}
+
+// SetLogger sets the logger for the consumer.
+func (c *Consumer) SetLogger(logger *zap.Logger) {
+	c.logger = logger
 }
 
 // SetHandler sets the message handler.
@@ -134,24 +142,103 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			for _, msg := range msgs {
 				var telegram persistence.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
-					_ = msg.Ack()
+					if ackErr := msg.Ack(); ackErr != nil {
+						c.logAckError("ack after unmarshal failure", msg, ackErr, nil)
+					}
 					continue
 				}
 
 				if telegram.MessageID == "" {
-					_ = msg.Ack()
+					if ackErr := msg.Ack(); ackErr != nil {
+						c.logAckError("ack after empty message_id", msg, ackErr, nil)
+					}
 					continue
 				}
 
 				if err := c.handler(ctx, &telegram); err != nil {
-					_ = msg.Nak()
+					if nakErr := msg.Nak(); nakErr != nil {
+						c.logNakError("nak after handler failure", msg, nakErr, err, telegram.MessageID)
+					}
 					continue
 				}
 
-				_ = msg.Ack()
+				if ackErr := msg.Ack(); ackErr != nil {
+					c.logAckError("ack after successful processing", msg, ackErr, nil)
+				}
 			}
 		}
 	}
+}
+
+// logAckError logs an error from an Ack operation with contextual information.
+func (c *Consumer) logAckError(operation string, msg *nats.Msg, ackErr error, handlerErr error) {
+	fields := c.getMessageFields(msg)
+	fields = append(fields, zap.String("operation", operation), zap.Error(ackErr))
+	if handlerErr != nil {
+		fields = append(fields, zap.NamedError("handler_error", handlerErr))
+	}
+
+	if c.logger != nil {
+		c.logger.Error("failed to ack message", fields...)
+	} else {
+		log.Printf("ERROR: failed to ack message: operation=%s subject=%s seq=%d error=%v",
+			operation, msg.Subject, c.getMessageSeq(msg), ackErr)
+		if handlerErr != nil {
+			log.Printf("  handler_error=%v", handlerErr)
+		}
+	}
+}
+
+// logNakError logs an error from a Nak operation with contextual information.
+func (c *Consumer) logNakError(operation string, msg *nats.Msg, nakErr error, handlerErr error, messageID string) {
+	fields := c.getMessageFields(msg)
+	fields = append(fields,
+		zap.String("operation", operation),
+		zap.Error(nakErr),
+		zap.NamedError("handler_error", handlerErr),
+		zap.String("telegram_message_id", messageID),
+	)
+
+	if c.logger != nil {
+		c.logger.Error("failed to nak message", fields...)
+	} else {
+		log.Printf("ERROR: failed to nak message: operation=%s subject=%s seq=%d message_id=%s error=%v handler_error=%v",
+			operation, msg.Subject, c.getMessageSeq(msg), messageID, nakErr, handlerErr)
+	}
+}
+
+// getMessageFields extracts contextual fields from a NATS message for logging.
+func (c *Consumer) getMessageFields(msg *nats.Msg) []zap.Field {
+	fields := []zap.Field{
+		zap.String("subject", msg.Subject),
+		zap.String("stream", c.stream),
+		zap.String("consumer", c.consumer),
+	}
+
+	if seq := c.getMessageSeq(msg); seq > 0 {
+		fields = append(fields, zap.Uint64("sequence", seq))
+	}
+
+	metadata, err := msg.Metadata()
+	if err == nil && metadata != nil {
+		if metadata.NumDelivered > 0 {
+			fields = append(fields, zap.Uint64("num_delivered", metadata.NumDelivered))
+		}
+		if !metadata.Timestamp.IsZero() {
+			fields = append(fields, zap.Time("timestamp", metadata.Timestamp))
+		}
+	}
+
+	return fields
+}
+
+// getMessageSeq extracts the sequence number from a NATS message.
+func (c *Consumer) getMessageSeq(msg *nats.Msg) uint64 {
+	metadata, err := msg.Metadata()
+	if err == nil && metadata != nil {
+		return metadata.Sequence.Stream
+	}
+	return 0
 }
 
 // Close performs cleanup for the consumer.

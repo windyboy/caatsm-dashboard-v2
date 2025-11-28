@@ -19,10 +19,11 @@ func NewClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
 		Username: cfg.Username,
 		Password: cfg.Password,
 		DB:       cfg.DB,
-		// Disable maintenance notifications to avoid maint_notifications error
-		// when the Redis/Valkey server doesn't support this command
+		// Use auto mode for maintenance notifications: enables server-driven
+		// maintenance notifications when supported, gracefully falls back when not.
+		// This preserves graceful failover behavior while maintaining compatibility.
 		MaintNotificationsConfig: &maintnotifications.Config{
-			Mode: maintnotifications.ModeDisabled,
+			Mode: maintnotifications.ModeAuto,
 		},
 	}
 

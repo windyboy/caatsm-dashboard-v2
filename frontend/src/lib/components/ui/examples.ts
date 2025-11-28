@@ -158,11 +158,22 @@ export const modalExample = `
   }
 </script>
 
+{#snippet footerButtons()}
+  <div class="flex justify-end gap-3">
+    <Button variant="outline" on:click={closeModal}>
+      Cancel
+    </Button>
+    <Button variant="primary" type="submit">
+      Create Item
+    </Button>
+  </div>
+{/snippet}
+
 <Button variant="primary" onclick={openModal}>
   Open Modal
 </Button>
 
-<Modal open={showModal} onclose={closeModal} title="Create New Item" size="md">
+<Modal open={showModal} onclose={closeModal} title="Create New Item" size="md" footer={true} footerSnippet={footerButtons}>
   <form class="space-y-4">
     <Input
       label="Name"
@@ -180,15 +191,6 @@ export const modalExample = `
       ]}
       required
     />
-
-    <div slot="footer" class="flex justify-end gap-3">
-      <Button variant="outline" on:click={closeModal}>
-        Cancel
-      </Button>
-      <Button variant="primary" type="submit">
-        Create Item
-      </Button>
-    </div>
   </form>
 </Modal>
 `;

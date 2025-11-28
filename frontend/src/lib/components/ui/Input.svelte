@@ -123,6 +123,11 @@
 </script>
 
 <div class="form-control">
+  {#if leadingIcon && leadingIconSnippet}
+    <div class="input-leading-icon">
+      {@render leadingIconSnippet()}
+    </div>
+  {/if}
   <input
     bind:this={inputElement}
     {type}
@@ -140,6 +145,12 @@
     onfocus={handleFocus}
     onblur={handleBlur}
   />
+  {#if trailingIcon && trailingIconSnippet}
+    <div class="input-trailing-icon">
+      {@render trailingIconSnippet()}
+    </div>
+  {/if}
+</div>
 
   <!-- Helper text and error messages -->
   {#if error}

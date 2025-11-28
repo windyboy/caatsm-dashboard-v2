@@ -76,7 +76,8 @@
     if (duration && duration > 0) {
       timeoutId = window.setTimeout(() => {
         ontimeout?.(new Event('timeout'));
-        dismiss();
+        clearTimeoutFn();
+        // Don't call ondismiss here - ontimeout already indicates dismissal
       }, duration);
     }
   }
@@ -112,12 +113,12 @@
   });
 </script>
 
-{#if mounted}
   <div
-    class="toast-container {positionClasses[position!]}"
+    class="toast-container fixed z-50 {positionClasses[position!]}"
     transition:slide={{ duration: 300, axis: 'y' }}
     onmouseenter={handleMouseEnter}
     onmouseleave={handleMouseLeave}
+  >
   >
     <div class="alert {variantClasses[variant!]} {className}" role="alert">
       <!-- Icon -->

@@ -27,7 +27,7 @@
   export function handleError(err: Error | unknown, additionalContext: Record<string, unknown> = {}) {
     const errorObj = err instanceof Error ? err : new Error(String(err));
     error = errorObj;
-    errorId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    errorId = `error-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const fullContext = { ...context, ...additionalContext, errorId };
 

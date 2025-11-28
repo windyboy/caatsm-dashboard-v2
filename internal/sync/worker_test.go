@@ -111,7 +111,7 @@ func TestWorker_Handle(t *testing.T) {
 
 			// Verify mock calls
 			storeMock.AssertExpectations(t)
-			if !tt.expectError || !tt.expectAppFailure {
+			if !tt.expectBadData && tt.serviceError == nil {
 				searchMock.AssertExpectations(t)
 				eventBusMock.AssertExpectations(t)
 			}

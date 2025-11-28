@@ -1,6 +1,6 @@
 import { defineConfig } from "unocss";
 import presetWind4 from "@unocss/preset-wind4";
-import daisyui from "daisyui";
+import { presetDaisy } from "@ameinhardt/unocss-preset-daisy";
 import presetTypography from "@unocss/preset-typography";
 import transformerDirectives from "@unocss/transformer-directives";
 
@@ -12,11 +12,8 @@ export default defineConfig({
         reset: true, // 启用内置的 reset 样式
       },
     }),
+    presetDaisy(),
     presetTypography(),
-  ],
-
-  plugins: [
-    daisyui,
   ],
 
   // 转换器

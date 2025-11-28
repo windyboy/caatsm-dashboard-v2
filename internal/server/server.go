@@ -202,7 +202,7 @@ func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
 	// Register WebSocket handler using transport layer with configured allowed origins
 	wsHandler := deliveryws.NewSimpleHandler(s.container, broadcaster, s.cfg.WebSocket.AllowedOrigins)
 	wsHandler.Register(s.e)
-	s.logger.Info("registered WebSocket handler in transport layer",
+	s.logger.Info("registered WebSocket handler in delivery layer",
 		zap.Strings("allowed_origins", s.cfg.WebSocket.AllowedOrigins))
 
 	// Serve static files from Svelte frontend build directory

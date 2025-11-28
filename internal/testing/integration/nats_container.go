@@ -17,9 +17,9 @@ type NATSContainer struct {
 }
 
 // NewNATSContainer creates and starts a NATS container with JetStream enabled
-func NewNATSContainer(ctx context.Context) (result *NATSContainer, err error) {
+func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "nats:2.12.2-alpine",
+		Image:        "nats:2.11-alpine",
 		ExposedPorts: []string{"4222/tcp"},
 		Cmd:          []string{"-js"}, // Enable JetStream
 		WaitingFor: wait.ForAll(
@@ -36,23 +36,15 @@ func NewNATSContainer(ctx context.Context) (result *NATSContainer, err error) {
 		return nil, fmt.Errorf("failed to start NATS container: %w", err)
 	}
 
-	// Ensure container cleanup on error after successful start
-	defer func() {
-		if err != nil && result == nil {
-			if termErr := container.Terminate(ctx); termErr != nil {
-				// Log termination error but don't override the original error
-				fmt.Printf("warning: failed to cleanup NATS container: %v\n", termErr)
-			}
-		}
-	}()
-
 	host, err := container.Host(ctx)
 	if err != nil {
+		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "4222")
 	if err != nil {
+		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

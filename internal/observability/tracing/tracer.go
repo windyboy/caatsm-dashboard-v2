@@ -135,12 +135,21 @@ func SpanFromContext(ctx context.Context) trace.Span {
 // AddEvent adds an event to the current span
 func AddEvent(ctx context.Context, name string, attrs ...attribute.KeyValue) {
 	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return
+	}
 	span.AddEvent(name, trace.WithAttributes(attrs...))
 }
 
 // SetError marks the current span as errored
 func SetError(ctx context.Context, err error) {
+	if err == nil {
+		return
+	}
 	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return
+	}
 	span.RecordError(err)
 	span.SetStatus(codes.Error, err.Error())
 }
@@ -148,5 +157,8 @@ func SetError(ctx context.Context, err error) {
 // SetAttributes sets attributes on the current span
 func SetAttributes(ctx context.Context, attrs ...attribute.KeyValue) {
 	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return
+	}
 	span.SetAttributes(attrs...)
 }

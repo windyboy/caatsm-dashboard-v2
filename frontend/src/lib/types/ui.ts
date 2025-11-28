@@ -294,7 +294,6 @@ export interface DesignTokens {
  * Props for components that support loading states
  */
 export interface WithLoadingProps {
-  loading?: boolean;
   loadingText?: string;
 }
 
