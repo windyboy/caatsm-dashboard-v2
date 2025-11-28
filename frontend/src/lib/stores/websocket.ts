@@ -109,7 +109,7 @@ function createWebSocketStore() {
       wsClient.send(data);
     },
 
-    isConnected: () => wsClient.isConnected(),
+    checkIsConnected: () => wsClient.isConnected(),
 
     cleanup: () => {
       logger.info("Cleaning up WebSocket store");

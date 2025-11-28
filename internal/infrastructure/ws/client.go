@@ -16,9 +16,8 @@ const (
 	defaultClientBufferSize = 100
 
 	// WebSocket connection timeouts
-	writeTimeout = 10 * time.Second
-	pongWait     = 60 * time.Second
-	pingPeriod   = (pongWait * 9) / 10
+	pongWait   = 60 * time.Second
+	pingPeriod = (pongWait * 9) / 10
 )
 
 // Client represents a single WebSocket client connection with backpressure control.

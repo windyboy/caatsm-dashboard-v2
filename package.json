@@ -15,6 +15,7 @@
     "@unocss/preset-typography": "latest",
     "@unocss/preset-wind4": "latest",
     "@unocss/transformer-directives": "latest",
-    "unocss": "latest"
+    "unocss": "latest",
+    "vite-plugin-devtools-json": "^1.0.0"
   }
 }

@@ -244,8 +244,8 @@ tasks:
     cmds:
       - |
         if command -v deno > /dev/null 2>&1; then
-          echo "Using Deno to run frontend E2E tests..."
-          deno run -A npm:@playwright/test test
+          echo "Using Deno task to run Playwright tests (via Node.js)..."
+          deno task test
         else
           echo "Deno not found, using npm..."
           npm test
@@ -369,11 +369,17 @@ tasks:
           DSN="${CAATSM_DATABASE_DSN}"
         elif [ -f "${CAATSM_CONFIG:-config/config.local.toml}" ]; then
           CONFIG_FILE="${CAATSM_CONFIG:-config/config.local.toml}"
-          if DSN=$(go run ./cmd/extract-dsn -config "$CONFIG_FILE" 2>/dev/null); then
+          # Run extract-dsn without suppressing stderr so users can see config errors
+          # stderr will be displayed to the terminal, stdout (DSN) is captured
+          if DSN=$(go run ./cmd/extract-dsn -config "$CONFIG_FILE"); then
+            DSN=$(echo "$DSN" | tr -d '\n\r')
             if [ -z "$DSN" ]; then
+              echo "Warning: extract-dsn returned empty DSN, using default" >&2
               DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
             fi
           else
+            # Command failed - error messages were already displayed to stderr
+            echo "Falling back to default development DSN" >&2
             DSN="postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
           fi
         else

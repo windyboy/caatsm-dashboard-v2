@@ -16,27 +16,39 @@ const TIMEOUT = 5000; // 5 seconds timeout for elements
 
 test.describe('Visual Regression Tests', () => {
   test('homepage should match baseline', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'load' });
-    await page.waitForTimeout(500); // Wait for any animations to settle
+    await page.goto('/', { waitUntil: 'networkidle' });
+    // Wait for component hydration and WebSocket connection attempt to stabilize
+    await page.waitForTimeout(2000);
+    // Wait for LiveStream component to be visible and stable
+    await page.waitForSelector('h2:has-text("Live Stream")', { state: 'visible' });
+    await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('homepage.png', SCREENSHOT_OPTIONS);
   });
 
   test('search page empty state', async ({ page }) => {
-    await page.goto('/search', { waitUntil: 'load' });
-    await page.waitForTimeout(500);
+    await page.goto('/search', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
     await expect(page).toHaveScreenshot('search-page.png', SCREENSHOT_OPTIONS);
   });
 
   test('homepage mobile view', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/', { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    // Wait for component hydration and WebSocket connection attempt to stabilize
+    await page.waitForTimeout(2000);
+    // Wait for LiveStream component to be visible and stable
+    await page.waitForSelector('h2:has-text("Live Stream")', { state: 'visible' });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('homepage-mobile.png', SCREENSHOT_OPTIONS);
   });
 
   test('homepage tablet view', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.tablet);
-    await page.goto('/', { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'networkidle' });
+    // Wait for component hydration and WebSocket connection attempt to stabilize
+    await page.waitForTimeout(2000);
+    // Wait for LiveStream component to be visible and stable
+    await page.waitForSelector('h2:has-text("Live Stream")', { state: 'visible' });
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot('homepage-tablet.png', SCREENSHOT_OPTIONS);
   });
@@ -85,7 +97,7 @@ test.describe('Visual Regression Tests', () => {
   test('404 page display', async ({ page }) => {
     // Navigate to a non-existent route to display 404 page
     const response = await page.goto('/non-existent-route-404', { waitUntil: 'load' });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     // Verify we got a 404 response or the page shows not found content
     const notFoundContent = page.locator('[data-testid="not-found"]')

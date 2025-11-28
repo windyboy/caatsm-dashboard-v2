@@ -18,6 +18,8 @@
     "build": "deno run -A npm:vite@7 build",
     "preview": "deno run -A npm:vite@7 preview",
     "check": "deno run -A npm:@sveltejs/kit@2 sync && deno check src/**/*.ts src/**/*.svelte",
+    "test": "npx playwright test",
+    "test:e2e": "npx playwright test",
     "test:unit": "deno run -A npm:vitest@1 --run",
     "test:unit:ui": "deno run -A npm:vitest@1 --ui",
     "test:unit:coverage": "deno run -A npm:vitest@1 --coverage",

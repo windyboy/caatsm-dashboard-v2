@@ -346,15 +346,18 @@ describe("WebSocketClient", () => {
 
       const ws = (client as any).ws;
       if (ws && ws.onmessage) {
+        // null and undefined data should be rejected by validation
         ws.onmessage({
           data: JSON.stringify({ type: "message", data: null }),
         } as MessageEvent);
+        // Note: undefined gets removed during JSON.stringify, so this becomes { type: "message" }
         ws.onmessage({
-          data: JSON.stringify({ type: "message", data: undefined }),
+          data: JSON.stringify({ type: "message" }),
         } as MessageEvent);
       }
 
-      expect(handler).toHaveBeenCalledTimes(2);
+      // Both messages should be rejected: null fails validation, missing data fails validation
+      expect(handler).toHaveBeenCalledTimes(0);
     } finally {
       vi.useRealTimers();
     }
@@ -413,19 +416,25 @@ describe("WebSocketClient", () => {
 
       const ws = (client as any).ws;
       if (ws && ws.onmessage) {
+        // Invalid type should be rejected
         ws.onmessage({
           data: JSON.stringify({ type: "invalid-type", data: {} }),
         } as MessageEvent);
+        // Valid message type with valid data structure
         ws.onmessage({
           data: JSON.stringify({ type: "message", data: {} }),
         } as MessageEvent);
+        // stats-total requires data.total to be a number, so empty object should be rejected
         ws.onmessage({
           data: JSON.stringify({ type: "stats-total", data: {} }),
         } as MessageEvent);
       }
 
-      expect(handler).toHaveBeenCalledTimes(2);
+      // Only the "message" type with valid data should pass validation
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith(expect.objectContaining({ type: "message" }));
       expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "invalid-type" }));
+      expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "stats-total" }));
     } finally {
       vi.useRealTimers();
     }

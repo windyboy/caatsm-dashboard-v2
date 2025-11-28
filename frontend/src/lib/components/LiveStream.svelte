@@ -14,14 +14,21 @@
   import { websocket } from "../stores/websocket";
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
+  import { onMount } from "svelte";
+  import type { WebSocketStatus } from "../services/websocket";
 
   let container = $state<HTMLDivElement>();
+  let mounted = $state(false);
+
+  // Use local state instead of direct store subscriptions to avoid SSR issues
+  let currentStatus = $state<WebSocketStatus>("disconnected");
+  let currentReconnectAttempts = $state(0);
 
   const typedMessages = $derived((Array.isArray($messages) ? $messages : []) as Telegram[]);
 
-  // Connection status for UI
+  // Connection status for UI - use local state instead of store subscriptions
   const statusColor = $derived.by(() => {
-    switch ($websocket.status) {
+    switch (currentStatus) {
       case "connected":
         return "bg-green-500";
       case "connecting":
@@ -34,7 +41,7 @@
   });
 
   const statusText = $derived.by(() => {
-    switch ($websocket.status) {
+    switch (currentStatus) {
       case "connected":
         return "Connected";
       case "connecting":
@@ -46,8 +53,33 @@
     }
   });
 
-  // Lifecycle with $effect
+  // Subscribe to stores only in browser (onMount)
+  onMount(() => {
+    mounted = true;
+
+    // Subscribe to status changes
+    const statusUnsubscribe = websocket.status.subscribe((status) => {
+      currentStatus = status;
+    });
+
+    // Subscribe to reconnect attempts
+    const reconnectUnsubscribe = websocket.reconnectAttempts.subscribe((attempts) => {
+      currentReconnectAttempts = attempts;
+    });
+
+    return () => {
+      statusUnsubscribe();
+      reconnectUnsubscribe();
+    };
+  });
+
+  // Lifecycle with $effect - only run in browser after mount
   $effect(() => {
+    // Guard against SSR - only run in browser after component is mounted
+    if (typeof window === "undefined" || !mounted) {
+      return;
+    }
+
     websocket.connect();
 
     // Scroll to top when new messages arrive (new messages appear at top)
@@ -87,9 +119,9 @@
       >
         {statusText}
       </span>
-      {#if $websocket.reconnectAttempts > 0 && $websocket.status !== "connected"}
+      {#if currentReconnectAttempts > 0 && currentStatus !== "connected"}
         <span class="text-xs text-gray-500">
-          (Attempt {$websocket.reconnectAttempts})
+          (Attempt {currentReconnectAttempts})
         </span>
       {/if}
     </div>
@@ -102,9 +134,9 @@
       <div class="text-center py-12">
         <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-brand-200 to-accent-200"></div>
         <p class="text-sm text-slate-500 font-medium">
-          {#if $websocket.status === "connecting"}
+          {#if currentStatus === "connecting"}
             Connecting...
-          {:else if $websocket.status === "error"}
+          {:else if currentStatus === "error"}
             Connection error. Retrying...
           {:else}
             Waiting for telegrams...
