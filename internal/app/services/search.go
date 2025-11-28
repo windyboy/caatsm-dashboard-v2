@@ -123,7 +123,11 @@ func (s *SearchService) Autocomplete(ctx context.Context, query string, limit in
 	return result, nil
 }
 
-// AutocompleteWithTypes provides search suggestions with type information
+// AutocompleteWithTypes provides search suggestions with type information.
+// It queries the Meilisearch index for autocomplete results across multiple attributes
+// (flight_number, message_id, source, destination) and returns structured suggestions
+// with value, type, and human-readable label. The method ensures deduplication
+// and prioritizes certain attribute types in the results.
 func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string, limit int) ([]AutocompleteSuggestion, error) {
 	if query == "" {
 		return []AutocompleteSuggestion{}, nil

@@ -105,3 +105,32 @@ func (t *Telegram) Normalize() {
 	// Trim message ID
 	t.MessageID = strings.TrimSpace(t.MessageID)
 }
+
+// ValidateType checks if the telegram type is valid
+func ValidateType(telegramType string) bool {
+	validTypes := map[string]bool{
+		"AFTN":  true,
+		"SITA":  true,
+		"ACARS": true,
+		"CPDLC": true,
+	}
+	return validTypes[telegramType]
+}
+
+// ValidatePriority checks if the priority is valid
+func ValidatePriority(priority int) bool {
+	return priority >= 1 && priority <= 3
+}
+
+// ValidateICAOCode checks if a string is a valid ICAO code (4 characters, uppercase)
+func ValidateICAOCode(code string) bool {
+	if len(code) != 4 {
+		return false
+	}
+	for _, r := range code {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
+}

@@ -29,7 +29,7 @@ func NewExportService(searchSvc *SearchService, logger *zap.Logger) *ExportServi
 func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
 	// Validate format first (before expensive operations)
 	switch format {
-	case domain.ExportFormatCSV, domain.ExportFormatExcel, domain.ExportFormatPDF:
+	case domain.ExportFormatCSV:
 		// Valid format, continue
 	default:
 		return nil, fmt.Errorf("unsupported export format: %s", format)
@@ -50,10 +50,6 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 	switch format {
 	case domain.ExportFormatCSV:
 		return e.exportCSV(result)
-	case domain.ExportFormatExcel:
-		return e.exportExcel(result)
-	case domain.ExportFormatPDF:
-		return e.exportPDF(result)
 	default:
 		// Should never reach here due to validation above
 		return nil, fmt.Errorf("unsupported export format: %s", format)
@@ -127,18 +123,4 @@ func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
 
 	e.logger.Info("CSV export completed", zap.Int("records", len(result.Telegrams)))
 	return buf.Bytes(), nil
-}
-
-// exportExcel exports data as Excel
-func (e *ExportService) exportExcel(result *domain.SearchResult) ([]byte, error) {
-	// Simplified Excel export - would use excelize library
-	e.logger.Info("exporting to Excel", zap.Int("records", len(result.Telegrams)))
-	return []byte("Excel export not yet implemented"), nil
-}
-
-// exportPDF exports data as PDF
-func (e *ExportService) exportPDF(result *domain.SearchResult) ([]byte, error) {
-	// Simplified PDF export - would use PDF generation library
-	e.logger.Info("exporting to PDF", zap.Int("records", len(result.Telegrams)))
-	return []byte("PDF export not yet implemented"), nil
 }

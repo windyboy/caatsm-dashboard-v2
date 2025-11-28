@@ -65,83 +65,9 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 		zap.Time("end_time", req.TimeRange.End),
 	)
 
-	// Result types that bundle data with errors
-	type searchResultOrError struct {
-		result *domain.SearchResult
-		err    error
-	}
-	type statsResultOrError struct {
-		result *domain.TrafficSummary
-		err    error
-	}
-	type realtimeResultOrError struct {
-		result *RealtimeInfo
-		err    error
-	}
-
-	// Parallel data fetching for better performance
-	searchChan := make(chan searchResultOrError, 1)
-	statsChan := make(chan statsResultOrError, 1)
-	realtimeChan := make(chan realtimeResultOrError, 1)
-
-	// Fetch search results if requested
-	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
-		go func() {
-			result, err := ds.searchSvc.Search(ctx, req.SearchFilters)
-			searchChan <- searchResultOrError{result: result, err: err}
-		}()
-	} else {
-		searchChan <- searchResultOrError{result: nil, err: nil}
-	}
-
-	// Fetch statistics
-	go func() {
-		stats, err := ds.statsSvc.GetStats(ctx, req.TimeRange)
-		statsChan <- statsResultOrError{result: stats, err: err}
-	}()
-
-	// Fetch realtime info
-	go func() {
-		info := ds.realtime.GetInfo()
-		realtimeChan <- realtimeResultOrError{result: info, err: nil}
-	}()
-
-	// Collect results
-	var searchResult *domain.SearchResult
-	var statsResult *domain.TrafficSummary
-	var realtimeResult *RealtimeInfo
-
-	// Collect search results
-	select {
-	case sr := <-searchChan:
-		if sr.err != nil {
-			return nil, fmt.Errorf("search failed: %w", sr.err)
-		}
-		searchResult = sr.result
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
-	// Collect stats results
-	select {
-	case st := <-statsChan:
-		if st.err != nil {
-			return nil, fmt.Errorf("stats failed: %w", st.err)
-		}
-		statsResult = st.result
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-
-	// Collect realtime results
-	select {
-	case rt := <-realtimeChan:
-		if rt.err != nil {
-			return nil, fmt.Errorf("realtime failed: %w", rt.err)
-		}
-		realtimeResult = rt.result
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	searchResult, statsResult, realtimeResult, err := ds.getDashboardDataHelper(ctx, req)
+	if err != nil {
+		return nil, err
 	}
 
 	response := &DashboardResponse{
@@ -163,6 +89,26 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 	)
 
 	return response, nil
+}
+
+// getDashboardDataHelper fetches dashboard data sequentially
+func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *DashboardRequest) (*domain.SearchResult, *domain.TrafficSummary, *RealtimeInfo, error) {
+	var searchResult *domain.SearchResult
+	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
+		result, err := ds.searchSvc.Search(ctx, req.SearchFilters)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("search failed: %w", err)
+		}
+		searchResult = result
+	}
+
+	stats, err := ds.statsSvc.GetStats(ctx, req.TimeRange)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("stats failed: %w", err)
+	}
+
+	realtime := ds.realtime.GetInfo()
+	return searchResult, stats, realtime, nil
 }
 
 // Search performs a search operation
@@ -188,4 +134,9 @@ func (ds *DashboardService) GetRealtimeInfo() *RealtimeInfo {
 // Autocomplete provides search suggestions
 func (ds *DashboardService) Autocomplete(ctx context.Context, query string, size int) ([]string, error) {
 	return ds.searchSvc.Autocomplete(ctx, query, size)
+}
+
+// AutocompleteWithTypes provides search suggestions with type information
+func (ds *DashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]AutocompleteSuggestion, error) {
+	return ds.searchSvc.AutocompleteWithTypes(ctx, query, size)
 }

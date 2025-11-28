@@ -8,9 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidator_ValidateType(t *testing.T) {
-	v := NewValidator()
-
+func TestValidateType(t *testing.T) {
 	tests := []struct {
 		name  string
 		ttype string
@@ -27,14 +25,12 @@ func TestValidator_ValidateType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, v.ValidateType(tt.ttype))
+			assert.Equal(t, tt.want, ValidateType(tt.ttype))
 		})
 	}
 }
 
-func TestValidator_ValidatePriority(t *testing.T) {
-	v := NewValidator()
-
+func TestValidatePriority(t *testing.T) {
 	tests := []struct {
 		name     string
 		priority int
@@ -50,14 +46,12 @@ func TestValidator_ValidatePriority(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, v.ValidatePriority(tt.priority))
+			assert.Equal(t, tt.want, ValidatePriority(tt.priority))
 		})
 	}
 }
 
-func TestValidator_ValidateICAOCode(t *testing.T) {
-	v := NewValidator()
-
+func TestValidateICAOCode(t *testing.T) {
 	tests := []struct {
 		name string
 		code string
@@ -74,7 +68,7 @@ func TestValidator_ValidateICAOCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, v.ValidateICAOCode(tt.code))
+			assert.Equal(t, tt.want, ValidateICAOCode(tt.code))
 		})
 	}
 }

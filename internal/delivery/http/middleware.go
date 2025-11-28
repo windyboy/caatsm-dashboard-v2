@@ -1,15 +1,14 @@
-package auth
+package http
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/config"
 )
 
-// Middleware returns an Echo middleware enforcing basic authentication when enabled.
-func Middleware(cfg config.AuthConfig) echo.MiddlewareFunc {
+// BasicAuthMiddleware returns an Echo middleware enforcing basic authentication when enabled.
+func BasicAuthMiddleware(cfg config.AuthConfig) echo.MiddlewareFunc {
 	if !cfg.EnableBasic {
 		return func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
@@ -28,6 +27,3 @@ func Middleware(cfg config.AuthConfig) echo.MiddlewareFunc {
 		}
 	}
 }
-
-// ErrUnauthorized is returned when authentication fails.
-var ErrUnauthorized = errors.New("unauthorized")

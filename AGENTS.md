@@ -8,6 +8,12 @@ The project follows **Clean Architecture** with four layers (fully optimized, ze
 - **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation (with time range limits)
 - **Infrastructure Layer** (`internal/infrastructure/`) - **Direct port implementations** (PostgreSQL, Meilisearch, Valkey, NATS, WebSocket hub)
 
+**Additional Packages**:
+- **Observability** (`internal/observability/`) - Cross-cutting concerns: logging, metrics, tracing
+- **Server** (`internal/server/`) - HTTP server setup and configuration
+- **Sync** (`internal/sync/`) - NATS synchronization worker
+- **Testing** (`internal/testing/`) - Shared test utilities and helpers
+
 **Key Architecture Principles**:
 - Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - **Infrastructure directly implements `app/ports` interfaces** - no wrapper layers
@@ -171,13 +177,17 @@ caatsm-dashboard/
 │   │   ├── services/      # Application services
 │   │   └── ports/         # Port interfaces (Repository, Cache, SearchIndex, etc.)
 │   ├── domain/            # Business logic, entities, validation
-│   └── infrastructure/    # Direct port implementations
-│       ├── persistence/   # PostgreSQL (implements ports.Repository)
-│       ├── search/        # Meilisearch (implements ports.SearchIndex)
-│       ├── cache/         # Valkey/Redis (implements ports.Cache)
-│       ├── streaming/     # NATS consumer (implements ports.StreamConsumer)
-│       ├── event/         # Event bus
-│       └── ws/            # WebSocket hub
+│   ├── infrastructure/    # Direct port implementations
+│   │   ├── persistence/   # PostgreSQL (implements ports.Repository)
+│   │   ├── search/        # Meilisearch (implements ports.SearchIndex)
+│   │   ├── cache/         # Valkey/Redis (implements ports.Cache)
+│   │   ├── streaming/     # NATS consumer (implements ports.StreamConsumer)
+│   │   ├── event/         # Event bus
+│   │   └── ws/            # WebSocket hub
+│   ├── observability/     # Logging, metrics, tracing
+│   ├── server/            # Server setup and configuration
+│   ├── sync/              # Synchronization worker
+│   └── testing/           # Test utilities and helpers
 ├── frontend/              # SvelteKit frontend
 │   ├── src/
 │   │   ├── routes/       # Pages

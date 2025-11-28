@@ -68,7 +68,5 @@ type RouteStat struct {
 type ExportFormat string
 
 const (
-	ExportFormatCSV   ExportFormat = "csv"
-	ExportFormatExcel ExportFormat = "xlsx"
-	ExportFormatPDF   ExportFormat = "pdf"
+	ExportFormatCSV ExportFormat = "csv"
 )

@@ -39,8 +39,8 @@ type Container struct {
 	redisCli redis.UniversalClient
 }
 
-// New builds a Container from the provided options.
-func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ...Option) (*Container, error) {
+// New builds a Container with all dependencies.
+func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Container, error) {
 	container := &Container{
 		Config: cfg,
 		Logger: logger,
@@ -81,9 +81,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 
 	// Set infrastructure ports
 	container.Repo = store        // implements ports.Repository
-	container.Cache = cacheStore   // implements ports.Cache
-	container.Search = meiliIndex  // implements ports.SearchIndex
-	container.EventBus = eventBus  // Redis pub/sub for real-time updates
+	container.Cache = cacheStore  // implements ports.Cache
+	container.Search = meiliIndex // implements ports.SearchIndex
+	container.EventBus = eventBus // Redis pub/sub for real-time updates
 	// Note: ports.EventPublisher not assigned (different interface signature)
 
 	searchService := services.NewSearchService(store, cacheStore, meiliIndex, nil, logger)
@@ -105,18 +105,8 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger, opts ..
 	container.meiliSvc = meiliSvc
 	container.redisCli = redisCli
 
-	// Apply custom options
-	for _, opt := range opts {
-		if err := opt(ctx, container); err != nil {
-			return nil, fmt.Errorf("apply option: %w", err)
-		}
-	}
-
 	return container, nil
 }
-
-// Option represents a functional option for configuring the container.
-type Option func(context.Context, *Container) error
 
 // ComponentHealth represents the health status of a component.
 type ComponentHealth struct {

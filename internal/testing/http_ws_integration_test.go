@@ -201,6 +201,13 @@ func (s *stubDashboardService) Autocomplete(ctx context.Context, query string, s
 	return []string{"INT-001", "INT-002"}, nil
 }
 
+func (s *stubDashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error) {
+	return []services.AutocompleteSuggestion{
+		{Value: "INT-001", Type: "message_id", Label: "Message ID"},
+		{Value: "INT-002", Type: "message_id", Label: "Message ID"},
+	}, nil
+}
+
 type stubStatsService struct {
 	summary *persistence.TrafficSummary
 }

@@ -52,6 +52,10 @@ func (m *mockDashboardService) Autocomplete(ctx context.Context, query string, s
 	return []string{}, nil
 }
 
+func (m *mockDashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error) {
+	return []services.AutocompleteSuggestion{}, nil
+}
+
 // Note: Full handler tests would require integration tests with real services.
 // These are simplified tests that verify basic functionality without mocking
 // the entire DashboardService.
@@ -151,7 +155,7 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 	}
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/export?query=test&type=AFTN&source=HND&destination=LAX&priority=2&start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z&format=xlsx", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/export?query=test&type=AFTN&source=HND&destination=LAX&priority=2&start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z&format=csv", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -164,7 +168,7 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, domain.ExportFormatExcel, mockSvc.lastExportFormat)
+	assert.Equal(t, domain.ExportFormatCSV, mockSvc.lastExportFormat)
 	assert.Equal(t, "test", mockSvc.lastExportFilters.Query)
 	assert.Equal(t, []string{"AFTN"}, mockSvc.lastExportFilters.Types)
 	assert.Equal(t, []string{"HND"}, mockSvc.lastExportFilters.Sources)
@@ -172,8 +176,8 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 	assert.Equal(t, []int{2}, mockSvc.lastExportFilters.Priorities)
 	assert.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), mockSvc.lastExportFilters.TimeRange.Start)
 	assert.Equal(t, time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC), mockSvc.lastExportFilters.TimeRange.End)
-	assert.Equal(t, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", rec.Header().Get(echo.HeaderContentType))
-	assert.Equal(t, "attachment; filename=telegrams.xlsx", rec.Header().Get("Content-Disposition"))
+	assert.Equal(t, "text/csv", rec.Header().Get(echo.HeaderContentType))
+	assert.Equal(t, "attachment; filename=telegrams.csv", rec.Header().Get("Content-Disposition"))
 }
 
 func TestHandler_StatsTotal_UsesTimeRange(t *testing.T) {

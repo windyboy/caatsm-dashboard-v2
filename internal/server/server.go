@@ -11,7 +11,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
-	"github.com/windy/caatsm-dashboard/internal/auth"
 	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
@@ -182,7 +181,7 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 }
 
 func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
-	s.e.Use(auth.Middleware(s.cfg.Auth))
+	s.e.Use(deliveryhttp.BasicAuthMiddleware(s.cfg.Auth))
 
 	// Add rate limiting
 	rateLimiterConfig := middleware.RateLimiterConfig{

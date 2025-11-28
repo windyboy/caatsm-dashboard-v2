@@ -32,6 +32,7 @@ type DashboardService interface {
 	GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error)
 	Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error)
 	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
+	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error)
 }
 
 // Handler handles HTTP requests for the dashboard
@@ -102,55 +103,9 @@ func (h *Handler) Dashboard(c echo.Context) error {
 
 // Search handles POST/GET /api/search - search telegrams
 func (h *Handler) Search(c echo.Context) error {
-	filters := domain.SearchFilters{
-		Pagination: domain.Pagination{
-			Limit:  DefaultLimit,
-			Offset: 0,
-			SortBy: "time",
-			Order:  "desc",
-		},
-	}
-
-	// Parse query parameters
-	if query := c.QueryParam("query"); query != "" {
-		filters.Query = query
-	}
-
-	// Parse filters
-	if types := c.QueryParam("type"); types != "" {
-		filters.Types = []string{types}
-	}
-	if source := c.QueryParam("source"); source != "" {
-		filters.Sources = []string{source}
-	}
-	if dest := c.QueryParam("destination"); dest != "" {
-		filters.Destinations = []string{dest}
-	}
-	if priorityStr := c.QueryParam("priority"); priorityStr != "" {
-		if priority, err := strconv.Atoi(priorityStr); err == nil {
-			filters.Priorities = []int{priority}
-		}
-	}
-
-	// Parse pagination
-	if limitStr := c.QueryParam("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= MaxSearchLimit {
-			filters.Pagination.Limit = limit
-		}
-	}
-	if offsetStr := c.QueryParam("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			filters.Pagination.Offset = offset
-		}
-	}
-	if sortBy := c.QueryParam("sort_by"); sortBy != "" {
-		filters.Pagination.SortBy = sortBy
-	}
-	if order := c.QueryParam("order"); order != "" {
-		filters.Pagination.Order = order
-	}
-
-	filters.TimeRange = buildTimeWindow(c)
+	filters := parseSearchFilters(c)
+	filters.Pagination = parsePagination(c)
+	filters.TimeRange = parseTimeRange(c)
 
 	// Execute search
 	result, err := h.dashboardSvc.Search(c.Request().Context(), filters)
@@ -212,33 +167,12 @@ func (h *Handler) Stats(c echo.Context) error {
 
 // Export handles GET /api/export - data export
 func (h *Handler) Export(c echo.Context) error {
-	filters := domain.SearchFilters{
-		Pagination: domain.Pagination{
-			Limit:  MaxExportLimit,
-			Offset: 0,
-		},
+	filters := parseSearchFilters(c)
+	filters.Pagination = domain.Pagination{
+		Limit:  MaxExportLimit,
+		Offset: 0,
 	}
-
-	// Parse filters (same as search)
-	if query := c.QueryParam("query"); query != "" {
-		filters.Query = query
-	}
-	if types := c.QueryParam("type"); types != "" {
-		filters.Types = []string{types}
-	}
-	if source := c.QueryParam("source"); source != "" {
-		filters.Sources = []string{source}
-	}
-	if dest := c.QueryParam("destination"); dest != "" {
-		filters.Destinations = []string{dest}
-	}
-	if priorityStr := c.QueryParam("priority"); priorityStr != "" {
-		if priority, err := strconv.Atoi(priorityStr); err == nil {
-			filters.Priorities = []int{priority}
-		}
-	}
-
-	filters.TimeRange = buildTimeWindow(c)
+	filters.TimeRange = parseTimeRange(c)
 
 	formatStr := strings.ToLower(c.QueryParam("format"))
 	if formatStr == "" {
@@ -249,14 +183,9 @@ func (h *Handler) Export(c echo.Context) error {
 	switch formatStr {
 	case "csv":
 		format = domain.ExportFormatCSV
-	case "xlsx", "excel":
-		format = domain.ExportFormatExcel
-		formatStr = "xlsx"
-	case "pdf":
-		format = domain.ExportFormatPDF
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid format. supported: csv, xlsx, pdf",
+			"error": "invalid format. supported: csv",
 		})
 	}
 
@@ -274,10 +203,6 @@ func (h *Handler) Export(c echo.Context) error {
 	switch format {
 	case domain.ExportFormatCSV:
 		contentType = "text/csv"
-	case domain.ExportFormatExcel:
-		contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	case domain.ExportFormatPDF:
-		contentType = "application/pdf"
 	}
 
 	c.Response().Header().Set(echo.HeaderContentType, contentType)
@@ -352,4 +277,63 @@ func handleError(c echo.Context, err error) error {
 		// For now, just return generic error
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 	}
+}
+
+// parseSearchFilters parses search filter parameters from the request context
+func parseSearchFilters(c echo.Context) domain.SearchFilters {
+	filters := domain.SearchFilters{}
+
+	if query := c.QueryParam("query"); query != "" {
+		filters.Query = query
+	}
+	if types := c.QueryParam("type"); types != "" {
+		filters.Types = []string{types}
+	}
+	if source := c.QueryParam("source"); source != "" {
+		filters.Sources = []string{source}
+	}
+	if dest := c.QueryParam("destination"); dest != "" {
+		filters.Destinations = []string{dest}
+	}
+	if priorityStr := c.QueryParam("priority"); priorityStr != "" {
+		if priority, err := strconv.Atoi(priorityStr); err == nil {
+			filters.Priorities = []int{priority}
+		}
+	}
+
+	return filters
+}
+
+// parsePagination parses pagination parameters from the request context
+func parsePagination(c echo.Context) domain.Pagination {
+	pagination := domain.Pagination{
+		Limit:  DefaultLimit,
+		Offset: 0,
+		SortBy: "time",
+		Order:  "desc",
+	}
+
+	if limitStr := c.QueryParam("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= MaxSearchLimit {
+			pagination.Limit = limit
+		}
+	}
+	if offsetStr := c.QueryParam("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
+			pagination.Offset = offset
+		}
+	}
+	if sortBy := c.QueryParam("sort_by"); sortBy != "" {
+		pagination.SortBy = sortBy
+	}
+	if order := c.QueryParam("order"); order != "" {
+		pagination.Order = order
+	}
+
+	return pagination
+}
+
+// parseTimeRange parses time range parameters from the request context
+func parseTimeRange(c echo.Context) domain.TimeWindow {
+	return buildTimeWindow(c)
 }
