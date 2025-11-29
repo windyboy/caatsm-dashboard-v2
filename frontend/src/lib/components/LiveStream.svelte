@@ -182,6 +182,12 @@
         border-color: theme('colors.gray.200 / 0.6');
       }
     
+      .status-badge.bg-gray-600 {
+        color: #ffffff !important;
+        background-color: #4a5565 !important;
+        border-color: rgba(107, 114, 128, 0.8);
+      }
+    
       .reconnect-attempts {
         @apply text-xs;
         color: theme('colors.gray.500');
