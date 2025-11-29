@@ -11,7 +11,6 @@ import (
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
 	"go.uber.org/zap"
 )
 
@@ -33,8 +32,8 @@ var (
 	}
 )
 
-func generateTestData(count int) []*persistence.Telegram {
-	telegrams := make([]*persistence.Telegram, count)
+func generateTestData(count int) []*domain.Telegram {
+	telegrams := make([]*domain.Telegram, count)
 	now := time.Now()
 
 	for i := 0; i < count; i++ {
@@ -54,7 +53,7 @@ func generateTestData(count int) []*persistence.Telegram {
 			dst = airports[rand.Intn(len(airports))]
 		}
 
-		telegrams[i] = &persistence.Telegram{
+		telegrams[i] = &domain.Telegram{
 			MessageID:    fmt.Sprintf("MSG%06d", i+1),
 			Type:         messageTypes[rand.Intn(len(messageTypes))],
 			Time:         timestamp,
@@ -90,13 +89,13 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 
 	// Initialize database connection
-	pool, err := postgres.NewPool(ctx, cfg.Database)
+	pool, err := persistence.NewPostgresPool(ctx, cfg.Database)
 	if err != nil {
 		logger.Fatal("create postgres pool", zap.Error(err))
 	}
 	defer pool.Close()
 
-	store := postgres.New(pool)
+	store := persistence.NewPostgresStore(pool)
 
 	// Clear existing data if requested
 	if *clear {
@@ -112,15 +111,9 @@ func main() {
 	logger.Info("generating test data", zap.Int("count", *count))
 	telegrams := generateTestData(*count)
 
-	// Convert to domain telegrams
-	domainTelegrams := make([]*domain.Telegram, len(telegrams))
-	for i, t := range telegrams {
-		domainTelegrams[i] = domain.ToDomain(t)
-	}
-
 	// Save to database
 	logger.Info("saving telegrams to database")
-	if err := store.BulkSave(ctx, domainTelegrams); err != nil {
+	if err := store.BulkSave(ctx, telegrams); err != nil {
 		logger.Fatal("save telegrams", zap.Error(err))
 	}
 

@@ -1,4 +1,4 @@
-package postgres
+package persistence
 
 import (
 	"context"
@@ -26,8 +26,8 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
-// NewPool initialises a pgx connection pool using the provided configuration.
-func NewPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
+// NewPostgresPool initialises a pgx connection pool using the provided configuration.
+func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
 	if cfg.DSN == "" {
 		return nil, fmt.Errorf("database dsn is empty")
 	}
@@ -57,8 +57,8 @@ func NewPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, err
 	return pool, nil
 }
 
-// New creates a new Store from the given pgx pool.
-func New(pool *pgxpool.Pool) *Store {
+// NewPostgresStore creates a new Store from the given pgx pool.
+func NewPostgresStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 

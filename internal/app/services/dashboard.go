@@ -126,6 +126,11 @@ func (ds *DashboardService) Export(ctx context.Context, filters domain.SearchFil
 	return ds.exportSvc.Export(ctx, filters, format)
 }
 
+// ExportStream returns channels for streaming export (for large datasets)
+func (ds *DashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+	return ds.exportSvc.ExportStream(ctx, filters)
+}
+
 // GetRealtimeInfo returns real-time dashboard information
 func (ds *DashboardService) GetRealtimeInfo() *RealtimeInfo {
 	return ds.realtime.GetInfo()

@@ -36,7 +36,7 @@
       case "error":
         return "bg-red-500";
       default:
-        return "bg-gray-500";
+        return "bg-gray-600";
     }
   });
 
@@ -101,16 +101,11 @@
   });
 </script>
 
-<div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-4 sm:p-8 card-glow card-hover-pulse">
-  <div
-    class="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-brand-200/40"
-  >
-    <div class="flex items-center gap-3">
-      <div
-        class="w-2 h-2 rounded-full {statusColor} shadow-lg animate-pulse"
-        title={statusText}
-      ></div>
-      <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="live-stream">
+  <div class="live-stream-header">
+    <div class="live-stream-header-content">
+      <div class="status-indicator {statusColor} animate-pulse" title={statusText} aria-hidden="true"></div>
+      <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path
           stroke-linecap="round"
           stroke-linejoin="round"
@@ -118,41 +113,135 @@
           d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-6.938-6.49a8.5 8.5 0 0113.876 0M12 12v4"
         ></path>
       </svg>
-      <h2
-        class="text-xl font-bold text-slate-800 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
-      >
+      <h2 class="live-stream-title">
         Live Stream
       </h2>
     </div>
-    <div class="flex items-center gap-2">
-      <span
-        class="text-xs {statusColor === 'bg-green-500'
-          ? 'text-success-700 bg-gradient-to-r from-success-50 to-brand-50 border-success-200/60'
-          : statusColor === 'bg-yellow-500'
-            ? 'text-yellow-700 bg-gradient-to-r from-yellow-50 to-yellow-50 border-yellow-200/60'
-            : statusColor === 'bg-red-500'
-              ? 'text-red-700 bg-gradient-to-r from-red-50 to-red-50 border-red-200/60'
-              : 'text-gray-700 bg-gradient-to-r from-gray-50 to-gray-50 border-gray-200/60'} px-3 py-1 rounded-md font-medium border shadow-md"
-      >
+    
+    <style>
+      .live-stream {
+        @apply rounded-lg border-0 p-4 sm:p-8;
+        background: var(--card-glow-bg);
+        backdrop-filter: var(--card-glow-backdrop);
+        box-shadow: var(--card-glow-shadow);
+        border: var(--card-glow-border);
+        transition: var(--card-glow-transition);
+      }
+    
+      .live-stream-header {
+        @apply flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b;
+        border-color: theme('colors.brand.200 / 0.4');
+      }
+    
+      .live-stream-header-content {
+        @apply flex items-center gap-3;
+      }
+    
+      .status-indicator {
+        @apply w-2 h-2 rounded-full shadow-lg;
+      }
+    
+      .live-stream-title {
+        @apply text-xl font-bold tracking-tight;
+        color: theme('colors.slate.800');
+        background: linear-gradient(to right, theme('colors.brand.800'), theme('colors.accent.800'));
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+    
+      .status-info {
+        @apply flex items-center gap-2;
+      }
+    
+      .status-badge {
+        @apply text-xs px-3 py-1 rounded-md font-medium border shadow-md;
+      }
+    
+      .status-badge.bg-green-500 {
+        color: theme('colors.success.700');
+        background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
+        border-color: theme('colors.success.200 / 0.6');
+      }
+    
+      .status-badge.bg-yellow-500 {
+        color: theme('colors.warning.700');
+        background: linear-gradient(to right, theme('colors.warning.50'), theme('colors.warning.50'));
+        border-color: theme('colors.warning.200 / 0.6');
+      }
+    
+      .status-badge.bg-red-500 {
+        color: theme('colors.danger.700');
+        background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.danger.50'));
+        border-color: theme('colors.danger.200 / 0.6');
+      }
+    
+      .status-badge.bg-gray-500 {
+        color: theme('colors.gray.900');
+        background: linear-gradient(to right, theme('colors.gray.50'), theme('colors.gray.50'));
+        border-color: theme('colors.gray.200 / 0.6');
+      }
+    
+      .reconnect-attempts {
+        @apply text-xs;
+        color: theme('colors.gray.500');
+      }
+    
+      .messages-container {
+        @apply overflow-y-auto scrollbar-thin rounded-lg p-3 sm:p-5 space-y-3 scroll-smooth border-0 shadow-inner;
+        background: linear-gradient(to bottom right, theme('colors.slate.50 / 0.4'), theme('colors.brand.50 / 0.3'));
+        height: 600px;
+        max-height: 600px;
+        min-height: 600px;
+      }
+    
+      @media (min-width: 640px) {
+        .messages-container {
+          height: 800px;
+          max-height: 800px;
+          min-height: 800px;
+        }
+      }
+    
+      .empty-state {
+        @apply text-center py-12;
+      }
+    
+      .empty-state-icon {
+        @apply w-16 h-16 mx-auto mb-4 rounded-full;
+        background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
+      }
+    
+      .empty-state-text {
+        @apply text-sm font-medium;
+        color: theme('colors.slate.500');
+      }
+    
+      .empty-state-subtitle {
+        @apply text-xs mt-1;
+        color: theme('colors.slate.400');
+      }
+    
+      .message-wrapper {
+        /* No specific styles needed */
+      }
+    </style>
+    <div class="status-info">
+      <span class="status-badge {statusColor}">
         {statusText}
       </span>
       {#if currentReconnectAttempts > 0 && currentStatus !== "connected"}
-        <span class="text-xs text-gray-500">
+        <span class="reconnect-attempts">
           (Attempt {currentReconnectAttempts})
         </span>
       {/if}
     </div>
   </div>
-  <div
-    bind:this={container}
-    class="overflow-y-auto scrollbar-thin rounded-lg bg-gradient-to-br from-slate-50/40 to-brand-50/30 p-3 sm:p-5 space-y-3 scroll-smooth h-[600px] sm:h-[800px] max-h-[600px] sm:max-h-[800px] min-h-[600px] sm:min-h-[800px] border-0 shadow-inner"
-  >
+  <div bind:this={container} class="messages-container">
     {#if typedMessages.length === 0}
-      <div class="text-center py-12">
-        <div
-          class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-brand-200 to-accent-200"
-        ></div>
-        <p class="text-sm text-slate-500 font-medium">
+      <div class="empty-state">
+        <div class="empty-state-icon"></div>
+        <p class="empty-state-text">
           {#if currentStatus === "connecting"}
             Connecting...
           {:else if currentStatus === "error"}
@@ -161,11 +250,11 @@
             Waiting for telegrams...
           {/if}
         </p>
-        <p class="text-xs text-slate-400 mt-1">Real-time messages will appear here</p>
+        <p class="empty-state-subtitle">Real-time messages will appear here</p>
       </div>
     {:else}
       {#each typedMessages as message, index (message.message_id)}
-        <div>
+        <div class="message-wrapper">
           <MessageItem telegram={message} />
         </div>
       {/each}

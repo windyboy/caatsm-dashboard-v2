@@ -55,6 +55,36 @@ func (m *RepositoryMock) RouteStats(ctx context.Context, limit int) ([]domain.Ro
 	return args.Get(0).([]domain.RouteStat), args.Error(1)
 }
 
+// StreamSearch mocks the StreamSearch method
+func (m *RepositoryMock) StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error) {
+	args := m.Called(ctx, filters)
+	telegramCh := make(chan *domain.Telegram, 100)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(telegramCh)
+		defer close(errCh)
+
+		// If mock returns a result, send it to channel
+		if result := args.Get(0); result != nil {
+			if searchResult, ok := result.(*domain.SearchResult); ok {
+				for i := range searchResult.Telegrams {
+					telegramCh <- &searchResult.Telegrams[i]
+				}
+				return
+			}
+		}
+
+		// If error, send error
+		if err := args.Error(1); err != nil {
+			errCh <- err
+			return
+		}
+	}()
+
+	return telegramCh, errCh
+}
+
 // TelegramStoreMock is kept for backward compatibility, now wraps RepositoryMock
 // Deprecated: Use RepositoryMock instead
 type TelegramStoreMock struct {

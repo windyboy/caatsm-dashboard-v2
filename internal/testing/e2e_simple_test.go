@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	pgstore "github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
 	"github.com/windy/caatsm-dashboard/internal/testing/integration"
 )
 
@@ -51,7 +50,7 @@ func TestE2E_BasicPipelineWithContainers(t *testing.T) {
 	require.NoError(t, err, "failed to create schema")
 
 	// Initialize repository
-	telegramStore := pgstore.New(pool)
+	telegramStore := persistence.NewPostgresStore(pool)
 
 	// Create test telegram
 	telegram := domain.Telegram{
@@ -145,7 +144,7 @@ func TestE2E_LargeDatasetHandling(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	telegramStore := pgstore.New(pool)
+	telegramStore := persistence.NewPostgresStore(pool)
 
 	// Create 100 test telegrams
 	count := 100

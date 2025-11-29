@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/testing/mocks"
 	"go.uber.org/zap/zaptest"
 )
@@ -18,7 +17,7 @@ import (
 func TestWorker_Handle(t *testing.T) {
 	tests := []struct {
 		name             string
-		telegram         *persistence.Telegram
+		telegram         *domain.Telegram
 		serviceError     error
 		expectError      bool
 		expectBadData    bool
@@ -26,7 +25,7 @@ func TestWorker_Handle(t *testing.T) {
 	}{
 		{
 			name: "valid telegram - success",
-			telegram: &persistence.Telegram{
+			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -36,7 +35,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "invalid telegram - empty message_id",
-			telegram: &persistence.Telegram{
+			telegram: &domain.Telegram{
 				MessageID: "",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -47,7 +46,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "service error - app failure",
-			telegram: &persistence.Telegram{
+			telegram: &domain.Telegram{
 				MessageID: "TEST-001",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -76,8 +75,7 @@ func TestWorker_Handle(t *testing.T) {
 
 			// Setup expectations
 			if !tt.expectBadData {
-				domainTelegram := domain.ToDomain(tt.telegram)
-				if domainTelegram.Validate() == nil {
+				if tt.telegram.Validate() == nil {
 					// Expect Save call
 					storeMock.On("Save", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
 						return tg.MessageID == tt.telegram.MessageID

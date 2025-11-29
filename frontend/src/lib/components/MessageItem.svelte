@@ -45,25 +45,19 @@
   }
 </script>
 
-<div
-  class="group rounded-lg bg-white/95 border-0 p-5 message-card-glow hover:bg-gradient-to-r hover:from-white hover:to-brand-50/50 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
->
+<div class="message-item group">
   <!-- Header -->
   <div class="flex justify-between items-start mb-4">
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-3 mb-2">
         <!-- Message ID -->
-        <span
-          class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-brand-100 to-accent-100 text-brand-800 border border-brand-200/50 shadow-sm group-hover:from-brand-200 group-hover:to-accent-200 transition-all duration-300"
-        >
+        <span class="message-id">
           {telegram.message_id || "N/A"}
         </span>
 
         <!-- Flight Number -->
         {#if telegram.flight_number}
-          <span
-            class="text-xs text-slate-600 font-semibold group-hover:text-slate-800 transition-colors"
-          >
+          <span class="flight-number">
             {telegram.flight_number}
           </span>
         {/if}
@@ -71,45 +65,35 @@
     </div>
 
     <!-- Time -->
-    <span
-      class="text-xs text-slate-600 whitespace-nowrap ml-3 font-mono font-medium group-hover:text-brand-700 transition-colors bg-gradient-to-r from-slate-50 to-slate-100 px-2.5 py-1 rounded-md border border-slate-200/50 shadow-sm"
-    >
+    <span class="timestamp">
       {formatTime(telegram.time)}
     </span>
   </div>
 
   <!-- Message Content -->
-  <p class="text-sm text-slate-800 mb-3 break-words leading-relaxed">
+  <p class="message-content">
     {telegram.content || ""}
   </p>
 
   <!-- Tags -->
-  <div class="flex flex-wrap gap-2">
+  <div class="message-tags">
     <!-- Type Tag -->
     {#if telegram.type}
-      <span
-        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border-0 transition-colors {getTypeColorClass(
-          telegram.type
-        )}"
-      >
+      <span class="tag type-tag {getTypeColorClass(telegram.type)}">
         {telegram.type}
       </span>
     {/if}
 
     <!-- Priority -->
     {#if telegram.priority}
-      <span
-        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border border-accent-200/50 bg-gradient-to-r from-accent-50 to-accent-100 text-accent-700 group-hover:from-accent-100 group-hover:to-accent-200 transition-all duration-300"
-      >
+      <span class="tag priority-tag">
         Priority {telegram.priority}
       </span>
     {/if}
 
     <!-- Route -->
     {#if telegram.source && telegram.destination}
-      <span
-        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border border-success-200/50 bg-gradient-to-r from-success-50 to-success-100 text-success-700 group-hover:from-success-100 group-hover:to-success-200 transition-all duration-300"
-      >
+      <span class="tag route-tag">
         {telegram.source} → {telegram.destination}
       </span>
     {/if}
@@ -117,15 +101,131 @@
 </div>
 
 <style>
-  .message-card-glow {
-    background: rgba(252, 252, 253, 0.9);
-    backdrop-filter: blur(10px);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.04),
-      0 2px 4px rgba(0, 0, 0, 0.02),
-      0 0 0 0.5px rgba(0, 0, 0, 0.03),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    border: 0.5px solid rgba(226, 232, 240, 0.5);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  .message-item {
+    @apply rounded-lg p-5 transition-all duration-300 hover:shadow-lg hover:scale-[1.02];
+    background: var(--message-card-bg);
+    box-shadow: var(--message-card-shadow);
+    border: var(--message-card-border);
+  }
+
+  .message-item:hover {
+    background: var(--message-card-hover-bg);
+    box-shadow: var(--message-card-hover-shadow);
+  }
+
+  .message-id {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold shadow-sm border;
+    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.accent.100'));
+    color: theme('colors.brand.800');
+    border-color: theme('colors.brand.200 / 0.5');
+    transition: all 0.3s;
+  }
+
+  .group:hover .message-id {
+    background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
+  }
+
+  .flight-number {
+    @apply text-xs font-semibold transition-colors;
+    color: theme('colors.slate.600');
+  }
+
+  .group:hover .flight-number {
+    color: theme('colors.slate.800');
+  }
+
+  .timestamp {
+    @apply text-xs whitespace-nowrap ml-3 font-mono font-medium shadow-sm px-2.5 py-1 rounded-md border transition-colors;
+    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100'));
+    color: theme('colors.slate.600');
+    border-color: theme('colors.slate.200 / 0.5');
+  }
+
+  .group:hover .timestamp {
+    color: theme('colors.brand.700');
+  }
+
+  .message-content {
+    @apply text-sm mb-3 break-words leading-relaxed;
+    color: theme('colors.slate.800');
+  }
+
+  .message-tags {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border-0 transition-all duration-300;
+  }
+
+  .priority-tag {
+    background: linear-gradient(to right, theme('colors.accent.50'), theme('colors.accent.100'));
+    color: theme('colors.accent.700');
+    border-color: theme('colors.accent.200 / 0.5');
+  }
+
+  .group:hover .priority-tag {
+    background: linear-gradient(to right, theme('colors.accent.100'), theme('colors.accent.200'));
+  }
+
+  .route-tag {
+    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.success.100'));
+    color: theme('colors.success.700');
+    border-color: theme('colors.success.200 / 0.5');
+  }
+
+  .group:hover .route-tag {
+    background: linear-gradient(to right, theme('colors.success.100'), theme('colors.success.200'));
+  }
+
+  /* Type tag colors - keeping the dynamic logic */
+  .bg-gradient-to-r.from-brand-50.to-brand-100 {
+    background: linear-gradient(to right, theme('colors.brand.50'), theme('colors.brand.100'));
+    color: theme('colors.brand.700');
+    border-color: theme('colors.brand.200 / 0.5');
+  }
+
+  .group:hover .bg-gradient-to-r.from-brand-50.to-brand-100 {
+    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.brand.200'));
+  }
+
+  .bg-gradient-to-r.from-danger-50.to-warning-50 {
+    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.warning.50'));
+    color: theme('colors.danger.700');
+    border-color: theme('colors.danger.200 / 0.5');
+  }
+
+  .group:hover .bg-gradient-to-r.from-danger-50.to-warning-50 {
+    background: linear-gradient(to right, theme('colors.danger.100'), theme('colors.warning.100'));
+  }
+
+  .bg-gradient-to-r.from-success-50.to-brand-50 {
+    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
+    color: theme('colors.success.700');
+    border-color: theme('colors.success.200 / 0.5');
+  }
+
+  .group:hover .bg-gradient-to-r.from-success-50.to-brand-50 {
+    background: linear-gradient(to right, theme('colors.success.100'), theme('colors.brand.100'));
+  }
+
+  .bg-gradient-to-r.from-accent-50.to-brand-50 {
+    background: linear-gradient(to right, theme('colors.accent.50'), theme('colors.brand.50'));
+    color: theme('colors.accent.700');
+    border-color: theme('colors.accent.200 / 0.5');
+  }
+
+  .group:hover .bg-gradient-to-r.from-accent-50.to-brand-50 {
+    background: linear-gradient(to right, theme('colors.accent.100'), theme('colors.brand.100'));
+  }
+
+  .bg-gradient-to-r.from-slate-50.to-slate-100 {
+    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100'));
+    color: theme('colors.slate.700');
+    border-color: theme('colors.slate.200 / 0.5');
+  }
+
+  .group:hover .bg-gradient-to-r.from-slate-50.to-slate-100 {
+    background: linear-gradient(to right, theme('colors.slate.100'), theme('colors.slate.200'));
   }
 </style>

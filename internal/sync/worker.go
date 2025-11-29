@@ -7,7 +7,6 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"go.uber.org/zap"
 )
 
@@ -38,7 +37,7 @@ func NewWorker(
 }
 
 // Handle processes a telegram message.
-func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) error {
+func (w *Worker) Handle(ctx context.Context, telegram *domain.Telegram) error {
 	w.logger.Info("worker received telegram",
 		zap.String("message_id", telegram.MessageID),
 		zap.String("type", telegram.Type),
@@ -47,9 +46,7 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 		zap.String("route", fmt.Sprintf("%s -> %s", telegram.Source, telegram.Destination)),
 	)
 
-	domainTelegram := domain.ToDomain(telegram)
-
-	if err := domainTelegram.Validate(); err != nil {
+	if err := telegram.Validate(); err != nil {
 		w.logger.Warn("invalid telegram data",
 			zap.String("message_id", telegram.MessageID),
 			zap.Error(err),
@@ -58,10 +55,10 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 	}
 
 	// Normalize the telegram
-	domainTelegram.Normalize()
+	telegram.Normalize()
 
 	// Save to PostgreSQL
-	if err := w.store.Save(ctx, domainTelegram); err != nil {
+	if err := w.store.Save(ctx, telegram); err != nil {
 		w.logger.Error("failed to save telegram",
 			zap.Error(err),
 			zap.String("message_id", telegram.MessageID),
@@ -76,7 +73,7 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 
 	// Index to Meilisearch (non-blocking - log errors but continue)
 	if w.search != nil {
-		if err := w.search.Index(ctx, domainTelegram); err != nil {
+		if err := w.search.Index(ctx, telegram); err != nil {
 			w.logger.Warn("failed to index telegram",
 				zap.String("message_id", telegram.MessageID),
 				zap.Error(err),
@@ -91,25 +88,17 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 
 	// Publish event for real-time updates (non-blocking)
 	if w.eventBus != nil {
-		// Convert domain model to persistence model for JSON compatibility
-		// This ensures proper snake_case JSON field names (message_id vs MessageID)
-		persistenceModel := domain.FromDomain(domainTelegram)
-		if persistenceModel == nil {
-			w.logger.Warn("failed to convert telegram for event",
-				zap.String("message_id", telegram.MessageID))
+		eventData := map[string]any{
+			"type":     "telegram_processed",
+			"telegram": telegram, // domain.Telegram now has JSON tags
+		}
+		if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
+			w.logger.Warn("failed to publish event",
+				zap.String("message_id", telegram.MessageID),
+				zap.Error(err))
 		} else {
-			eventData := map[string]any{
-				"type":     "telegram_processed",
-				"telegram": persistenceModel,
-			}
-			if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
-				w.logger.Warn("failed to publish event",
-					zap.String("message_id", telegram.MessageID),
-					zap.Error(err))
-			} else {
-				w.logger.Debug("event published",
-					zap.String("message_id", telegram.MessageID))
-			}
+			w.logger.Debug("event published",
+				zap.String("message_id", telegram.MessageID))
 		}
 	}
 
@@ -124,7 +113,7 @@ func (w *Worker) Handle(ctx context.Context, telegram *persistence.Telegram) err
 // NATSConsumer is an interface for NATS-specific consumer operations.
 type NATSConsumer interface {
 	ports.StreamConsumer
-	SetHandler(handler func(context.Context, *persistence.Telegram) error)
+	SetHandler(handler func(context.Context, *domain.Telegram) error)
 	SetLogger(logger *zap.Logger)
 }
 

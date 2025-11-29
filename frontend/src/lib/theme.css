@@ -149,6 +149,131 @@
 }
 
 /* ============================================================================
+   COMPONENT SPECIFIC STYLES
+   ============================================================================ */
+
+/* Card Glow Effect */
+:root {
+  --card-glow-bg: rgba(252, 252, 253, 0.9);
+  --card-glow-backdrop: blur(10px);
+  --card-glow-shadow: 0 4px 16px rgba(0, 0, 0, 0.04),
+                     0 2px 4px rgba(0, 0, 0, 0.02),
+                     0 0 0 0.5px rgba(0, 0, 0, 0.03),
+                     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --card-glow-border: 0.5px solid rgba(226, 232, 240, 0.5);
+  --card-glow-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Message Card Styles */
+:root {
+  --message-card-bg: rgba(252, 252, 253, 0.9);
+  --message-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.04),
+                        0 2px 4px rgba(0, 0, 0, 0.02),
+                        0 0 0 0.5px rgba(0, 0, 0, 0.03),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --message-card-border: 0.5px solid rgba(226, 232, 240, 0.5);
+  --message-card-hover-bg: linear-gradient(135deg, rgba(241, 245, 249, 0.9) 0%, rgba(255, 255, 255, 1) 100%);
+  --message-card-hover-shadow: 0 8px 32px rgba(0, 0, 0, 0.08),
+                              0 4px 8px rgba(0, 0, 0, 0.04),
+                              0 0 0 0.5px rgba(0, 0, 0, 0.06),
+                              inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* Stats Card Styles */
+:root {
+  --stats-card-bg: linear-gradient(135deg, rgba(249, 250, 251, 0.9) 0%, rgba(252, 252, 253, 0.98) 100%);
+  --stats-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.03),
+                      0 1px 2px rgba(0, 0, 0, 0.02),
+                      0 0 0 0.5px rgba(0, 0, 0, 0.02),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --stats-card-border: 0.5px solid rgba(241, 245, 249, 0.5);
+  --stats-card-hover-bg: linear-gradient(135deg, rgba(241, 245, 249, 0.9) 0%, rgba(255, 255, 255, 1) 100%);
+  --stats-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.06),
+                            0 2px 4px rgba(0, 0, 0, 0.03),
+                            0 0 0 0.5px rgba(0, 0, 0, 0.04),
+                            inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* Input Focus Glow */
+:root {
+  --input-focus-ring: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  --input-focus-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+/* Button Hover Effects */
+:root {
+  --btn-hover-lift: translateY(-1px);
+  --btn-ripple: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+}
+
+/* Scrollbar Styles */
+:root {
+  --scrollbar-width: 6px;
+  --scrollbar-track-bg: rgba(241, 245, 249, 0.5);
+  --scrollbar-thumb-bg: rgba(203, 213, 225, 0.6);
+  --scrollbar-thumb-radius: 10px;
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.card-glow {
+  background: var(--card-glow-bg);
+  backdrop-filter: var(--card-glow-backdrop);
+  box-shadow: var(--card-glow-shadow);
+  border: var(--card-glow-border);
+  transition: var(--card-glow-transition);
+}
+
+.message-card-glow {
+  background: var(--message-card-bg);
+  box-shadow: var(--message-card-shadow);
+  border: var(--message-card-border);
+  transition: var(--card-glow-transition);
+}
+
+.message-card-glow:hover {
+  background: var(--message-card-hover-bg);
+  box-shadow: var(--message-card-hover-shadow);
+}
+
+.stats-card-glow {
+  background: var(--stats-card-bg);
+  box-shadow: var(--stats-card-shadow);
+  border: var(--stats-card-border);
+  transition: var(--card-glow-transition);
+}
+
+.stats-card-glow:hover {
+  background: var(--stats-card-hover-bg);
+  box-shadow: var(--stats-card-hover-shadow);
+}
+
+.input-focus-glow:focus {
+  box-shadow: var(--input-focus-shadow);
+  outline: none;
+}
+
+.btn-hover-lift:hover {
+  transform: var(--btn-hover-lift);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+}
+
+/* ============================================================================
    DARK MODE SUPPORT (Future enhancement)
    ============================================================================ */
 

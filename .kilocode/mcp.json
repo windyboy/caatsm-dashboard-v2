@@ -1,8 +1,27 @@
-{"mcpServers":{
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer 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"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-92c2c98e-817e-41d4-bb85-94824444e2bf"]
+    },
     "svelte-mcp-local": {
       "name": "Svelte MCP Local",
       "command": "npx",
       "args": ["-y", "@sveltejs/mcp"],
       "type": "stdio"
     }
-}}
+  }
+}

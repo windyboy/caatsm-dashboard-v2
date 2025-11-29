@@ -1,4 +1,4 @@
-package valkey
+package cache
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 )
 
-// NewClient creates a Valkey/Redis client based on configuration.
-func NewClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
+// NewValkeyClient creates a Valkey/Redis client based on configuration.
+func NewValkeyClient(cfg config.RedisConfig) (redis.UniversalClient, error) {
 	options := &redis.Options{
 		Addr:     cfg.Addr,
 		Username: cfg.Username,
@@ -59,8 +59,8 @@ type Store struct {
 	ttl    time.Duration
 }
 
-// New returns a new cache store with the given ttl.
-func New(client redis.UniversalClient, ttl time.Duration) *Store {
+// NewValkeyStore returns a new cache store with the given ttl.
+func NewValkeyStore(client redis.UniversalClient, ttl time.Duration) *Store {
 	return &Store{client: client, ttl: ttl}
 }
 

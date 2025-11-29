@@ -6,16 +6,17 @@ import (
 )
 
 // Telegram represents a domain entity for aviation telegrams
+// This struct is used for both database storage and API responses (snake_case JSON tags for frontend)
 type Telegram struct {
-	MessageID    string
-	Type         string
-	Time         time.Time
-	FlightNumber string
-	Source       string
-	Destination  string
-	Priority     int
-	Content      string
-	RawData      string
+	MessageID    string    `json:"message_id"`
+	Type         string    `json:"type"`
+	Time         time.Time `json:"time"`
+	FlightNumber string    `json:"flight_number"`
+	Source       string    `json:"source"`
+	Destination  string    `json:"destination"`
+	Priority     int       `json:"priority"`
+	Content      string    `json:"content"`
+	RawData      string    `json:"-"` // Hidden from API responses
 }
 
 // Validate validates the telegram according to domain rules.

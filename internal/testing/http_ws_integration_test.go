@@ -74,6 +74,7 @@ func TestHTTPAndWebSocketIntegration(t *testing.T) {
 
 	// WebSocket route using transport handler (no Redis required for this test)
 	hub := ws.NewHub(ws.DefaultConfig(), logger)
+	defer hub.Close() // Ensure hub is properly shut down
 	wsHandler := deliveryws.NewHandler(
 		hub,
 		logger,
@@ -195,6 +196,19 @@ func (s *stubDashboardService) GetStats(ctx context.Context, timeRange domain.Ti
 
 func (s *stubDashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
 	return []byte("export"), nil
+}
+
+func (s *stubDashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+	telegramCh := make(chan *domain.Telegram)
+	errCh := make(chan error)
+	go func() {
+		defer close(telegramCh)
+		defer close(errCh)
+		for i := range s.telegrams {
+			telegramCh <- &s.telegrams[i]
+		}
+	}()
+	return telegramCh, errCh, nil
 }
 
 func (s *stubDashboardService) Autocomplete(ctx context.Context, query string, size int) ([]string, error) {

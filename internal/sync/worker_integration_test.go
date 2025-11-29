@@ -11,8 +11,7 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
-	meilisearch "github.com/windy/caatsm-dashboard/internal/infrastructure/search/meilisearch"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	testhelpers "github.com/windy/caatsm-dashboard/internal/testing"
 	"go.uber.org/zap/zaptest"
 )
@@ -30,8 +29,8 @@ func TestWorker_Integration_SaveTelegram(t *testing.T) {
 	defer env.Cleanup(ctx)
 
 	// Initialize repositories
-	store := postgres.New(env.Pool)
-	searchIndex := meilisearch.New(env.Meili, "telegrams-test")
+	store := persistence.NewPostgresStore(env.Pool)
+	searchIndex := search.NewMeilisearchIndex(env.Meili, "telegrams-test")
 
 	// Initialize event bus
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
@@ -66,15 +65,15 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	defer env.Cleanup(ctx)
 
 	// Test invalid telegram (should return ErrBadData)
-	invalidTelegram := &persistence.Telegram{
+	invalidTelegram := &domain.Telegram{
 		MessageID: "", // Invalid: empty message_id
 		Type:      "AFTN",
 		Time:      time.Now(),
 		Priority:  2,
 	}
 
-	store := pgstore.New(env.Pool)
-	searchIndex := meiliRepo.New(env.Meili, "telegrams-test")
+	store := persistence.NewPostgresStore(env.Pool)
+	searchIndex := search.NewMeilisearchIndex(env.Meili, "telegrams-test")
 	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
 	logger := zaptest.NewLogger(t)
 	worker := NewWorker(nil, store, searchIndex, eventBus, logger)

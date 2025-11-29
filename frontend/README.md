@@ -197,6 +197,13 @@ npm run test:unit:coverage
 - **Configuration:** `vitest.config.ts`
 - **Setup:** `tests/setup.ts` (mocks WebSocket and logger)
 
+**Important:** The unit tests use a **Vite 5-compatible** toolchain to ensure compatibility with Vitest's internal Vite version:
+- `vite@^5.4.0` (matches Vitest's Vite 5.x)
+- `@sveltejs/vite-plugin-svelte@^4.0.0` (compatible with Vite 5)
+- `@sveltejs/kit@^2.3.0` (SvelteKit version using Vite 5)
+
+This alignment prevents `server.environments` and `environment.config` errors that occur when using Vite 7 with Vitest's Vite 5 runtime.
+
 ### Writing Unit Tests
 
 Unit tests are located in the `tests/unit/` directory:
@@ -518,8 +525,8 @@ WebSocket connection state:
 ## Technology Stack
 
 - **Svelte 5** - Modern reactive framework
-- **SvelteKit 2** - Full-stack Svelte framework
-- **Vite 7** - Next-generation build tool
+- **SvelteKit 2.3** - Full-stack Svelte framework (Vite 5-compatible version)
+- **Vite 5** - Build tool (aligned with Vitest's internal Vite version for test compatibility)
 - **UnoCSS** - Atomic CSS engine (Tailwind-compatible)
 - **TypeScript** - Type-safe JavaScript
 - **Playwright** - E2E testing

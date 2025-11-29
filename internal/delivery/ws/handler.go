@@ -286,16 +286,10 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 	// Send messages in reverse chronological order
 	for i := len(recentTelegrams) - 1; i >= 0; i-- {
 		telegram := recentTelegrams[i]
-		telegramModel := domain.FromDomain(telegram)
-		if telegramModel == nil {
-			h.logger.Warn("failed to convert domain telegram to model",
-				zap.String("message_id", telegram.MessageID))
-			continue
-		}
 
 		msg := &ws.Message{
 			Type: ws.MessageTypeMessage,
-			Data: telegramModel,
+			Data: telegram, // domain.Telegram now has JSON tags
 		}
 
 		if !client.SendMessageJSON(msg) {

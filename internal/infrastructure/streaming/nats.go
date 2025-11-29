@@ -1,4 +1,4 @@
-package nats
+package streaming
 
 import (
 	"context"
@@ -58,8 +58,8 @@ type Consumer struct {
 	logger   *zap.Logger
 }
 
-// New creates a Consumer from JetStream context.
-func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
+// NewNATSConsumer creates a Consumer from JetStream context.
+func NewNATSConsumer(js nats.JetStreamContext, stream, consumer string) *Consumer {
 	return &Consumer{js: js, stream: stream, consumer: consumer}
 }
 

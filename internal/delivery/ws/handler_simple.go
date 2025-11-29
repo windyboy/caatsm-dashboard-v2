@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"go.uber.org/zap"
 )
 
@@ -216,16 +215,10 @@ func (h *SimpleHandler) sendRecentMessages(ctx context.Context, ws *websocket.Co
 	// This ensures newest messages appear at top
 	for i := len(recentTelegrams) - 1; i >= 0; i-- {
 		telegram := recentTelegrams[i]
-		telegramModel := domain.FromDomain(&telegram)
-		if telegramModel == nil {
-			h.container.Logger.Warn("failed to convert domain telegram to model",
-				zap.String("message_id", telegram.MessageID))
-			continue
-		}
 
 		msg := WebSocketMessage{
 			Type: "message",
-			Data: telegramModel,
+			Data: &telegram, // domain.Telegram now has JSON tags
 		}
 		if err := h.writeWebSocketMessage(ws, msg); err != nil {
 			h.container.Logger.Warn("failed to write message", zap.Error(err))
@@ -274,7 +267,7 @@ func (h *SimpleHandler) handleBroadcastEvent(ctx context.Context, ws *websocket.
 		}
 
 		if found {
-			var telegram persistence.Telegram
+			var telegram domain.Telegram
 			telegramBytes, err := json.Marshal(telegramData)
 			if err != nil {
 				h.container.Logger.Warn("failed to marshal telegram data", zap.Error(err))

@@ -11,6 +11,8 @@ import (
 type Repository interface {
 	// Search operations
 	Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error)
+	// StreamSearch streams search results for large exports (avoids loading all data into memory)
+	StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
 
 	// Statistics operations
 	TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error)

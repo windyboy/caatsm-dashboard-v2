@@ -48,6 +48,17 @@ func (m *mockDashboardService) Export(ctx context.Context, filters domain.Search
 	return []byte("export"), nil
 }
 
+func (m *mockDashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+	m.lastExportFilters = filters
+	telegramCh := make(chan *domain.Telegram)
+	errCh := make(chan error)
+	go func() {
+		defer close(telegramCh)
+		defer close(errCh)
+	}()
+	return telegramCh, errCh, nil
+}
+
 func (m *mockDashboardService) Autocomplete(ctx context.Context, query string, size int) ([]string, error) {
 	return []string{}, nil
 }
@@ -168,7 +179,8 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, domain.ExportFormatCSV, mockSvc.lastExportFormat)
+	// CSV format now uses ExportStream, so lastExportFormat won't be set
+	// Verify that ExportStream was called with correct filters
 	assert.Equal(t, "test", mockSvc.lastExportFilters.Query)
 	assert.Equal(t, []string{"AFTN"}, mockSvc.lastExportFilters.Types)
 	assert.Equal(t, []string{"HND"}, mockSvc.lastExportFilters.Sources)

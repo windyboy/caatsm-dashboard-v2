@@ -11,10 +11,10 @@ import (
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/app/services"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache/valkey"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence/postgres"
-	meilisearch "github.com/windy/caatsm-dashboard/internal/infrastructure/search/meilisearch"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"go.uber.org/zap"
 )
 
@@ -47,19 +47,19 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	}
 
 	// Initialize database connection
-	pool, err := postgres.NewPool(ctx, cfg.Database)
+	pool, err := persistence.NewPostgresPool(ctx, cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
 
 	// Initialize Meilisearch client
-	meiliSvc, err := meilisearch.NewClient(cfg.Meilisearch)
+	meiliSvc, err := search.NewMeilisearchClient(cfg.Meilisearch)
 	if err != nil {
 		return nil, fmt.Errorf("create meilisearch client: %w", err)
 	}
 
 	// Initialize Redis client
-	redisCli, err := valkey.NewClient(cfg.Redis)
+	redisCli, err := cache.NewValkeyClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("create redis client: %w", err)
 	}
@@ -68,8 +68,8 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
 
 	// Initialize infrastructure implementations
-	store := postgres.New(pool)
-	meiliIndex := meilisearch.New(meiliSvc, cfg.Meilisearch.Index)
+	store := persistence.NewPostgresStore(pool)
+	meiliIndex := search.NewMeilisearchIndex(meiliSvc, cfg.Meilisearch.Index)
 
 	// Ensure Meilisearch index is set up
 	if err := meiliIndex.EnsureIndex(ctx); err != nil {
@@ -77,7 +77,7 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	}
 
 	// Initialize cache
-	cacheStore := valkey.New(redisCli, 5*time.Minute)
+	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
 
 	// Set infrastructure ports
 	container.Repo = store        // implements ports.Repository
@@ -94,6 +94,7 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 		services.NewStatsService(store, cacheStore, logger),
 		services.NewExportService(
 			searchService,
+			store, // Pass repository for streaming
 			logger,
 		),
 		services.NewRealtimeManager(),

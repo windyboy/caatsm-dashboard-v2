@@ -8,6 +8,8 @@ import (
 const (
 	// MaxTimeRangeDays is the maximum allowed time range for queries to prevent unbounded scans
 	MaxTimeRangeDays = 90
+	// MaxExportRecords is the maximum number of records that can be exported at once
+	MaxExportRecords = 10000
 )
 
 // SearchFilters represents domain-level search criteria for telegrams.
@@ -87,14 +89,4 @@ func DefaultPagination() Pagination {
 		SortBy: "time",
 		Order:  "desc",
 	}
-}
-
-// ErrInvalidFilter represents a validation error in search filters.
-type ErrInvalidFilter struct {
-	Field  string
-	Reason string
-}
-
-func (e ErrInvalidFilter) Error() string {
-	return "invalid filter: " + e.Field + " " + e.Reason
 }

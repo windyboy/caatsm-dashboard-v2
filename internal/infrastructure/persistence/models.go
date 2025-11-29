@@ -2,21 +2,6 @@ package persistence
 
 import "time"
 
-// Telegram represents a telegram message as stored in the database and serialized for API responses.
-// This is a persistence/transport concern, distinct from the domain entity.
-// JSON tags are included for API serialization.
-type Telegram struct {
-	MessageID    string    `json:"message_id"`
-	Type         string    `json:"type"`
-	Time         time.Time `json:"time"`
-	FlightNumber string    `json:"flight_number"`
-	Source       string    `json:"source"`
-	Destination  string    `json:"destination"`
-	Priority     int       `json:"priority"`
-	Content      string    `json:"content"`
-	RawData      string    `json:"raw_data"`
-}
-
 // SearchFilter captures filters available to the search API.
 // This is a transport/API concern for request/response handling.
 type SearchFilter struct {
@@ -38,10 +23,10 @@ type Pagination struct {
 }
 
 // SearchResult wraps the outcome of a search query.
+// Note: This type is deprecated, use domain.SearchResult instead
 type SearchResult struct {
-	Telegrams []Telegram
-	Total     int64
-	Page      Pagination
+	Total int64
+	Page  Pagination
 }
 
 // TimeWindow describes a time range used for analytics queries.

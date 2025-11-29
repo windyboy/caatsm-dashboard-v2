@@ -1,4 +1,4 @@
-package meilisearch
+package search
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/domain"
 )
 
-// NewClient initialises a Meilisearch service manager with sensible defaults.
-func NewClient(cfg config.SearchConfig) (meilisearchClient.ServiceManager, error) {
+// NewMeilisearchClient initialises a Meilisearch service manager with sensible defaults.
+func NewMeilisearchClient(cfg config.SearchConfig) (meilisearchClient.ServiceManager, error) {
 	if cfg.Host == "" {
 		return nil, fmt.Errorf("meilisearch host is empty")
 	}
@@ -39,8 +39,8 @@ type Index struct {
 	index  string
 }
 
-// New creates an Index with the provided client and index name.
-func New(client meilisearchClient.ServiceManager, index string) *Index {
+// NewMeilisearchIndex creates an Index with the provided client and index name.
+func NewMeilisearchIndex(client meilisearchClient.ServiceManager, index string) *Index {
 	return &Index{
 		client: client,
 		index:  index,

@@ -23,7 +23,7 @@ func TestDashboardService_Search(t *testing.T) {
 
 	searchSvc := NewSearchService(mockRepo, mockCache, mockSearch, nil, logger)
 	statsSvc := NewStatsService(mockRepo, mockCache, logger)
-	exportSvc := NewExportService(searchSvc, logger)
+	exportSvc := NewExportService(searchSvc, mockRepo, logger)
 	realtimeMgr := NewRealtimeManager()
 
 	dashboardSvc := NewDashboardService(searchSvc, statsSvc, exportSvc, realtimeMgr, logger)
@@ -56,7 +56,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 
 	searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 	statsSvc := NewStatsService(mockRepo, mockCache, logger)
-	exportSvc := NewExportService(searchSvc, logger)
+	exportSvc := NewExportService(searchSvc, mockRepo, logger)
 	realtimeMgr := NewRealtimeManager()
 
 	dashboardSvc := NewDashboardService(searchSvc, statsSvc, exportSvc, realtimeMgr, logger)
@@ -86,7 +86,7 @@ func TestDashboardService_GetRealtimeInfo(t *testing.T) {
 
 	searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
 	statsSvc := NewStatsService(mockRepo, mockCache, logger)
-	exportSvc := NewExportService(searchSvc, logger)
+	exportSvc := NewExportService(searchSvc, mockRepo, logger)
 	realtimeMgr := NewRealtimeManager()
 
 	dashboardSvc := NewDashboardService(searchSvc, statsSvc, exportSvc, realtimeMgr, logger)

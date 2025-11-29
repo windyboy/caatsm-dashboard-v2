@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -26,7 +28,7 @@ func TestExportService_Export(t *testing.T) {
 		mockCache := new(mockCache)
 
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
 
 		filters := domain.SearchFilters{
 			Query: "test",
@@ -106,7 +108,7 @@ func TestExportService_Export(t *testing.T) {
 		mockCache := new(mockCache)
 
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
 
 		filters := domain.SearchFilters{
 			Query: "nonexistent",
@@ -147,7 +149,7 @@ func TestExportService_Export(t *testing.T) {
 		mockCache := new(mockCache)
 
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
 
 		filters := domain.SearchFilters{
 			Query: "test",
@@ -200,7 +202,7 @@ func TestExportService_Export(t *testing.T) {
 		mockCache := new(mockCache)
 
 		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-		exportSvc := NewExportService(searchSvc, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
 
 		filters := domain.SearchFilters{
 			Query: "test",
@@ -219,7 +221,7 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 	mockRepo := new(mockRepository)
 	mockCache := new(mockCache)
 	searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
-	exportSvc := NewExportService(searchSvc, logger)
+	exportSvc := NewExportService(searchSvc, mockRepo, logger)
 
 	t.Run("limit within bounds", func(t *testing.T) {
 		filters := domain.SearchFilters{
@@ -237,14 +239,14 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 	t.Run("limit exceeds maximum", func(t *testing.T) {
 		filters := domain.SearchFilters{
 			Pagination: domain.Pagination{
-				Limit: 50000, // Exceeds max of 10000
+				Limit: 50000, // Exceeds max
 			},
 		}
 
 		err := exportSvc.validateExportFilters(&filters)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "export limit cannot exceed 10000")
+		assert.Contains(t, err.Error(), fmt.Sprintf("export limit cannot exceed %d", domain.MaxExportRecords))
 	})
 
 	t.Run("zero limit defaults to max", func(t *testing.T) {
@@ -257,6 +259,6 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 		err := exportSvc.validateExportFilters(&filters)
 
 		require.NoError(t, err)
-		assert.Equal(t, 10000, filters.Pagination.Limit)
+		assert.Equal(t, domain.MaxExportRecords, filters.Pagination.Limit)
 	})
 }

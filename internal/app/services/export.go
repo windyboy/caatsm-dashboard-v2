@@ -14,13 +14,19 @@ import (
 // ExportService handles data export operations
 type ExportService struct {
 	searchSvc *SearchService
-	logger    *zap.Logger
+	repo      interface {
+		StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
+	}
+	logger *zap.Logger
 }
 
 // NewExportService creates a new export service
-func NewExportService(searchSvc *SearchService, logger *zap.Logger) *ExportService {
+func NewExportService(searchSvc *SearchService, repo interface {
+	StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
+}, logger *zap.Logger) *ExportService {
 	return &ExportService{
 		searchSvc: searchSvc,
+		repo:      repo,
 		logger:    logger,
 	}
 }
@@ -59,14 +65,13 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 // validateExportFilters validates filters for export operations
 func (e *ExportService) validateExportFilters(filters *domain.SearchFilters) error {
 	// Check export limits
-	const maxExportRecords = 10000
-	if filters.Pagination.Limit > maxExportRecords {
-		return fmt.Errorf("export limit cannot exceed %d records", maxExportRecords)
+	if filters.Pagination.Limit > domain.MaxExportRecords {
+		return fmt.Errorf("export limit cannot exceed %d records", domain.MaxExportRecords)
 	}
 
 	// Set default limit for export if not specified
 	if filters.Pagination.Limit <= 0 {
-		filters.Pagination.Limit = maxExportRecords
+		filters.Pagination.Limit = domain.MaxExportRecords
 	}
 
 	return nil
@@ -123,4 +128,18 @@ func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
 
 	e.logger.Info("CSV export completed", zap.Int("records", len(result.Telegrams)))
 	return buf.Bytes(), nil
+}
+
+// ExportStream returns channels for streaming export (for large datasets).
+// The caller should read from the telegram channel and handle errors from the error channel.
+// This method is suitable for exports that may exceed memory limits.
+func (e *ExportService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+	// Validate export limits
+	if err := e.validateExportFilters(&filters); err != nil {
+		return nil, nil, fmt.Errorf("export validation failed: %w", err)
+	}
+
+	// Use stream search for large exports
+	telegramCh, errCh := e.repo.StreamSearch(ctx, filters)
+	return telegramCh, errCh, nil
 }

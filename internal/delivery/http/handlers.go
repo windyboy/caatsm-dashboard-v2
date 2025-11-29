@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app/services"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -21,8 +20,6 @@ const (
 	DefaultLimit = 50
 	// MaxSearchLimit is the maximum number of records that can be returned in a search/listing query
 	MaxSearchLimit = 1000
-	// MaxExportLimit is the maximum number of records that can be exported at once
-	MaxExportLimit = 10000
 )
 
 // DashboardService defines the application boundary used by this transport layer.
@@ -31,6 +28,7 @@ type DashboardService interface {
 	Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error)
 	GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error)
 	Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error)
+	ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error)
 	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
 	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error)
 }
@@ -115,26 +113,9 @@ func (h *Handler) Search(c echo.Context) error {
 	}
 
 	// Ensure telegrams is always a non-nil slice (empty array instead of nil)
-	domainTelegrams := result.Telegrams
-	if domainTelegrams == nil {
-		domainTelegrams = []domain.Telegram{}
-	}
-
-	// Convert domain.Telegram to persistence.Telegram for proper JSON serialization
-	// This ensures snake_case field names (message_id, flight_number, etc.) are used
-	telegrams := make([]persistence.Telegram, len(domainTelegrams))
-	for i, dt := range domainTelegrams {
-		pt := domain.FromDomain(&dt)
-		if pt == nil {
-			// This should never happen, but handle gracefully
-			h.logger.Warn("failed to convert domain telegram to persistence model",
-				zap.String("message_id", dt.MessageID),
-				zap.Int("index", i))
-			// Create empty persistence model as fallback
-			telegrams[i] = persistence.Telegram{}
-			continue
-		}
-		telegrams[i] = *pt
+	telegrams := result.Telegrams
+	if telegrams == nil {
+		telegrams = []domain.Telegram{}
 	}
 
 	// Convert page object to have proper JSON field names
@@ -169,7 +150,7 @@ func (h *Handler) Stats(c echo.Context) error {
 func (h *Handler) Export(c echo.Context) error {
 	filters := parseSearchFilters(c)
 	filters.Pagination = domain.Pagination{
-		Limit:  MaxExportLimit,
+		Limit:  domain.MaxExportRecords,
 		Offset: 0,
 	}
 	filters.TimeRange = parseTimeRange(c)
@@ -189,7 +170,17 @@ func (h *Handler) Export(c echo.Context) error {
 		})
 	}
 
-	// Execute export
+	// Use streaming export for CSV (supports large datasets)
+	if format == domain.ExportFormatCSV {
+		stream, errCh, err := h.dashboardSvc.ExportStream(c.Request().Context(), filters)
+		if err != nil {
+			h.logger.Error("export stream failed", zap.Error(err))
+			return handleError(c, err)
+		}
+		return StreamCSV(c, stream, errCh)
+	}
+
+	// Fallback to non-streaming export for other formats or small datasets
 	data, err := h.dashboardSvc.Export(c.Request().Context(), filters, format)
 	if err != nil {
 		h.logger.Error("export failed", zap.Error(err))
