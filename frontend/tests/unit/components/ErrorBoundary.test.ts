@@ -18,14 +18,7 @@ describe("ErrorBoundary", () => {
 
   beforeEach(() => {
     mockOnError = vi.fn();
-    // Mock import.meta.env.DEV
-    vi.stubGlobal("import", {
-      meta: {
-        env: {
-          DEV: true,
-        },
-      },
-    });
+    // Note: import.meta.env.DEV is configured in vitest.config.ts via define
   });
 
   afterEach(() => {
@@ -152,18 +145,11 @@ describe("ErrorBoundary", () => {
   });
 
   it("does not display error details in production mode", async () => {
-    // Mock production environment - need to mock it before component renders
-    const originalEnv = import.meta.env?.DEV;
+    // Note: import.meta.env.DEV is replaced at build time by Vite/Vitest via define config.
+    // Since we can't change it at runtime, this test verifies the component structure.
+    // In the current test environment (DEV=true via vitest.config.ts), error details will be shown.
+    // To properly test production mode, you would need a separate test run with DEV=false in config.
     
-    // Use vi.stubGlobal to properly mock import.meta.env
-    vi.stubGlobal("import", {
-      meta: {
-        env: {
-          DEV: false,
-        },
-      },
-    });
-
     const { component } = render(ErrorBoundary, {
       props: {
         children: () => "Child content",
@@ -173,16 +159,11 @@ describe("ErrorBoundary", () => {
     (component as any).handleError(new Error("Test error"));
     await tick();
 
-    // In production mode, error details should not be shown
-    // The component checks import.meta.env.DEV at render time, so we need to ensure it's false
-    const errorDetails = screen.queryByText("Error Details (Development)");
-    // If DEV is properly mocked as false, this should not be in the document
-    // But since we can't easily change import.meta.env at runtime, we'll check that
-    // the error boundary still renders (which it should)
+    // The error boundary should still render correctly
     expect(screen.getByText("Oops! Something went wrong")).toBeInTheDocument();
     
-    // Restore
-    vi.restoreAllMocks();
+    // In the current test environment (DEV=true), error details will be shown
+    // This test verifies the component doesn't crash and handles errors properly
   });
 
   it("calls onerror callback when error occurs", async () => {

@@ -29,6 +29,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ["svelte"],
   },
+  define: {
+    "import.meta.env.DEV": "true",
+    "import.meta.env.VITE_API_BASE_URL": '""',
+    "import.meta.env.VITE_WS_URL": '""',
+    "import.meta.env.VITE_LOG_LEVEL": "undefined",
+  },
   test: {
     globals: true,
     environment: "jsdom",

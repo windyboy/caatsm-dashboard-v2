@@ -35,6 +35,7 @@ vi.mock("$lib/stores/websocket", () => ({
     },
     connect: vi.fn(),
     cleanup: vi.fn(),
+    checkIsConnected: vi.fn(() => false),
   },
 }));
 
