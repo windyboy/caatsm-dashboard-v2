@@ -252,7 +252,8 @@
 
 .input-focus-glow:focus {
   box-shadow: var(--input-focus-shadow);
-  outline: none;
+  outline: 2px solid transparent; /* Maintains focus ring in high contrast mode */
+  outline-offset: 2px;
 }
 
 .btn-hover-lift:hover {

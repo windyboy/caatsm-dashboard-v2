@@ -1,9 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-// @ts-expect-error - node:path is available at runtime
 import { dirname, resolve } from "node:path";
-// @ts-expect-error - node:url is available at runtime
 import { fileURLToPath } from "node:url";
 
 const __dirname =
@@ -17,9 +15,8 @@ export default defineConfig({
       preprocess: vitePreprocess(),
       compilerOptions: {
         dev: true,
-        compatibility: {
-          componentApi: 4,
-        },
+        // Svelte 5: Remove componentApi compatibility mode
+        // Migration guide: https://svelte.dev/docs/svelte/v5-migration-guide
       },
     }),
   ],

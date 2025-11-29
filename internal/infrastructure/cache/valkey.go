@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -90,4 +91,29 @@ func (s *Store) Get(ctx context.Context, key string) (interface{}, error) {
 // Delete removes a key from the cache.
 func (s *Store) Delete(ctx context.Context, key string) error {
 	return s.client.Del(ctx, key).Err()
+}
+
+// Incr increments the integer value stored at key by delta. Creates key if not exists.
+func (s *Store) Incr(ctx context.Context, key string, delta int64) (int64, error) {
+	return s.client.IncrBy(ctx, key, delta).Result()
+}
+
+// HIncrBy increments the integer value stored at the specified hash field by delta.
+func (s *Store) HIncrBy(ctx context.Context, key string, field string, delta int64) (int64, error) {
+	return s.client.HIncrBy(ctx, key, field, delta).Result()
+}
+
+// GetInt64 retrieves the value at key parsed as int64.
+func (s *Store) GetInt64(ctx context.Context, key string) (int64, error) {
+	str, err := s.client.Get(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	i, err := strconv.ParseInt(str, 10, 64)
+	return i, err
+}
+
+// HGetAll retrieves all fields and values from the hash stored at key.
+func (s *Store) HGetAll(ctx context.Context, key string) (map[string]string, error) {
+	return s.client.HGetAll(ctx, key).Result()
 }

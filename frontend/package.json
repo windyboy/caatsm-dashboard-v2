@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -42,6 +45,7 @@
     "svelte": "^5.43.8",
     "svelte-check": "^4.3.4",
     "typescript": "^5.9.3",
+    "@types/node": "^20.0.0",
     "unocss": "^66.5.9",
     "vite": "^5.4.0",
     "vite-plugin-devtools-json": "^1.0.0",

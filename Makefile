@@ -1,7 +1,7 @@
 .PHONY: help build test test-unit test-integration test-race lint dev dev-run \
         install install-deno frontend-install frontend-setup \
         frontend-dev frontend-build frontend-test frontend-test-unit \
-        dev-up dev-down dev-logs migrate clean clean-all \
+        dev-up dev-down dev-logs dev-config migrate clean clean-all \
         docker-build docker-up docker-down generate-test-data \
         publish-stream publish-stream-fast publish-stream-slow
 
@@ -119,6 +119,14 @@ dev-down: ## Stop development dependencies
 
 dev-logs: ## Tail dependency logs
 	@docker compose -f docker-compose.dev.yml --env-file .env.local logs -f
+
+dev-config: ## Create .env.local from example if missing
+	@if [ ! -f .env.local ]; then \
+		cp env.local.example .env.local; \
+		echo "Created .env.local (edit with your settings)"; \
+	else \
+		echo ".env.local already exists"; \
+	fi
 
 migrate: ## Run database migrations with goose
 	@goose -dir migrations postgres "$${CAATSM_DATABASE_DSN:-postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable}" up

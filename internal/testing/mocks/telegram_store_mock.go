@@ -23,7 +23,7 @@ func (m *RepositoryMock) Save(ctx context.Context, telegram *domain.Telegram) er
 }
 
 // BulkSave mocks the BulkSave method
-func (m *RepositoryMock) BulkSave(ctx context.Context, telegrams []*domain.Telegram) error {
+func (m *RepositoryMock) BulkSave(ctx context.Context, telegrams []any) error {
 	args := m.Called(ctx, telegrams)
 	return args.Error(0)
 }

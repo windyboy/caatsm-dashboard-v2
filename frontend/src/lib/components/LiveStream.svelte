@@ -80,7 +80,10 @@
       return;
     }
 
-    websocket.connect();
+    // Only connect if not already connected (idempotency check)
+    if (!websocket.checkIsConnected()) {
+      websocket.connect();
+    }
 
     // Scroll to top when new messages arrive (new messages appear at top)
     // Use requestAnimationFrame for smooth DOM updates
@@ -174,12 +177,6 @@
         color: theme('colors.danger.700');
         background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.danger.50'));
         border-color: theme('colors.danger.200 / 0.6');
-      }
-    
-      .status-badge.bg-gray-500 {
-        color: theme('colors.gray.900');
-        background: linear-gradient(to right, theme('colors.gray.50'), theme('colors.gray.50'));
-        border-color: theme('colors.gray.200 / 0.6');
       }
     
       .status-badge.bg-gray-600 {

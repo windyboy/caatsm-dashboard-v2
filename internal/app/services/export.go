@@ -64,14 +64,14 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 
 // validateExportFilters validates filters for export operations
 func (e *ExportService) validateExportFilters(filters *domain.SearchFilters) error {
-	// Check export limits
-	if filters.Pagination.Limit > domain.MaxExportRecords {
-		return fmt.Errorf("export limit cannot exceed %d records", domain.MaxExportRecords)
+	// Validate domain filters including time range (max 90 days)
+	if err := filters.Validate(); err != nil {
+		return err
 	}
 
-	// Set default limit for export if not specified
-	if filters.Pagination.Limit <= 0 {
-		filters.Pagination.Limit = domain.MaxExportRecords
+	// Check export limits
+	if filters.Pagination.Limit != 0 && filters.Pagination.Limit > domain.MaxExportRecords {
+		return fmt.Errorf("export limit cannot exceed %d records", domain.MaxExportRecords)
 	}
 
 	return nil
@@ -130,10 +130,15 @@ func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// collectStream collects all telegrams from the streaming channels.
 // ExportStream returns channels for streaming export (for large datasets).
 // The caller should read from the telegram channel and handle errors from the error channel.
 // This method is suitable for exports that may exceed memory limits.
 func (e *ExportService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+	if e.repo == nil {
+		return nil, nil, fmt.Errorf("streaming export not available: repository not configured")
+	}
+
 	// Validate export limits
 	if err := e.validateExportFilters(&filters); err != nil {
 		return nil, nil, fmt.Errorf("export validation failed: %w", err)

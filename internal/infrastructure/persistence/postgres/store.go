@@ -98,7 +98,7 @@ func (s *Store) Save(ctx context.Context, telegram *domain.Telegram) error {
 }
 
 // BulkSave persists multiple telegrams in a single transaction.
-func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) error {
+func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 	if len(telegrams) == 0 {
 		return nil
 	}
@@ -123,7 +123,11 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) erro
 			updated_at = NOW()`
 
 	batch := &pgx.Batch{}
-	for _, telegram := range telegrams {
+	for _, item := range telegrams {
+		telegram, ok := item.(*domain.Telegram)
+		if !ok {
+			return fmt.Errorf("bulk save: invalid type, expected *domain.Telegram, got %T", item)
+		}
 		batch.Queue(query,
 			telegram.MessageID,
 			telegram.Type,
@@ -145,7 +149,9 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []*domain.Telegram) erro
 		if err != nil {
 			msgID := "unknown"
 			if i < len(telegrams) && telegrams[i] != nil {
-				msgID = telegrams[i].MessageID
+				if telegram, ok := telegrams[i].(*domain.Telegram); ok {
+					msgID = telegram.MessageID
+				}
 			}
 			return fmt.Errorf("bulk save failed at index %d (message_id: %s, total: %d): %w", i, msgID, len(telegrams), err)
 		}

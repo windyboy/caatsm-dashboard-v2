@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
@@ -37,6 +40,9 @@ type DashboardService struct {
 	statsSvc  *StatsService
 	exportSvc *ExportService
 	realtime  *RealtimeManager
+	repo      ports.Repository
+	cache     ports.Cache
+	statsTTL  time.Duration
 	logger    *zap.Logger
 }
 
@@ -46,6 +52,9 @@ func NewDashboardService(
 	statsSvc *StatsService,
 	exportSvc *ExportService,
 	realtime *RealtimeManager,
+	repo ports.Repository,
+	cache ports.Cache,
+	statsTTL time.Duration,
 	logger *zap.Logger,
 ) *DashboardService {
 	return &DashboardService{
@@ -53,6 +62,9 @@ func NewDashboardService(
 		statsSvc:  statsSvc,
 		exportSvc: exportSvc,
 		realtime:  realtime,
+		repo:      repo,
+		cache:     cache,
+		statsTTL:  statsTTL,
 		logger:    logger,
 	}
 }
@@ -144,4 +156,238 @@ func (ds *DashboardService) Autocomplete(ctx context.Context, query string, size
 // AutocompleteWithTypes provides search suggestions with type information
 func (ds *DashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]AutocompleteSuggestion, error) {
 	return ds.searchSvc.AutocompleteWithTypes(ctx, query, size)
+}
+
+const (
+	Days90           = 90
+	RecentLimit      = 20
+	statsTotalKey    = "ws:stats:total:90d"
+	statsPriorityKey = "ws:stats:priority:90d"
+	statsTypeKey     = "ws:stats:type:90d"
+)
+
+// StreamInitialData implements ports.DashboardPort.
+// It sends initial stats (total/priority/type) and recent 50 messages (batch).
+// Messages sent to ch in order: stats-total, stats-priority, stats-type, then messages (oldest first).
+func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- ports.WSMessage) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Create time window for last 90 days
+	window := domain.TimeWindow{
+		Start: time.Now().Add(-Days90 * 24 * time.Hour),
+		End:   time.Now(),
+	}
+
+	// Get statistics for the time window
+	stats, err := ds.statsSvc.GetStats(ctx, window)
+	if err != nil {
+		return fmt.Errorf("get stats: %w", err)
+	}
+
+	// Send stats-total
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-total",
+		Data: map[string]interface{}{
+			"total": stats.TotalMessages,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Send stats-priority
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-priority",
+		Data: map[string]interface{}{
+			"byPriority": stats.ByPriority,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Send stats-type
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-type",
+		Data: map[string]interface{}{
+			"byType": stats.ByType,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Get recent messages (order by time DESC, then reverse to oldest first)
+	filters := domain.SearchFilters{
+		Pagination: domain.Pagination{
+			Limit:  RecentLimit,
+			SortBy: "time",
+			Order:  "desc",
+		},
+	}
+
+	searchResult, err := ds.repo.Search(ctx, filters)
+	if err != nil {
+		return fmt.Errorf("get recent messages: %w", err)
+	}
+
+	// Send messages in reverse order (oldest first)
+	if searchResult != nil && len(searchResult.Telegrams) > 0 {
+		// Reverse the slice to get oldest first
+		for i := len(searchResult.Telegrams) - 1; i >= 0; i-- {
+			select {
+			case ch <- ports.WSMessage{
+				Type: "message",
+				Data: searchResult.Telegrams[i],
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+
+	return nil
+}
+
+// HandleEvent implements ports.DashboardPort.
+// It processes a realtime event: parse telegram, increment stats cache atomically,
+// send message, then updated stats (total/priority/type).
+func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch chan<- ports.WSMessage) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Parse the event as TelegramReceived
+	var telegramReceived domain.TelegramReceived
+	if err := json.Unmarshal(event, &telegramReceived); err != nil {
+		return fmt.Errorf("parse event: %w", err)
+	}
+
+	telegram := telegramReceived.Telegram
+	if telegram == nil {
+		return fmt.Errorf("telegram is nil in event")
+	}
+
+	// Atomically update stats cache
+	if err := ds.updateStatsCache(ctx, telegram); err != nil {
+		ds.logger.Error("failed to update stats cache", zap.Error(err))
+		// Continue processing even if cache update fails
+	}
+
+	// Send message to channel
+	select {
+	case ch <- ports.WSMessage{
+		Type: "message",
+		Data: telegram,
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Send updated stats
+	if err := ds.sendUpdatedStats(ctx, ch); err != nil {
+		return fmt.Errorf("send updated stats: %w", err)
+	}
+
+	return nil
+}
+
+// updateStatsCache atomically increments the stats counters in cache
+func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *domain.Telegram) error {
+	// Increment total messages
+	if _, err := ds.cache.Incr(ctx, statsTotalKey, 1); err != nil {
+		return fmt.Errorf("incr total: %w", err)
+	}
+
+	// Increment by priority (use string key for hash field)
+	priorityField := fmt.Sprintf("%d", telegram.Priority)
+	if _, err := ds.cache.HIncrBy(ctx, statsPriorityKey, priorityField, 1); err != nil {
+		return fmt.Errorf("hincr priority: %w", err)
+	}
+
+	// Increment by type
+	if _, err := ds.cache.HIncrBy(ctx, statsTypeKey, telegram.Type, 1); err != nil {
+		return fmt.Errorf("hincr type: %w", err)
+	}
+
+	return nil
+}
+
+// sendUpdatedStats sends the current stats from cache to the channel
+func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- ports.WSMessage) error {
+	// Get total
+	total, err := ds.cache.GetInt64(ctx, statsTotalKey)
+	if err != nil {
+		return fmt.Errorf("get total: %w", err)
+	}
+
+	// Send stats-total
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-total",
+		Data: map[string]interface{}{
+			"total": total,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Get by priority
+	byPriority, err := ds.cache.HGetAll(ctx, statsPriorityKey)
+	if err != nil {
+		return fmt.Errorf("get priority stats: %w", err)
+	}
+
+	// Convert string map to int map
+	priorityMap := make(map[int]int64)
+	for k, v := range byPriority {
+		priority, _ := strconv.Atoi(k)
+		count, _ := strconv.ParseInt(v, 10, 64)
+		priorityMap[priority] = count
+	}
+
+	// Send stats-priority
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-priority",
+		Data: map[string]interface{}{
+			"byPriority": priorityMap,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Get by type
+	byType, err := ds.cache.HGetAll(ctx, statsTypeKey)
+	if err != nil {
+		return fmt.Errorf("get type stats: %w", err)
+	}
+
+	// Convert string values to int64
+	typeMap := make(map[string]int64)
+	for k, v := range byType {
+		count, _ := strconv.ParseInt(v, 10, 64)
+		typeMap[k] = count
+	}
+
+	// Send stats-type
+	select {
+	case ch <- ports.WSMessage{
+		Type: "stats-type",
+		Data: map[string]interface{}{
+			"byType": typeMap,
+		},
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
 }

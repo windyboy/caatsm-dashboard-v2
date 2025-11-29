@@ -82,9 +82,9 @@ function createWebSocketStore() {
             }
           });
         }
-      }
 
-      wsClient.connect();
+        wsClient.connect();
+      }
     },
 
     disconnect: () => {

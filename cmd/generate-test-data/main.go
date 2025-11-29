@@ -113,7 +113,11 @@ func main() {
 
 	// Save to database
 	logger.Info("saving telegrams to database")
-	if err := store.BulkSave(ctx, telegrams); err != nil {
+	telegramsAny := make([]any, len(telegrams))
+	for i, t := range telegrams {
+		telegramsAny[i] = t
+	}
+	if err := store.BulkSave(ctx, telegramsAny); err != nil {
 		logger.Fatal("save telegrams", zap.Error(err))
 	}
 

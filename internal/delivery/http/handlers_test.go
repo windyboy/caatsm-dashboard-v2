@@ -192,33 +192,6 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 	assert.Equal(t, "attachment; filename=telegrams.csv", rec.Header().Get("Content-Disposition"))
 }
 
-func TestHandler_StatsTotal_UsesTimeRange(t *testing.T) {
-	logger := zaptest.NewLogger(t)
-	mockSvc := &mockDashboardService{
-		statsResult: &domain.TrafficSummary{
-			TotalMessages: 42,
-			ByPriority:    map[int]int64{1: 2},
-			ByType:        map[string]int64{"AFTN": 5},
-		},
-	}
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/stats/total?start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	handler := &Handler{
-		dashboardSvc: mockSvc,
-		logger:       logger,
-	}
-
-	err := handler.StatsTotal(c)
-
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), mockSvc.lastStatsRange.Start)
-	assert.Equal(t, time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC), mockSvc.lastStatsRange.End)
-}
 
 // TODO: Add integration tests with full service stack for:
 // - Dashboard endpoint

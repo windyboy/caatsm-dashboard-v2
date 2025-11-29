@@ -11,8 +11,13 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
+	"github.com/windy/caatsm-dashboard/internal/app/ports"
+	"github.com/windy/caatsm-dashboard/internal/app/services"
 	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
+	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
 	"go.uber.org/zap"
 )
@@ -25,6 +30,7 @@ type Server struct {
 	container   *app.Container
 	metrics     *observability.MetricsExporter
 	broadcaster *deliveryws.EventBroadcaster
+	hub         *ws.Hub
 }
 
 // New constructs a Server instance and wires base middleware/routes.
@@ -79,7 +85,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		broadcaster: broadcaster,
 	}
 
-	s.registerRoutes(broadcaster)
+	s.registerRoutes()
 	return s, nil
 }
 
@@ -145,10 +151,14 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 	}
 
 	// Step 2: Cancel worker contexts and wait for goroutines to finish
-	s.logger.Info("step 2: stopping worker goroutines (broadcaster)")
+	s.logger.Info("step 2: stopping worker goroutines (broadcaster, hub)")
 	if s.broadcaster != nil {
 		s.broadcaster.Close() // Cancels context and waits for goroutine via WaitGroup
 		s.logger.Info("broadcaster stopped successfully")
+	}
+	if s.hub != nil {
+		s.hub.Close() // Closes hub and all WebSocket connections
+		s.logger.Info("WebSocket hub stopped successfully")
 	}
 
 	// Step 3: Flush metrics (before closing downstream connections)
@@ -180,7 +190,7 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 	return nil
 }
 
-func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
+func (s *Server) registerRoutes() {
 	s.e.Use(deliveryhttp.BasicAuthMiddleware(s.cfg.Auth))
 
 	// Add rate limiting
@@ -199,8 +209,30 @@ func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
 	s.logger.Info("registered HTTP handlers in delivery layer")
 
 	// Register WebSocket handler using transport layer with configured allowed origins
-	wsHandler := deliveryws.NewSimpleHandler(s.container, broadcaster, s.cfg.WebSocket.AllowedOrigins)
-	wsHandler.Register(s.e)
+	// Create WebSocket hub with default configuration
+	hubConfig := ws.DefaultConfig()
+	s.hub = ws.NewHub(hubConfig, s.logger)
+
+	// Create adapters for stats and query services
+	statsAdapter := &statsServiceAdapter{
+		statsService: s.container.DashboardService,
+	}
+	queryAdapter := &queryServiceAdapter{
+		repo: s.container.Repo,
+	}
+
+	// Create WebSocket handler
+	wsHandler := deliveryws.NewHandler(
+		s.hub,
+		s.logger,
+		statsAdapter,
+		queryAdapter,
+		s.container.RedisClient(),
+		s.cfg.WebSocket.AllowedOrigins,
+	)
+
+	// Register WebSocket route
+	s.e.GET("/ws", wsHandler.HandleWebSocket)
 	s.logger.Info("registered WebSocket handler in delivery layer",
 		zap.Strings("allowed_origins", s.cfg.WebSocket.AllowedOrigins))
 
@@ -239,4 +271,58 @@ func (s *Server) registerRoutes(broadcaster *deliveryws.EventBroadcaster) {
 			})
 		})
 	}
+}
+
+// statsServiceAdapter adapts DashboardService to the interface expected by WebSocket handler
+type statsServiceAdapter struct {
+	statsService *services.DashboardService
+}
+
+func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interface{}) (interface{}, error) {
+	timeWindow, ok := window.(domain.TimeWindow)
+	if !ok {
+		// If window is empty or wrong type, use empty TimeWindow (will get all-time stats)
+		timeWindow = domain.TimeWindow{}
+	}
+
+	stats, err := a.statsService.GetStats(ctx, timeWindow)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert domain.TrafficSummary to persistence.TrafficSummary
+	return &persistence.TrafficSummary{
+		TotalMessages: stats.TotalMessages,
+		ByType:        stats.ByType,
+		ByPriority:    stats.ByPriority,
+	}, nil
+}
+
+// queryServiceAdapter adapts Repository to the interface expected by WebSocket handler
+type queryServiceAdapter struct {
+	repo ports.Repository
+}
+
+func (a *queryServiceAdapter) Recent(ctx context.Context, limit int) ([]*domain.Telegram, error) {
+	// Use Search with empty filters and order by time descending to get recent messages
+	filters := domain.SearchFilters{
+		Pagination: domain.Pagination{
+			Limit:  limit,
+			SortBy: "time",
+			Order:  "desc",
+		},
+	}
+
+	result, err := a.repo.Search(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert []domain.Telegram to []*domain.Telegram
+	telegrams := make([]*domain.Telegram, len(result.Telegrams))
+	for i := range result.Telegrams {
+		telegrams[i] = &result.Telegrams[i]
+	}
+
+	return telegrams, nil
 }

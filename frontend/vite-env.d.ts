@@ -1,0 +1,6 @@
+/// <reference types="vite/client" />
+
+declare module "@sveltejs/kit/vite" {
+  import type { Plugin } from "vite";
+  export function sveltekit(): Plugin | Plugin[];
+}

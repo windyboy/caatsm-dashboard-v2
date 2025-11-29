@@ -34,11 +34,6 @@ func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Log
 	// Autocomplete (for frontend)
 	api.GET("/autocomplete", handler.Autocomplete)
 
-	// Legacy routes for backward compatibility
-	// These can be removed once frontend is updated
-	api.GET("/stats/total", handler.StatsTotal)
-	api.GET("/stats/priority", handler.StatsPriority)
-	api.GET("/stats/type", handler.StatsType)
 }
 
 // Autocomplete handles GET /api/autocomplete - search suggestions
@@ -65,39 +60,5 @@ func (h *Handler) Autocomplete(c echo.Context) error {
 
 	return c.JSON(200, map[string]interface{}{
 		"suggestions": suggestions,
-	})
-}
-
-// Legacy handlers for backward compatibility
-func (h *Handler) StatsTotal(c echo.Context) error {
-	timeRange := buildTimeWindow(c)
-	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
-	if err != nil {
-		return handleError(c, err)
-	}
-	return c.JSON(200, map[string]interface{}{
-		"total": stats.TotalMessages,
-	})
-}
-
-func (h *Handler) StatsPriority(c echo.Context) error {
-	timeRange := buildTimeWindow(c)
-	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
-	if err != nil {
-		return handleError(c, err)
-	}
-	return c.JSON(200, map[string]interface{}{
-		"byPriority": stats.ByPriority,
-	})
-}
-
-func (h *Handler) StatsType(c echo.Context) error {
-	timeRange := buildTimeWindow(c)
-	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
-	if err != nil {
-		return handleError(c, err)
-	}
-	return c.JSON(200, map[string]interface{}{
-		"byType": stats.ByType,
 	})
 }

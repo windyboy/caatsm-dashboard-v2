@@ -1,7 +1,9 @@
 package observability
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -54,12 +56,26 @@ func RequestLogger(logger *zap.Logger) echo.MiddlewareFunc {
 
 			if err != nil {
 				// Check if the response is hijacked (WebSocket upgrade)
-				// For WebSocket connections, the status is typically 101 (Switching Protocols)
 				// After hijacking, we shouldn't try to write errors to the response
-				isWebSocket := status == http.StatusSwitchingProtocols ||
-					(req.Header.Get("Upgrade") == "websocket" && status == 0)
+				isHijacked := false
 
-				if isWebSocket {
+				// Check if ResponseWriter implements http.Hijacker
+				if _, ok := res.Writer.(http.Hijacker); ok {
+					// Check if this is a WebSocket upgrade request
+					upgrade := req.Header.Get("Upgrade")
+					connection := req.Header.Get("Connection")
+					if strings.EqualFold(upgrade, "websocket") &&
+						strings.Contains(strings.ToLower(connection), "upgrade") {
+						isHijacked = true
+					}
+				}
+
+				// Check if error is http.ErrHijacked (actual hijack occurred)
+				if errors.Is(err, http.ErrHijacked) {
+					isHijacked = true
+				}
+
+				if isHijacked {
 					// Response is hijacked (WebSocket connection)
 					// Log the error but don't return it to avoid Echo trying to write to hijacked connection
 					fields = append(fields, zap.Error(err))

@@ -147,6 +147,36 @@ func (c *AppConfig) Validate() error {
 		if c.Auth.JWTSecret == "dev-secret-change-in-production" {
 			errs = append(errs, errors.New("production: jwt_secret must be changed from default value"))
 		}
+
+		// TLS must be enabled in production
+		if !c.Server.TLSEnabled {
+			errs = append(errs, errors.New("production: TLS must be enabled"))
+		}
+
+		// Server host cannot be localhost in production
+		if c.Server.Host == "localhost" || c.Server.Host == "127.0.0.1" || c.Server.Host == "0.0.0.0" {
+			errs = append(errs, errors.New("production: server host cannot be localhost or 0.0.0.0"))
+		}
+
+		// Redis cannot use default password
+		if c.Redis.Password == "" || c.Redis.Password == "dev-password" {
+			errs = append(errs, errors.New("production: redis password must be set and not default"))
+		}
+
+		// NATS cannot use default URL
+		if c.NATS.URL == "nats://localhost:4222" {
+			errs = append(errs, errors.New("production: nats.url cannot be default localhost"))
+		}
+
+		// Logger level must be appropriate for production
+		if c.Logger.Level == "debug" {
+			errs = append(errs, errors.New("production: logger level cannot be 'debug'"))
+		}
+
+		// Tracing should be enabled in production
+		if !c.Tracing.Enabled {
+			errs = append(errs, errors.New("production: tracing must be enabled"))
+		}
 	}
 
 	if len(errs) == 0 {

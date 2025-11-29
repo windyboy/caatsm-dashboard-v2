@@ -41,7 +41,7 @@ func (m *mockRepository) Save(ctx context.Context, telegram *domain.Telegram) er
 	return args.Error(0)
 }
 
-func (m *mockRepository) BulkSave(ctx context.Context, telegrams []*domain.Telegram) error {
+func (m *mockRepository) BulkSave(ctx context.Context, telegrams []any) error {
 	args := m.Called(ctx, telegrams)
 	return args.Error(0)
 }
@@ -58,7 +58,12 @@ func (m *mockRepository) StreamSearch(ctx context.Context, filters domain.Search
 				defer close(telegramCh)
 				defer close(errCh)
 				for i := range searchResult.Telegrams {
-					telegramCh <- &searchResult.Telegrams[i]
+					select {
+					case <-ctx.Done():
+						errCh <- ctx.Err()
+						return
+					case telegramCh <- &searchResult.Telegrams[i]:
+					}
 				}
 			}()
 			return telegramCh, errCh
@@ -70,7 +75,11 @@ func (m *mockRepository) StreamSearch(ctx context.Context, filters domain.Search
 		go func() {
 			defer close(telegramCh)
 			defer close(errCh)
-			errCh <- err
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+			case errCh <- err:
+			}
 		}()
 		return telegramCh, errCh
 	}
@@ -101,6 +110,29 @@ func (m *mockCache) Set(ctx context.Context, key string, value interface{}) erro
 func (m *mockCache) Delete(ctx context.Context, key string) error {
 	args := m.Called(ctx, key)
 	return args.Error(0)
+}
+
+func (m *mockCache) Incr(ctx context.Context, key string, delta int64) (int64, error) {
+	args := m.Called(ctx, key, delta)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockCache) HIncrBy(ctx context.Context, key string, field string, delta int64) (int64, error) {
+	args := m.Called(ctx, key, field, delta)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockCache) GetInt64(ctx context.Context, key string) (int64, error) {
+	args := m.Called(ctx, key)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockCache) HGetAll(ctx context.Context, key string) (map[string]string, error) {
+	args := m.Called(ctx, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]string), args.Error(1)
 }
 
 // Mock SearchIndex

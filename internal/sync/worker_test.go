@@ -58,7 +58,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 	}
 
-		for _, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup mocks
 			storeMock := new(mocks.RepositoryMock)

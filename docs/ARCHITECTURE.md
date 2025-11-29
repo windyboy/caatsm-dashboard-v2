@@ -38,7 +38,7 @@ The system follows a **Simplified Clean Architecture** with clear layer separati
 
 **Dependency Rule**: Dependencies point **inward**. Outer layers depend on inner layers, never the reverse.
 
-**Key Changes** (Dec 2025 Optimization):
+**Key Changes** (Nov 2025 Optimization):
 - ✅ `internal/application/` → `internal/app/` (simplified)
 - ✅ `internal/transport/` → `internal/delivery/` (renamed for clarity)
 - ✅ Introduced `app.Container` for centralized dependency injection

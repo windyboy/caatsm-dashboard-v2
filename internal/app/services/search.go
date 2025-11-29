@@ -50,9 +50,11 @@ func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters
 	cacheKey := s.buildCacheKey(filters)
 	if s.cache != nil {
 		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-			if result, ok := cached.(*domain.SearchResult); ok {
+			resultBytes, _ := json.Marshal(cached)
+			var result domain.SearchResult
+			if err := json.Unmarshal(resultBytes, &result); err == nil {
 				s.logger.Debug("cache hit", zap.String("key", cacheKey))
-				return result, nil
+				return &result, nil
 			}
 		}
 	}

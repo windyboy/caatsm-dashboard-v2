@@ -1,4 +1,4 @@
-package config
+uopackage config
 
 import (
 	"testing"
@@ -211,7 +211,8 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
-					Port: 3000,
+					Port:       3000,
+					TLSEnabled: true,
 				},
 				Database: DatabaseConfig{
 					DSN: "postgres://prod_user:secure_pass@prod-db:5432/db",
@@ -220,8 +221,15 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Host:   "http://meilisearch:7700",
 					APIKey: "secure-production-key",
 				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
 				NATS: NATSConfig{
 					URL: "nats://nats:4222",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
 				},
 				Auth: AuthConfig{
 					EnableBasic: true,
@@ -338,7 +346,8 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
-					Port: 3000,
+					Port:       3000,
+					TLSEnabled: true,
 				},
 				Database: DatabaseConfig{
 					DSN: "postgres://prod_user:secure_pass@prod-db:5432/db",
@@ -347,8 +356,15 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Host:   "http://meilisearch:7700",
 					APIKey: "secure-production-key",
 				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
 				NATS: NATSConfig{
 					URL: "nats://nats:4222",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
 				},
 				Auth: AuthConfig{
 					EnableBasic: false,
@@ -386,7 +402,8 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
-					Port: 3000,
+					Port:       3000,
+					TLSEnabled: true,
 				},
 				Database: DatabaseConfig{
 					// Different user with password containing "caatsm" - should pass
@@ -396,8 +413,15 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Host:   "http://meilisearch:7700",
 					APIKey: "secure-key",
 				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
 				NATS: NATSConfig{
 					URL: "nats://nats:4222",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
 				},
 				Auth: AuthConfig{
 					EnableBasic: true,
@@ -439,7 +463,8 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
-					Port: 3000,
+					Port:       3000,
+					TLSEnabled: true,
 				},
 				Database: DatabaseConfig{
 					DSN: "postgres://produser:caatsm@prod-db:5432/db",
@@ -448,8 +473,15 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Host:   "http://meilisearch:7700",
 					APIKey: "secure-key",
 				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
 				NATS: NATSConfig{
 					URL: "nats://nats:4222",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
 				},
 				Auth: AuthConfig{
 					EnableBasic: true,
@@ -464,10 +496,44 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
-					Port: 3000,
+					Port:       3000,
+					TLSEnabled: true,
 				},
 				Database: DatabaseConfig{
 					DSN: "postgres://caatsm:securepass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "production without TLS",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: false,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
 				},
 				Meilisearch: SearchConfig{
 					Host:   "http://meilisearch:7700",
@@ -482,7 +548,228 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Password:    "secure",
 				},
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "production: TLS must be enabled",
+		},
+		{
+			name: "production with localhost server host",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					Host:       "localhost",
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: server host cannot be localhost",
+		},
+		{
+			name: "production with 0.0.0.0 server host",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					Host:       "0.0.0.0",
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: server host cannot be localhost or 0.0.0.0",
+		},
+		{
+			name: "production with default Redis password",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: redis password must be set",
+		},
+		{
+			name: "production with dev Redis password",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "dev-password",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: redis password must be set and not default",
+		},
+		{
+			name: "production with default NATS URL",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
+				NATS: NATSConfig{
+					URL: "nats://localhost:4222",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: nats.url cannot be default localhost",
+		},
+		{
+			name: "production with debug logger level",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Logger: LoggerConfig{
+					Level: "debug",
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: logger level cannot be 'debug'",
+		},
+		{
+			name: "production without tracing enabled",
+			config: AppConfig{
+				Environment: "production",
+				Server: ServerConfig{
+					Port:       3000,
+					TLSEnabled: true,
+				},
+				Database: DatabaseConfig{
+					DSN: "postgres://prod_user:pass@prod-db:5432/db",
+				},
+				Meilisearch: SearchConfig{
+					Host:   "http://meilisearch:7700",
+					APIKey: "secure-key",
+				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
+				NATS: NATSConfig{
+					URL: "nats://nats:4222",
+				},
+				Logger: LoggerConfig{
+					Level: "info",
+				},
+				Tracing: TracingConfig{
+					Enabled: false,
+				},
+				Auth: AuthConfig{
+					EnableBasic: true,
+					Username:    "admin",
+					Password:    "secure",
+				},
+			},
+			wantErr: true,
+			errMsg:  "production: tracing must be enabled",
 		},
 	}
 

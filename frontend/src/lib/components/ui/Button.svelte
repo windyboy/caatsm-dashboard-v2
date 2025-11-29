@@ -28,7 +28,7 @@
     size = "md",
     disabled = false,
     loading = false,
-    ripple = true,
+    // ripple = true,
     type = "button",
     href = undefined,
     fullWidth = false,

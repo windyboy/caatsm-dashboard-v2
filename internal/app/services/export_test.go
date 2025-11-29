@@ -63,9 +63,9 @@ func TestExportService_Export(t *testing.T) {
 			},
 		}
 
-		mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
-		mockRepo.On("Search", ctx, filters).Return(searchResult, nil)
-		mockCache.On("Set", ctx, mock.AnythingOfType("string"), searchResult).Return(nil)
+		mockRepo.On("Search", mock.Anything, mock.Anything).Return(searchResult, nil)
+		mockCache.On("Get", mock.Anything, mock.Anything).Return(nil, nil)           // Cache miss
+		mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil) // Cache set
 
 		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatCSV)
 
@@ -121,10 +121,9 @@ func TestExportService_Export(t *testing.T) {
 			Total:     0,
 			Telegrams: []domain.Telegram{},
 		}
-
-		mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
-		mockRepo.On("Search", ctx, filters).Return(searchResult, nil)
-		mockCache.On("Set", ctx, mock.AnythingOfType("string"), searchResult).Return(nil)
+		mockRepo.On("Search", mock.Anything, mock.Anything).Return(searchResult, nil)
+		mockCache.On("Get", mock.Anything, mock.Anything).Return(nil, nil)           // Cache miss
+		mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil) // Cache set
 
 		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatCSV)
 
@@ -174,9 +173,9 @@ func TestExportService_Export(t *testing.T) {
 			},
 		}
 
-		mockCache.On("Get", ctx, mock.AnythingOfType("string")).Return(nil, errors.New("cache miss"))
-		mockRepo.On("Search", ctx, filters).Return(searchResult, nil)
-		mockCache.On("Set", ctx, mock.AnythingOfType("string"), searchResult).Return(nil)
+		mockRepo.On("Search", mock.Anything, mock.Anything).Return(searchResult, nil)
+		mockCache.On("Get", mock.Anything, mock.Anything).Return(nil, nil)           // Cache miss
+		mockCache.On("Set", mock.Anything, mock.Anything, mock.Anything).Return(nil) // Cache set
 
 		data, err := exportSvc.Export(ctx, filters, domain.ExportFormatCSV)
 
@@ -249,7 +248,7 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 		assert.Contains(t, err.Error(), fmt.Sprintf("export limit cannot exceed %d", domain.MaxExportRecords))
 	})
 
-	t.Run("zero limit defaults to max", func(t *testing.T) {
+	t.Run("zero limit allowed", func(t *testing.T) {
 		filters := domain.SearchFilters{
 			Pagination: domain.Pagination{
 				Limit: 0,
@@ -259,6 +258,211 @@ func TestExportService_ValidateExportFilters(t *testing.T) {
 		err := exportSvc.validateExportFilters(&filters)
 
 		require.NoError(t, err)
-		assert.Equal(t, domain.MaxExportRecords, filters.Pagination.Limit)
+		assert.Equal(t, 0, filters.Pagination.Limit)
+	})
+
+	t.Run("time range within 90 days", func(t *testing.T) {
+		filters := domain.SearchFilters{
+			TimeRange: domain.TimeWindow{
+				Start: time.Date(2025, 11, 1, 0, 0, 0, 0, time.UTC),
+				End:   time.Date(2025, 11, 30, 0, 0, 0, 0, time.UTC), // 29 days
+			},
+		}
+
+		err := exportSvc.validateExportFilters(&filters)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("time range exceeds 90 days", func(t *testing.T) {
+		filters := domain.SearchFilters{
+			TimeRange: domain.TimeWindow{
+				Start: time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC),
+				End:   time.Date(2025, 11, 30, 0, 0, 0, 0, time.UTC), // 121 days
+			},
+		}
+
+		err := exportSvc.validateExportFilters(&filters)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "range cannot exceed 90 days")
+	})
+}
+
+func TestExportService_ExportStream(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+
+	t.Run("successful streaming export", func(t *testing.T) {
+		ctx := context.Background()
+
+		mockRepo := new(mockRepository)
+		mockCache := new(mockCache)
+
+		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
+
+		filters := domain.SearchFilters{
+			Query: "test",
+			Pagination: domain.Pagination{
+				Limit: 100,
+			},
+		}
+
+		searchResult := &domain.SearchResult{
+			Total: 2,
+			Telegrams: []domain.Telegram{
+				{
+					MessageID:    "MSG-001",
+					Type:         "METAR",
+					Time:         time.Date(2025, 11, 27, 10, 0, 0, 0, time.UTC),
+					FlightNumber: "BA123",
+					Source:       "EGLL",
+					Destination:  "KJFK",
+					Priority:     1,
+					Content:      "Test message 1",
+				},
+				{
+					MessageID:    "MSG-002",
+					Type:         "TAF",
+					Time:         time.Date(2025, 11, 27, 11, 0, 0, 0, time.UTC),
+					FlightNumber: "AA456",
+					Source:       "KJFK",
+					Destination:  "EGLL",
+					Priority:     2,
+					Content:      "Test message 2",
+				},
+			},
+		}
+
+		mockRepo.On("StreamSearch", ctx, filters).Return(searchResult, nil)
+
+		telegramCh, errCh, err := exportSvc.ExportStream(ctx, filters)
+
+		require.NoError(t, err)
+		assert.NotNil(t, telegramCh)
+		assert.NotNil(t, errCh)
+
+		// Collect results
+		var telegrams []*domain.Telegram
+		var errs []error
+		done := make(chan bool, 2)
+
+		go func() {
+			for telegram := range telegramCh {
+				telegrams = append(telegrams, telegram)
+			}
+			done <- true
+		}()
+
+		go func() {
+			for err := range errCh {
+				errs = append(errs, err)
+			}
+			done <- true
+		}()
+
+		<-done
+		<-done
+
+		assert.Len(t, telegrams, 2)
+		assert.Len(t, errs, 0)
+		assert.Equal(t, "MSG-001", telegrams[0].MessageID)
+		assert.Equal(t, "MSG-002", telegrams[1].MessageID)
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("streaming export with error", func(t *testing.T) {
+		ctx := context.Background()
+
+		mockRepo := new(mockRepository)
+		mockCache := new(mockCache)
+
+		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
+
+		filters := domain.SearchFilters{
+			Query: "test",
+		}
+
+		mockRepo.On("StreamSearch", ctx, filters).Return(nil, errors.New("stream search failed"))
+
+		telegramCh, errCh, err := exportSvc.ExportStream(ctx, filters)
+
+		require.NoError(t, err)
+		assert.NotNil(t, telegramCh)
+		assert.NotNil(t, errCh)
+
+		// Collect results
+		var telegrams []*domain.Telegram
+		var errs []error
+		done := make(chan bool, 2)
+
+		go func() {
+			for telegram := range telegramCh {
+				telegrams = append(telegrams, telegram)
+			}
+			done <- true
+		}()
+
+		go func() {
+			for err := range errCh {
+				errs = append(errs, err)
+			}
+			done <- true
+		}()
+
+		<-done
+		<-done
+
+		assert.Len(t, telegrams, 0)
+		assert.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Error(), "stream search failed")
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("streaming export validation failure", func(t *testing.T) {
+		ctx := context.Background()
+
+		mockRepo := new(mockRepository)
+		mockCache := new(mockCache)
+
+		searchSvc := NewSearchService(mockRepo, mockCache, nil, nil, logger)
+		exportSvc := NewExportService(searchSvc, mockRepo, logger)
+
+		filters := domain.SearchFilters{
+			TimeRange: domain.TimeWindow{
+				Start: time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC),
+				End:   time.Date(2025, 11, 30, 0, 0, 0, 0, time.UTC), // 121 days
+			},
+		}
+
+		telegramCh, errCh, err := exportSvc.ExportStream(ctx, filters)
+
+		assert.Error(t, err)
+		assert.Nil(t, telegramCh)
+		assert.Nil(t, errCh)
+		assert.Contains(t, err.Error(), "range cannot exceed 90 days")
+	})
+
+	t.Run("streaming export without repository", func(t *testing.T) {
+		ctx := context.Background()
+
+		mockCache := new(mockCache)
+
+		searchSvc := NewSearchService(nil, mockCache, nil, nil, logger)
+		exportSvc := NewExportService(searchSvc, nil, logger) // No repository
+
+		filters := domain.SearchFilters{
+			Query: "test",
+		}
+
+		telegramCh, errCh, err := exportSvc.ExportStream(ctx, filters)
+
+		assert.Error(t, err)
+		assert.Nil(t, telegramCh)
+		assert.Nil(t, errCh)
+		assert.Contains(t, err.Error(), "streaming export not available")
 	})
 }

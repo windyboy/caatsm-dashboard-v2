@@ -1,3 +1,4 @@
+/// <reference path="./vite-env.d.ts" />
 import devtoolsJson from "vite-plugin-devtools-json";
 import { sveltekit } from "@sveltejs/kit/vite";
 import UnoCSS from "unocss/vite";

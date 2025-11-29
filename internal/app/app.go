@@ -79,14 +79,17 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	// Initialize cache
 	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
 
+	// Create adapter to bridge EventBus to ports.EventPublisher
+	eventPublisher := event.NewEventPublisherAdapter(eventBus)
+
 	// Set infrastructure ports
 	container.Repo = store        // implements ports.Repository
 	container.Cache = cacheStore  // implements ports.Cache
 	container.Search = meiliIndex // implements ports.SearchIndex
-	container.EventBus = eventBus // Redis pub/sub for real-time updates
-	// Note: ports.EventPublisher not assigned (different interface signature)
+	container.Pub = eventPublisher // implements ports.EventPublisher
+	container.EventBus = eventBus   // Redis pub/sub for real-time updates
 
-	searchService := services.NewSearchService(store, cacheStore, meiliIndex, nil, logger)
+	searchService := services.NewSearchService(store, cacheStore, meiliIndex, eventPublisher, logger)
 
 	// Initialize application services
 	container.DashboardService = services.NewDashboardService(
@@ -98,6 +101,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 			logger,
 		),
 		services.NewRealtimeManager(),
+		store,
+		cacheStore,
+		5*time.Minute, // statsTTL
 		logger,
 	)
 

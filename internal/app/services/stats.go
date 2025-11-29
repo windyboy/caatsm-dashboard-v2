@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
@@ -32,16 +33,12 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange domain.TimeWindow
 	// Try cache first
 	if s.cache != nil {
 		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-			if stats, ok := cached.(*domain.TrafficSummary); ok {
+			statsBytes, _ := json.Marshal(cached)
+			var stats domain.TrafficSummary
+			if err := json.Unmarshal(statsBytes, &stats); err == nil {
 				s.logger.Debug("stats cache hit", zap.String("key", cacheKey))
-				return stats, nil
+				return &stats, nil
 			}
-			// Type assertion failed - log warning and fetch fresh data
-			s.logger.Warn("cache type mismatch",
-				zap.String("key", cacheKey),
-				zap.String("expected_type", "*domain.TrafficSummary"),
-				zap.String("actual_type", fmt.Sprintf("%T", cached)),
-			)
 		}
 	}
 
