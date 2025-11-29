@@ -1,4 +1,4 @@
-uopackage config
+package config
 
 import (
 	"testing"
