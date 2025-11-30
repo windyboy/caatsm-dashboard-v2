@@ -47,15 +47,37 @@ func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters
 	}
 
 	// Try cache first
+
 	cacheKey := s.buildCacheKey(filters)
+
 	if s.cache != nil {
-		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-			resultBytes, _ := json.Marshal(cached)
-			var result domain.SearchResult
-			if err := json.Unmarshal(resultBytes, &result); err == nil {
-				s.logger.Debug("cache hit", zap.String("key", cacheKey))
-				return &result, nil
+
+		cached, err := s.cache.Get(ctx, cacheKey)
+		if err != nil {
+			s.logger.Warn("cache get error", zap.String("key", cacheKey), zap.Error(err))
+		} else if cached != nil {
+
+			resultBytes, err := json.Marshal(cached)
+
+			if err != nil {
+				s.logger.Warn("failed to marshal cached search result", zap.String("key", cacheKey), zap.Error(err))
+				_ = s.cache.Delete(ctx, cacheKey)
+			} else {
+				var result domain.SearchResult
+
+				if err := json.Unmarshal(resultBytes, &result); err != nil {
+
+					s.logger.Warn("failed to unmarshal cached search result", zap.String("key", cacheKey), zap.Error(err))
+
+					_ = s.cache.Delete(ctx, cacheKey)
+				} else {
+					s.logger.Debug("cache hit", zap.String("key", cacheKey))
+					return &result, nil
+
+				}
+
 			}
+
 		}
 	}
 

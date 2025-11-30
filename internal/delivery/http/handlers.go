@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	stdErrors "errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/windy/caatsm-dashboard/internal/app/services"
 	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/pkg/errors"
+	appErrors "github.com/windy/caatsm-dashboard/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -87,7 +89,12 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	}
 
 	// Parse time range for stats
-	req.TimeRange = buildTimeWindow(c)
+	timeRange, err := buildTimeWindow(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, appErrors.ErrInvalidInput)
+	}
+	req.TimeRange = timeRange
 
 	// Get dashboard data
 	result, err := h.dashboardSvc.GetDashboardData(c.Request().Context(), req)
@@ -103,7 +110,12 @@ func (h *Handler) Dashboard(c echo.Context) error {
 func (h *Handler) Search(c echo.Context) error {
 	filters := parseSearchFilters(c)
 	filters.Pagination = parsePagination(c)
-	filters.TimeRange = parseTimeRange(c)
+	timeRange, err := parseTimeRange(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, appErrors.ErrInvalidInput)
+	}
+	filters.TimeRange = timeRange
 
 	// Execute search
 	result, err := h.dashboardSvc.Search(c.Request().Context(), filters)
@@ -135,7 +147,11 @@ func (h *Handler) Search(c echo.Context) error {
 
 // Stats handles GET /api/stats - statistics endpoints
 func (h *Handler) Stats(c echo.Context) error {
-	timeRange := buildTimeWindow(c)
+	timeRange, err := buildTimeWindow(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, appErrors.ErrInvalidInput)
+	}
 
 	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
 	if err != nil {
@@ -153,7 +169,12 @@ func (h *Handler) Export(c echo.Context) error {
 		Limit:  domain.MaxExportRecords,
 		Offset: 0,
 	}
-	filters.TimeRange = parseTimeRange(c)
+	timeRange, err := parseTimeRange(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, appErrors.ErrInvalidInput)
+	}
+	filters.TimeRange = timeRange
 
 	formatStr := strings.ToLower(c.QueryParam("format"))
 	if formatStr == "" {
@@ -219,16 +240,16 @@ func (h *Handler) Health(c echo.Context) error {
 func getUserID(c echo.Context) (string, error) {
 	userID := c.Get("user_id")
 	if userID == nil {
-		return "", errors.ErrUnauthorized
+		return "", appErrors.ErrUnauthorized
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		return "", errors.ErrUnauthorized
+		return "", appErrors.ErrUnauthorized
 	}
 
 	if userIDStr == "" {
-		return "", errors.ErrUnauthorized
+		return "", appErrors.ErrUnauthorized
 	}
 
 	return userIDStr, nil
@@ -238,30 +259,38 @@ func parseTime(timeStr string) (time.Time, error) {
 	return time.Parse(time.RFC3339, timeStr)
 }
 
-func buildTimeWindow(c echo.Context) domain.TimeWindow {
+func buildTimeWindow(c echo.Context) (domain.TimeWindow, error) {
 	timeRange := domain.TimeWindow{}
 
 	if startStr := c.QueryParam("start_time"); startStr != "" {
-		if start, err := parseTime(startStr); err == nil {
-			timeRange.Start = start
+		start, err := parseTime(startStr)
+		if err != nil {
+			return domain.TimeWindow{}, fmt.Errorf("invalid start_time: %w", err)
 		}
+		timeRange.Start = start
 	}
 	if endStr := c.QueryParam("end_time"); endStr != "" {
-		if end, err := parseTime(endStr); err == nil {
-			timeRange.End = end
+		end, err := parseTime(endStr)
+		if err != nil {
+			return domain.TimeWindow{}, fmt.Errorf("invalid end_time: %w", err)
 		}
+		timeRange.End = end
 	}
 
-	return timeRange
+	if !timeRange.Start.IsZero() && !timeRange.End.IsZero() && timeRange.Start.After(timeRange.End) {
+		return domain.TimeWindow{}, fmt.Errorf("start_time must be before end_time")
+	}
+
+	return timeRange, nil
 }
 
 func handleError(c echo.Context, err error) error {
-	switch err {
-	case errors.ErrNotFound:
+	switch {
+	case stdErrors.Is(err, appErrors.ErrNotFound):
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
-	case errors.ErrInvalidInput:
+	case stdErrors.Is(err, appErrors.ErrInvalidInput):
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid input"})
-	case errors.ErrUnauthorized:
+	case stdErrors.Is(err, appErrors.ErrUnauthorized):
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 	default:
 		// Note: In a real implementation, we'd need access to logger here
@@ -325,6 +354,6 @@ func parsePagination(c echo.Context) domain.Pagination {
 }
 
 // parseTimeRange parses time range parameters from the request context
-func parseTimeRange(c echo.Context) domain.TimeWindow {
+func parseTimeRange(c echo.Context) (domain.TimeWindow, error) {
 	return buildTimeWindow(c)
 }

@@ -2,15 +2,23 @@ package cache
 
 import (
 	"context"
+
 	"crypto/tls"
+
 	"encoding/json"
+
+	"errors"
 	"fmt"
 	"strconv"
+
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
 	"github.com/redis/go-redis/v9/maintnotifications"
+
 	"github.com/windy/caatsm-dashboard/config"
+
 	"github.com/windy/caatsm-dashboard/internal/app/ports"
 )
 
@@ -77,15 +85,31 @@ func (s *Store) Set(ctx context.Context, key string, value interface{}) error {
 	return s.client.Set(ctx, key, data, s.ttl).Err()
 }
 
-// Get fetches a key.
 func (s *Store) Get(ctx context.Context, key string) (interface{}, error) {
+
 	data, err := s.client.Get(ctx, key).Bytes()
+
 	if err != nil {
-		return nil, err
+
+		if errors.Is(err, redis.Nil) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get cache key %q: %w", key, err)
+
 	}
+
+	if len(data) == 0 {
+		return nil, nil
+	}
+
 	var value interface{}
-	err = json.Unmarshal(data, &value)
-	return value, err
+
+	if err := json.Unmarshal(data, &value); err != nil {
+
+		return nil, fmt.Errorf("decode cache key %q: %w", key, err)
+	}
+
+	return value, nil
 }
 
 // Delete removes a key from the cache.
@@ -103,17 +127,42 @@ func (s *Store) HIncrBy(ctx context.Context, key string, field string, delta int
 	return s.client.HIncrBy(ctx, key, field, delta).Result()
 }
 
-// GetInt64 retrieves the value at key parsed as int64.
 func (s *Store) GetInt64(ctx context.Context, key string) (int64, error) {
+
 	str, err := s.client.Get(ctx, key).Result()
+
 	if err != nil {
-		return 0, err
+
+		if errors.Is(err, redis.Nil) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("get int cache key %q: %w", key, err)
+
+	}
+
+	if str == "" {
+		return 0, nil
 	}
 	i, err := strconv.ParseInt(str, 10, 64)
-	return i, err
+
+	if err != nil {
+		return 0, fmt.Errorf("parse cache key %q: %w", key, err)
+	}
+	return i, nil
 }
 
-// HGetAll retrieves all fields and values from the hash stored at key.
 func (s *Store) HGetAll(ctx context.Context, key string) (map[string]string, error) {
-	return s.client.HGetAll(ctx, key).Result()
+
+	result, err := s.client.HGetAll(ctx, key).Result()
+
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("hgetall cache key %q: %w", key, err)
+	}
+	if len(result) == 0 {
+		return map[string]string{}, nil
+	}
+	return result, nil
 }

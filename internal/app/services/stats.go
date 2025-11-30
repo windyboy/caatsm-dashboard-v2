@@ -32,12 +32,23 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange domain.TimeWindow
 
 	// Try cache first
 	if s.cache != nil {
-		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-			statsBytes, _ := json.Marshal(cached)
-			var stats domain.TrafficSummary
-			if err := json.Unmarshal(statsBytes, &stats); err == nil {
-				s.logger.Debug("stats cache hit", zap.String("key", cacheKey))
-				return &stats, nil
+		cached, err := s.cache.Get(ctx, cacheKey)
+		if err != nil {
+			s.logger.Warn("cache get error", zap.String("key", cacheKey), zap.Error(err))
+		} else if cached != nil {
+			statsBytes, err := json.Marshal(cached)
+			if err != nil {
+				s.logger.Warn("failed to marshal cached stats", zap.String("key", cacheKey), zap.Error(err))
+				_ = s.cache.Delete(ctx, cacheKey)
+			} else {
+				var stats domain.TrafficSummary
+				if err := json.Unmarshal(statsBytes, &stats); err != nil {
+					s.logger.Warn("failed to unmarshal cached stats", zap.String("key", cacheKey), zap.Error(err))
+					_ = s.cache.Delete(ctx, cacheKey)
+				} else {
+					s.logger.Debug("stats cache hit", zap.String("key", cacheKey))
+					return &stats, nil
+				}
 			}
 		}
 	}
@@ -82,17 +93,24 @@ func (s *StatsService) GetRouteStats(ctx context.Context, limit int) ([]domain.R
 
 	// Try cache first
 	if s.cache != nil {
-		if cached, err := s.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-			if stats, ok := cached.([]domain.RouteStat); ok {
-				s.logger.Debug("route stats cache hit", zap.String("key", cacheKey))
-				return stats, nil
+		cached, err := s.cache.Get(ctx, cacheKey)
+		if err != nil {
+			s.logger.Warn("cache get error", zap.String("key", cacheKey), zap.Error(err))
+		} else if cached != nil {
+			payload, err := json.Marshal(cached)
+			if err != nil {
+				s.logger.Warn("failed to marshal cached route stats", zap.String("key", cacheKey), zap.Error(err))
+				_ = s.cache.Delete(ctx, cacheKey)
+			} else {
+				var stats []domain.RouteStat
+				if err := json.Unmarshal(payload, &stats); err != nil {
+					s.logger.Warn("failed to unmarshal cached route stats", zap.String("key", cacheKey), zap.Error(err))
+					_ = s.cache.Delete(ctx, cacheKey)
+				} else {
+					s.logger.Debug("route stats cache hit", zap.String("key", cacheKey))
+					return stats, nil
+				}
 			}
-			// Type assertion failed - log warning and fetch fresh data
-			s.logger.Warn("cache type mismatch",
-				zap.String("key", cacheKey),
-				zap.String("expected_type", "[]domain.RouteStat"),
-				zap.String("actual_type", fmt.Sprintf("%T", cached)),
-			)
 		}
 	}
 

@@ -95,6 +95,8 @@ func TestStatsService_GetStats(t *testing.T) {
 		// Cache returns wrong type
 		mockCache.On("Get", ctx, mock.AnythingOfType("string")).
 			Return("invalid type", nil)
+		mockCache.On("Delete", ctx, mock.AnythingOfType("string")).
+			Return(nil)
 
 		expectedStats := &domain.TrafficSummary{
 			TotalMessages: 100,
@@ -111,6 +113,7 @@ func TestStatsService_GetStats(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expectedStats, result)
 		mockRepo.AssertExpectations(t)
+		mockCache.AssertExpectations(t)
 	})
 
 	t.Run("repository error", func(t *testing.T) {
