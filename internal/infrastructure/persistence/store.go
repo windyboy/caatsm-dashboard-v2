@@ -228,7 +228,7 @@ func (s *Store) buildSearchConditions(filter app.SearchFilters) (whereClause str
 	if !filter.TimeRange.End.IsZero() {
 		conditions = append(conditions, fmt.Sprintf("time <= $%d", argPos))
 		args = append(args, filter.TimeRange.End)
-		argPos++
+
 	}
 
 	if len(conditions) > 0 {

@@ -2,23 +2,17 @@ package cache
 
 import (
 	"context"
-
 	"crypto/tls"
-
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"strconv"
-
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
 	"github.com/redis/go-redis/v9/maintnotifications"
 
 	"github.com/windy/caatsm-dashboard/config"
-
 	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
