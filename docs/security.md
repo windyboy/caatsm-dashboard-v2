@@ -36,11 +36,13 @@ Always set `CAATSM_ENVIRONMENT` to the correct value. Production-specific checks
 - Use least-privilege accounts for databases and cloud resources.
 - Log secret _usage_ but never log the actual secret values.
 
+
 ### Supported secret backends
 
 - **Environment variables:** simplest approach; inject at runtime.
-- **AWS Secrets Manager:** use the provided adapter to fetch DSN, JWT secret, Meilisearch key, etc.
-- **HashiCorp Vault:** use the Vault adapter with token-based or workload identity auth.
+
+- **External secret managers (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager, etc.):** Fetch secrets with your deployment automation before startup—the application expects them as environment variables or mounted config and does not ship built-in adapters.
+
 
 Ensure the application can unwrap secrets before calling `cfg.Validate()`. Validation should run after every refresh to catch misconfigurations early.
 
@@ -123,11 +125,16 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
   - `http_request_duration_seconds`
   - `websocket_connections`
 
+
 ### Tracing
 
-- Configure OpenTelemetry exporter when `CAATSM_TRACING_ENABLED=true`.
-- Route traces to a secure endpoint (Jaeger, Tempo, etc.).
-- Capture spans for HTTP handlers, database operations, search calls, and streaming operations.
+
+
+- Tracing configuration flags exist, but exporter and instrumentation are not yet wired; keep `CAATSM_TRACING_ENABLED=false` until support is added.
+- Plan for a secure endpoint (Jaeger, Tempo, etc.) before turning telemetry on.
+
+- Capture spans for HTTP handlers, database operations, search calls, and streaming operations once instrumentation lands.
+
 
 ---
 
@@ -172,7 +179,7 @@ Perform this checklist before any production rollout:
 - [ ] Database, NATS, Redis, and Meilisearch credentials use least privilege.
 - [ ] `/api/health` integrated with liveness/readiness probes.
 - [ ] `/metrics` reachable only from monitoring network.
-- [ ] Tracing exporter configured or explicitly disabled.
+- [ ] `CAATSM_TRACING_ENABLED` set appropriately (keep false until instrumentation is delivered) and telemetry endpoint ready for future rollout.
 - [ ] System and application logs forwarded to central storage.
 - [ ] Disaster recovery plan verified (database backups, restore tested within last quarter).
 

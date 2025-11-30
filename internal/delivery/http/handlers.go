@@ -199,26 +199,10 @@ func (h *Handler) Export(c echo.Context) error {
 		return StreamCSV(c, stream, errCh)
 	}
 
-	// Fallback to non-streaming export for other formats or small datasets
-	data, err := h.dashboardSvc.Export(c.Request().Context(), filters, format)
-	if err != nil {
-		h.logger.Error("export failed", zap.Error(err))
-		return handleError(c, err)
-	}
-
-	// Set appropriate headers
-	contentType := "application/octet-stream"
-	filename := "telegrams." + formatStr
-
-	switch format {
-	case app.ExportFormatCSV:
-		contentType = "text/csv"
-	}
-
-	c.Response().Header().Set(echo.HeaderContentType, contentType)
-	c.Response().Header().Set("Content-Disposition", "attachment; filename="+filename)
-
-	return c.Blob(http.StatusOK, contentType, data)
+	// This point is unreachable since only CSV is supported
+	return c.JSON(http.StatusBadRequest, map[string]string{
+		"error": "unsupported format",
+	})
 }
 
 // Health handles GET /api/health - health check

@@ -13,7 +13,7 @@ import (
 
 // EventBroadcaster manages WebSocket connections and broadcasts events to all connected clients.
 type EventBroadcaster struct {
-	clients  map[chan []byte]bool
+	clients  map[chan []byte]bool // map value: true = active, false = closed
 	mu       sync.RWMutex
 	redisCli redis.UniversalClient
 	logger   *zap.Logger
@@ -51,15 +51,21 @@ func (b *EventBroadcaster) Subscribe() chan []byte {
 }
 
 // Unsubscribe removes a client from the broadcaster.
+// The caller is responsible for closing the channel after calling Unsubscribe.
+// This avoids race conditions where Broadcast might send on a channel that was
+// closed while holding the write lock.
 func (b *EventBroadcaster) Unsubscribe(client chan []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if _, ok := b.clients[client]; ok {
-		close(client)
+	// Map value: true = open/active, false = closed
+	if isOpen, ok := b.clients[client]; ok && isOpen {
+		// Mark as closed and remove from map
+		b.clients[client] = false
 		delete(b.clients, client)
 		b.logger.Debug("client unsubscribed", zap.Int("total_clients", len(b.clients)))
 	}
+	// Note: Caller must close the channel after Unsubscribe returns
 }
 
 // Broadcast sends an event to all connected clients.
@@ -78,6 +84,7 @@ func (b *EventBroadcaster) Broadcast(event []byte) {
 }
 
 // StartRedisListener starts listening to Redis pub/sub for stats update events.
+// This method blocks and should be called as a goroutine: go b.StartRedisListener()
 func (b *EventBroadcaster) StartRedisListener() {
 	b.wg.Add(1)
 	defer b.wg.Done()
@@ -188,13 +195,12 @@ func (b *EventBroadcaster) Close() {
 	b.wg.Wait()
 	b.logger.Info("Redis listener stopped")
 
-	// Close all WebSocket client channels
+	// Clear all client registrations
+	// Note: We do not close channels here to avoid race conditions with Broadcast.
+	// Channels should be closed by their owners (callers of Subscribe).
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for client := range b.clients {
-		close(client)
-	}
 	b.clients = make(map[chan []byte]bool)
 	b.logger.Info("all WebSocket clients disconnected")
 }

@@ -710,12 +710,7 @@ paths:
       responses:
         '101':
           description: WebSocket connection established
-          content:
-            application/json:
-              schema:
-                type: object
-                description: JSON messages streamed over WebSocket connection
-
+          # No content - this is a protocol switch to WebSocket
 security:
  - BasicAuth: []
 

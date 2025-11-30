@@ -166,10 +166,11 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 	return nil
 }
 
-// Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.SearchResult, error) {
+// buildSearchConditions builds WHERE conditions and arguments from SearchFilters.
+// Returns the WHERE clause (with "WHERE " prefix if conditions exist) and the args slice.
+// Maintains proper argPos sequence for parameterized queries.
+func (s *Store) buildSearchConditions(filter app.SearchFilters) (whereClause string, args []any) {
 	var conditions []string
-	var args []any
 	argPos := 1
 
 	if filter.Query != "" {
@@ -230,21 +231,28 @@ func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.Sear
 		argPos++
 	}
 
-	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
+	return whereClause, args
+}
 
-	limit := filter.Pagination.Limit
+// buildSearchQuery builds the final SELECT query with pagination and sorting.
+// Validates sort column and order, sets default limit/offset, and appends them to args.
+// Returns the formatted query string and the final args slice (with limit/offset appended).
+func (s *Store) buildSearchQuery(whereClause string, args []any, pagination app.Pagination) (query string, finalArgs []any) {
+	argPos := len(args) + 1
+
+	limit := pagination.Limit
 	if limit <= 0 {
 		limit = DefaultSearchLimit
 	}
-	offset := filter.Pagination.Offset
+	offset := pagination.Offset
 	if offset < 0 {
 		offset = 0
 	}
 
-	sortBy := filter.Pagination.SortBy
+	sortBy := pagination.SortBy
 	if sortBy == "" {
 		sortBy = "time"
 	}
@@ -261,13 +269,32 @@ func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.Sear
 		sortBy = "time"
 	}
 
-	order := filter.Pagination.Order
+	order := strings.ToUpper(pagination.Order)
 	if order == "" {
 		order = "DESC"
 	}
 	if order != "ASC" && order != "DESC" {
 		order = "DESC"
 	}
+
+	limitPlaceholder := fmt.Sprintf("$%d", argPos)
+	offsetPlaceholder := fmt.Sprintf("$%d", argPos+1)
+	finalArgs = append(args, limit, offset)
+
+	query = fmt.Sprintf(`
+		SELECT message_id, type, time, flight_number, source, destination, content, priority, raw_data
+		FROM telegrams
+		%s
+		ORDER BY %s %s
+		LIMIT %s OFFSET %s
+	`, whereClause, sortBy, order, limitPlaceholder, offsetPlaceholder)
+
+	return query, finalArgs
+}
+
+// Search performs a structured query over telegram records.
+func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.SearchResult, error) {
+	whereClause, args := s.buildSearchConditions(filter)
 
 	countQuery := "SELECT COUNT(*) FROM telegrams " + whereClause
 	var total int64
@@ -276,19 +303,9 @@ func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.Sear
 		return nil, fmt.Errorf("count telegrams: %w", err)
 	}
 
-	limitPlaceholder := fmt.Sprintf("$%d", argPos)
-	offsetPlaceholder := fmt.Sprintf("$%d", argPos+1)
-	args = append(args, limit, offset)
+	query, finalArgs := s.buildSearchQuery(whereClause, args, filter.Pagination)
 
-	query := fmt.Sprintf(`
-		SELECT message_id, type, time, flight_number, source, destination, content, priority, raw_data
-		FROM telegrams
-		%s
-		ORDER BY %s %s
-		LIMIT %s OFFSET %s
-	`, whereClause, sortBy, order, limitPlaceholder, offsetPlaceholder)
-
-	rows, err := s.pool.Query(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, finalArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("search telegrams: %w", err)
 	}
@@ -336,121 +353,10 @@ func (s *Store) StreamSearch(ctx context.Context, filter app.SearchFilters) (<-c
 		defer close(telegramCh)
 		defer close(errCh)
 
-		// Build query conditions (same logic as Search method)
-		var conditions []string
-		var args []any
-		argPos := 1
+		whereClause, args := s.buildSearchConditions(filter)
+		query, finalArgs := s.buildSearchQuery(whereClause, args, filter.Pagination)
 
-		if filter.Query != "" {
-			conditions = append(conditions, fmt.Sprintf("(content ILIKE $%d OR flight_number ILIKE $%d OR message_id ILIKE $%d)", argPos, argPos, argPos))
-			args = append(args, "%"+filter.Query+"%")
-			argPos++
-		}
-
-		if len(filter.Types) > 0 {
-			placeholders := make([]string, len(filter.Types))
-			for i, t := range filter.Types {
-				placeholders[i] = fmt.Sprintf("$%d", argPos)
-				args = append(args, t)
-				argPos++
-			}
-			conditions = append(conditions, fmt.Sprintf("type IN (%s)", strings.Join(placeholders, ",")))
-		}
-
-		if len(filter.Sources) > 0 {
-			placeholders := make([]string, len(filter.Sources))
-			for i, src := range filter.Sources {
-				placeholders[i] = fmt.Sprintf("$%d", argPos)
-				args = append(args, src)
-				argPos++
-			}
-			conditions = append(conditions, fmt.Sprintf("source IN (%s)", strings.Join(placeholders, ",")))
-		}
-
-		if len(filter.Destinations) > 0 {
-			placeholders := make([]string, len(filter.Destinations))
-			for i, dst := range filter.Destinations {
-				placeholders[i] = fmt.Sprintf("$%d", argPos)
-				args = append(args, dst)
-				argPos++
-			}
-			conditions = append(conditions, fmt.Sprintf("destination IN (%s)", strings.Join(placeholders, ",")))
-		}
-
-		if len(filter.Priorities) > 0 {
-			placeholders := make([]string, len(filter.Priorities))
-			for i, p := range filter.Priorities {
-				placeholders[i] = fmt.Sprintf("$%d", argPos)
-				args = append(args, p)
-				argPos++
-			}
-			conditions = append(conditions, fmt.Sprintf("priority IN (%s)", strings.Join(placeholders, ",")))
-		}
-
-		if !filter.TimeRange.Start.IsZero() {
-			conditions = append(conditions, fmt.Sprintf("time >= $%d", argPos))
-			args = append(args, filter.TimeRange.Start)
-			argPos++
-		}
-
-		if !filter.TimeRange.End.IsZero() {
-			conditions = append(conditions, fmt.Sprintf("time <= $%d", argPos))
-			args = append(args, filter.TimeRange.End)
-			argPos++
-		}
-
-		whereClause := ""
-		if len(conditions) > 0 {
-			whereClause = "WHERE " + strings.Join(conditions, " AND ")
-		}
-
-		limit := filter.Pagination.Limit
-		if limit <= 0 {
-			limit = DefaultSearchLimit
-		}
-		offset := filter.Pagination.Offset
-		if offset < 0 {
-			offset = 0
-		}
-
-		sortBy := filter.Pagination.SortBy
-		if sortBy == "" {
-			sortBy = "time"
-		}
-		allowedSortColumns := map[string]bool{
-			"time":          true,
-			"priority":      true,
-			"message_id":    true,
-			"type":          true,
-			"flight_number": true,
-			"source":        true,
-			"destination":   true,
-		}
-		if !allowedSortColumns[sortBy] {
-			sortBy = "time"
-		}
-
-		order := strings.ToUpper(filter.Pagination.Order)
-		if order == "" {
-			order = "DESC"
-		}
-		if order != "ASC" && order != "DESC" {
-			order = "DESC"
-		}
-
-		limitPlaceholder := fmt.Sprintf("$%d", argPos)
-		offsetPlaceholder := fmt.Sprintf("$%d", argPos+1)
-		args = append(args, limit, offset)
-
-		query := fmt.Sprintf(`
-			SELECT message_id, type, time, flight_number, source, destination, content, priority, raw_data
-			FROM telegrams
-			%s
-			ORDER BY %s %s
-			LIMIT %s OFFSET %s
-		`, whereClause, sortBy, order, limitPlaceholder, offsetPlaceholder)
-
-		rows, err := s.pool.Query(ctx, query, args...)
+		rows, err := s.pool.Query(ctx, query, finalArgs...)
 		if err != nil {
 			errCh <- fmt.Errorf("search telegrams: %w", err)
 			return

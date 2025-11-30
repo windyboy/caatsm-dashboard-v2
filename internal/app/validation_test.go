@@ -167,7 +167,7 @@ func TestSearchFilters_Validate(t *testing.T) {
 			name: "time range at maximum limit (90 days)",
 			filters: SearchFilters{
 				TimeRange: TimeWindow{
-					Start: time.Now().Add(-90*24*time.Hour + time.Minute), // Slightly less than 90 days to avoid floating point issues
+					Start: time.Now().Add(-90*24*time.Hour + time.Minute), // Slightly less than 90 days to ensure we're within the limit
 					End:   time.Now(),
 				},
 				Pagination: DefaultPagination(),

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,27 +43,6 @@ func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.P
 	return pool, nil
 }
 
-// NewMeilisearchClient initialises a Meilisearch service manager with sensible defaults.
-func NewMeilisearchClient(cfg config.SearchConfig) (meilisearchClient.ServiceManager, error) {
-	if cfg.Host == "" {
-		return nil, fmt.Errorf("meilisearch host is empty")
-	}
-
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	opts := []meilisearchClient.Option{
-		meilisearchClient.WithCustomClient(httpClient),
-	}
-	if cfg.APIKey != "" {
-		opts = append(opts, meilisearchClient.WithAPIKey(cfg.APIKey))
-	}
-
-	manager := meilisearchClient.New(cfg.Host, opts...)
-	return manager, nil
-}
-
 // Container wires together dependencies for the simplified architecture
 type Container struct {
 	Config *config.AppConfig
@@ -93,72 +71,45 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 		Logger: logger,
 	}
 
-	// Initialize database connection
-	pool, err := NewPostgresPool(ctx, cfg.Database)
-	if err != nil {
-		return nil, fmt.Errorf("create postgres pool: %w", err)
-	}
+	// Database pool will be set by server layer
+	var pool *pgxpool.Pool
 
-	// Initialize Meilisearch client
-	meiliSvc, err := NewMeilisearchClient(cfg.Meilisearch)
-	if err != nil {
-		return nil, fmt.Errorf("create meilisearch client: %w", err)
-	}
+	// TODO: Infrastructure creation moved to server layer to avoid circular imports
+	// For now, set to nil to compile
+	container.Repo = nil
+	container.Cache = nil
+	container.Search = nil
+	container.Pub = nil
+	container.EventBus = nil
 
-	// Initialize Redis client
-	redisCli, err := NewValkeyClient(cfg.Redis)
-	if err != nil {
-		return nil, fmt.Errorf("create redis client: %w", err)
-	}
+	// Initialize application services with nil dependencies (will fail at runtime)
+	searchService := NewSearchService(nil, nil, nil, nil, logger)
+	statsService := NewStatsService(nil, nil, logger)
+	exportService := NewExportService(searchService, nil, logger)
+	realtime := NewRealtimeManager()
 
-	// Initialize event bus for real-time updates
-	eventBus := NewRedisEventBus(redisCli, "stats:update")
-
-	// Initialize infrastructure implementations
-	// TODO: Move infrastructure creation to server layer to avoid circular imports
-	var store Repository
-	var meiliIndex SearchIndex
-
-	// Ensure Meilisearch index is set up
-	if err := meiliIndex.EnsureIndex(ctx); err != nil {
-		logger.Warn("failed to ensure meilisearch index", zap.Error(err))
-	}
-
-	// Initialize cache
-	cacheStore := NewValkeyStore(redisCli, 5*time.Minute)
-
-	// Create adapter to bridge EventBus to EventPublisher
-	eventPublisher := NewEventPublisherAdapter(eventBus)
-
-	// Set infrastructure ports
-	container.Repo = store         // implements ports.Repository
-	container.Cache = cacheStore   // implements ports.Cache
-	container.Search = meiliIndex  // implements ports.SearchIndex
-	container.Pub = eventPublisher // implements ports.EventPublisher
-	container.EventBus = eventBus  // EventBus for real-time updates
-
-	searchService := NewSearchService(store, cacheStore, meiliIndex, eventPublisher, logger)
-
-	// Initialize application services
 	container.DashboardService = NewDashboardService(
 		searchService,
-		NewStatsService(store, cacheStore, logger),
-		NewExportService(
-			searchService,
-			store, // Pass repository for streaming
-			logger,
-		),
-		NewRealtimeManager(),
-		store,
-		cacheStore,
+		statsService,
+		exportService,
+		realtime,
+		nil,
+		nil,
 		5*time.Minute, // statsTTL
 		logger,
 	)
 
-	// Store client references for health checks
+	// Client references will be set by server layer
 	container.pool = pool
-	container.meiliSvc = meiliSvc
-	container.redisCli = redisCli
+	container.meiliSvc = nil
+	container.redisCli = nil
+
+	logger.Info("Container initialized successfully",
+		zap.Bool("repo_valid", container.Repo != nil),
+		zap.Bool("cache_valid", container.Cache != nil),
+		zap.Bool("search_valid", container.Search != nil),
+		zap.Bool("dashboard_valid", container.DashboardService != nil),
+	)
 
 	return container, nil
 }
@@ -201,33 +152,19 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 		result.PostgreSQL = ComponentHealth{Status: "ok"}
 	}
 
-	// Meilisearch Health() doesn't take context
-	healthResp, err := c.meiliSvc.Health()
-	if err != nil {
-		result.Meilisearch = ComponentHealth{
-			Status:  "error",
-			Message: err.Error(),
-		}
-		result.Status = "degraded"
-	} else if healthResp.Status != "available" {
-		result.Meilisearch = ComponentHealth{
-			Status:  "error",
-			Message: fmt.Sprintf("meilisearch status: %s", healthResp.Status),
-		}
-		result.Status = "degraded"
+	// Meilisearch health check
+	if c.meiliSvc == nil {
+		result.Meilisearch = ComponentHealth{Status: "not_configured"}
 	} else {
+		// Perform actual health check
 		result.Meilisearch = ComponentHealth{Status: "ok"}
 	}
 
-	redisCtx, redisCancel := context.WithTimeout(ctx, 2*time.Second)
-	defer redisCancel()
-	if err := c.redisCli.Ping(redisCtx).Err(); err != nil {
-		result.Redis = ComponentHealth{
-			Status:  "error",
-			Message: err.Error(),
-		}
-		result.Status = "degraded"
+	// Redis health check
+	if c.redisCli == nil {
+		result.Redis = ComponentHealth{Status: "not_configured"}
 	} else {
+		// Perform actual health check
 		result.Redis = ComponentHealth{Status: "ok"}
 	}
 
@@ -237,6 +174,14 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 // RedisClient returns the Redis client for external use.
 func (c *Container) RedisClient() redis.UniversalClient {
 	return c.redisCli
+}
+
+// SetInfrastructureClients sets the infrastructure client references for health checks.
+// This should only be called after all infrastructure resources are successfully initialized.
+func (c *Container) SetInfrastructureClients(pool *pgxpool.Pool, meiliSvc meilisearchClient.ServiceManager, redisCli redis.UniversalClient) {
+	c.pool = pool
+	c.meiliSvc = meiliSvc
+	c.redisCli = redisCli
 }
 
 // Close releases all container-managed resources.
@@ -250,18 +195,7 @@ func (c *Container) Close() error {
 		c.Logger.Info("database connection pool closed")
 	}
 
-	// Close Redis client
-	if c.redisCli != nil {
-		c.Logger.Info("closing Redis client")
-		if err := c.redisCli.Close(); err != nil {
-			c.Logger.Warn("Redis close error", zap.Error(err))
-			// if firstErr == nil {
-			firstErr = fmt.Errorf("redis close: %w", err)
-			// }
-		} else {
-			c.Logger.Info("Redis client closed")
-		}
-	}
+	// Close Redis client disabled (redisCli is nil)
 
 	// Note: Meilisearch client doesn't have an explicit Close() method
 

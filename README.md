@@ -4,27 +4,27 @@ CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviatio
 
 ## Highlights
 
-- Fast Go backend with Echo
-- Realtime ingestion through NATS JetStream and background workers
-- PostgreSQL + TimescaleDB for analytics
-- Meilisearch for full text search and autocomplete
-- Valkey/Redis cache for hot data
-- WebSocket updates with backpressure control
-- Streaming CSV export that handles large result sets
-- Prometheus metrics, OpenTelemetry traces, structured logging
-- Rate limiting (10 requests per second by default)
-- Production config safety checks and 90-day time range guard
+- Go backend powered by Echo with consistent request validation
+- NATS JetStream ingestion processed by the sync worker
+- PostgreSQL (TimescaleDB-compatible image) storage via pgx
+- Meilisearch full-text search with typed autocomplete suggestions
+- Valkey/Redis cache for stats, counters, and realtime fan-out
+- WebSocket hub with backpressure protection and 10 req/sec rate limiting
+- Streaming CSV export backed by repository-level streaming
+- Prometheus metrics and structured Zap logging
+- Config guards enforcing TLS/auth secrets and 90-day time windows
 
 ## Clean Architecture Layout
 
-The code follows a four-layer Clean Architecture pattern:
+The code follows a pragmatic layered architecture:
 
 1. **Delivery** (`internal/delivery/`): HTTP and WebSocket handlers plus validation.
-2. **Application** (`internal/app/`): Services, ports, and the dependency container.
-3. **Domain** (`internal/domain/`): Entities, value objects, business rules, and events. No external imports.
-4. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and WebSocket hub.
+2. **Application** (`internal/app/`): Services, domain models, ports, and the dependency container. This layer owns business rules such as validation, pagination guards, and stats aggregation.
+3. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and the WebSocket hub that satisfy the application ports.
 
-Dependencies always flow inward. Infrastructure implements the interfaces from `internal/app/ports/` directly. No repository wrapper package remains.
+Dependencies always flow inward. Infrastructure implements the interfaces from `internal/app/ports.go` directly, and there are no repository wrapper packages.
+
+Domain-specific validation and DTOs live alongside services in `internal/app/`, keeping business logic close to the ports that expose it.
 
 Extra support packages:
 
@@ -48,8 +48,8 @@ Extra support packages:
 1. Clone the repo:
 
    ```
-   git clone https://github.com/windy/caatsm-dashboard.git
-   cd caatsm-dashboard
+   git clone https://github.com/windyboy/caatsm-dashboard-v2.git
+   cd caatsm-dashboard-v2
    ```
 
 2. Install dependencies:
@@ -68,7 +68,11 @@ Extra support packages:
    task dev:config
    ```
 
-   This copies `.env.local` from the example file.
+
+
+   This copies `env.local.example` to `.env.local` if it doesn't exist and keeps `config/config.local.toml` as the per-machine override file.
+
+
 
 4. Start dependencies (Postgres, Meilisearch, Valkey, NATS):
 
@@ -192,8 +196,8 @@ make test-race        # go test with race detector
 Run specific packages:
 
 ```
-go test ./internal/domain -v
-go test ./internal/app/services -v
+go test ./internal/app -v
+go test ./internal/infrastructure/persistence -v
 ```
 
 ### Frontend
@@ -224,29 +228,44 @@ Using Makefile:
 - `make clean`
 - `make help`
 
+
 Using Taskfile:
 
+
+
 - `task build`
+
 - `task dev`
+
+- `task dev:run`
 - `task lint`
+
 - `task migrate`
-- `task sync`
-- `task docker:up`
-- `task docker:down`
+
+- `task dev:up`
+- `task dev:down`
 - `task generate-test-data`
+
 - `task publish-stream` (slow/fast variants available)
+
+
 
 ## REST API Outline
 
+
+
+- `GET /api/dashboard`
 - `GET /api/search`
+
 - `POST /api/search`
-- `GET /api/autocomplete`
-- `GET /api/stats/total`
-- `GET /api/stats/priority`
-- `GET /api/stats/type`
+
+- `GET /api/stats`
 - `GET /api/export` (CSV streaming)
+- `GET /api/autocomplete`
+
 - `GET /api/health`
 - `GET /metrics`
+
 
 Full schemas live in `api/openapi.yaml`.
 
@@ -304,23 +323,26 @@ Kubernetes manifests are under `deploy/`.
 - Metrics at `/metrics` (Prometheus scrape target):
   - `telegrams_ingested_total`
   - `search_latency_seconds`
-  - `http_requests_total`
-  - `websocket_connections`
+  - Optional WebSocket metrics (`websocket_messages_*`) when hub metrics are enabled.
 
-- OpenTelemetry tracing:
-  - Configure via `[tracing]` block in config.
-  - Export to OTLP endpoint (Jaeger, Zipkin, etc).
+- Tracing configuration keys exist in `config`. Exporter wiring is still pending, but production validation requires `tracing.enabled=true`; keep it false in other environments until instrumentation ships.
 
-- Structured logging uses correlation IDs.
+- Structured logging uses correlation IDs via the Echo middleware stack.
+
 
 ## Security Notes
 
-- Enforce HTTPS in prod (TLS 1.3).
-- Do not ship with default API keys or passwords.
-- Use environment variables or secret managers for sensitive data.
-- Rate limit endpoints (default 10 req/sec; adjustable).
-- Validate inputs and restrict sortable fields to whitelisted values.
-- Streaming export uses chunking to prevent memory spikes.
+
+
+- Enforce HTTPS in production (TLS 1.3) and satisfy the config guard checks for TLS, auth, and non-default secrets.
+
+- Enable Basic Auth (`auth.enable_basic`) or provide a JWT secret before exposing the API.
+- Rotate database, Redis, and Meilisearch credentials; never ship default passwords or keys.
+- Store secrets in environment variables or a managed secret store instead of the repo.
+- Keep request throttling enabled (default 10 req/sec) and monitor before adjusting.
+- Respect the 90-day time window guard and validated sort fields to block unbounded queries.
+- CSV export streams in chunks to cap memory usage; prefer temporary storage for downloaded files.
+
 
 For full guidance see `docs/security.md`.
 

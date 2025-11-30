@@ -7,7 +7,7 @@
     "unocss:build": "unocss \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
   },
   "dependencies": {
-    "@modelcontextprotocol/server-github": "^2025.4.8",
+    "@modelcontextprotocol/server-github": "2025.1.23",
     "@sveltejs/mcp": "^0.1.11"
   },
   "devDependencies": {

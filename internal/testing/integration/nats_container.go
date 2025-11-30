@@ -12,14 +12,14 @@ import (
 
 // NATSContainer wraps a NATS testcontainer
 type NATSContainer struct {
-	Container testcontainers.Container
+	container testcontainers.Container
 	URI       string
 }
 
 // NewNATSContainer creates and starts a NATS container with JetStream enabled
 func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "nats:2.11-alpine",
+		Image:        "nats:2.12.2-alpine",
 		ExposedPorts: []string{"4222/tcp"},
 		Cmd:          []string{"-js"}, // Enable JetStream
 		WaitingFor: wait.ForAll(
@@ -51,7 +51,7 @@ func NewNATSContainer(ctx context.Context) (*NATSContainer, error) {
 	uri := fmt.Sprintf("nats://%s:%s", host, port.Port())
 
 	return &NATSContainer{
-		Container: container,
+		container: container,
 		URI:       uri,
 	}, nil
 }
@@ -73,8 +73,8 @@ func (c *NATSContainer) Connect() (*nats.Conn, error) {
 
 // Close terminates the container
 func (c *NATSContainer) Close(ctx context.Context) error {
-	if c.Container != nil {
-		return c.Container.Terminate(ctx)
+	if c.container != nil {
+		return c.container.Terminate(ctx)
 	}
 	return nil
 }

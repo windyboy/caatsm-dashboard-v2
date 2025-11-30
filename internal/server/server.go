@@ -7,12 +7,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	meilisearchClient "github.com/meilisearch/meilisearch-go"
+	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
@@ -55,13 +60,37 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	}
 
 	// Initialize infrastructure implementations in server layer to avoid circular imports
-	pool, err := app.NewPostgresPool(initCtx, cfg.Database)
+	// Track created resources for cleanup on error
+	var pool *pgxpool.Pool
+	var meiliSvc meilisearchClient.ServiceManager
+	var redisCli redis.UniversalClient
+	var broadcaster *deliveryws.EventBroadcaster
+
+	// Cleanup function to close all created resources on error
+	cleanup := func() {
+		if pool != nil {
+			pool.Close()
+		}
+		if redisCli != nil {
+			if err := redisCli.Close(); err != nil {
+				logger.Warn("failed to close redis client during cleanup", zap.Error(err))
+			}
+		}
+		if broadcaster != nil {
+			broadcaster.Close()
+		}
+		// Note: Meilisearch client doesn't have an explicit Close() method
+	}
+
+	pool, err = app.NewPostgresPool(initCtx, cfg.Database)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
 
-	meiliSvc, err := app.NewMeilisearchClient(cfg.Meilisearch)
+	meiliSvc, err = search.NewMeilisearchClient(cfg.Meilisearch)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("create meilisearch client: %w", err)
 	}
 
@@ -73,9 +102,32 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		logger.Warn("failed to ensure meilisearch index", zap.Error(err))
 	}
 
-	// Set infrastructure ports
+	redisCli, err = cache.NewValkeyClient(cfg.Redis)
+	if err != nil {
+		cleanup()
+		return nil, fmt.Errorf("create redis client: %w", err)
+	}
+
+	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
+	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
+	eventPublisher := event.NewEventPublisherAdapter(eventBus)
+
+	// Create event broadcaster for WebSocket (before assigning to container)
+	broadcaster = deliveryws.NewEventBroadcaster(redisCli, logger)
+	logger.Info("redis client available for WebSocket")
+	go broadcaster.StartRedisListener()
+	logger.Info("started Redis listener goroutine")
+
+	// Only assign to container after all initializations succeed
+	// This transfers ownership and prevents double-close
 	container.Repo = store
+	container.Cache = cacheStore
 	container.Search = meiliIndex
+	container.Pub = eventPublisher
+	container.EventBus = eventBus
+
+	// Set client references for health checks
+	container.SetInfrastructureClients(pool, meiliSvc, redisCli)
 
 	// Only create metrics exporter if metrics are enabled
 	var metricsExporter *observability.MetricsExporter
@@ -85,17 +137,6 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	} else {
 		logger.Info("metrics disabled")
 	}
-
-	// Create event broadcaster for WebSocket
-	redisCli := container.RedisClient()
-	if redisCli == nil {
-		logger.Warn("redis client is nil, WebSocket real-time updates will not work")
-	} else {
-		logger.Info("redis client available for WebSocket")
-	}
-	broadcaster := deliveryws.NewEventBroadcaster(redisCli, logger)
-	go broadcaster.StartRedisListener()
-	logger.Info("started Redis listener goroutine")
 
 	s := &Server{
 		e:           e,

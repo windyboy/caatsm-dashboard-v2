@@ -3,12 +3,14 @@ package streaming
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
@@ -112,25 +114,87 @@ func (c *Consumer) EnsureConsumer(ctx context.Context) error {
 
 	_, err := c.js.AddConsumer(c.stream, cfg)
 	if err != nil {
-		// Consumer might already exist, try to delete and recreate
-		if strings.Contains(err.Error(), "consumer name already in use") {
-			// Delete existing consumer
-			if deleteErr := c.js.DeleteConsumer(c.stream, c.consumer); deleteErr != nil {
-				// If delete fails, consumer might be in use or doesn't exist
-				// Return original error
-				return fmt.Errorf("ensure consumer: %w (delete failed: %v)", err, deleteErr)
+		// Consumer already exists - fetch and compare configuration
+		// Check for consumer name already in use error using typed error comparison
+		if errors.Is(err, jetstream.ErrConsumerNameAlreadyInUse) || errors.Is(err, jetstream.ErrConsumerExists) {
+			info, fetchErr := c.js.ConsumerInfo(c.stream, c.consumer)
+			if fetchErr != nil {
+				return fmt.Errorf("ensure consumer: failed to fetch existing consumer info: %w (original error: %w)", fetchErr, err)
 			}
-			// Try to create again after deletion
-			_, err = c.js.AddConsumer(c.stream, cfg)
-			if err != nil {
-				return fmt.Errorf("recreate consumer: %w", err)
+
+			existing := info.Config
+			if c.compareConsumerConfig(&existing, cfg) {
+				// Configuration matches - log info and return success
+				if c.logger != nil {
+					c.logger.Info("consumer already exists with matching configuration",
+						zap.String("stream", c.stream),
+						zap.String("consumer", c.consumer),
+					)
+				} else {
+					log.Printf("INFO: consumer already exists with matching configuration: stream=%s consumer=%s", c.stream, c.consumer)
+				}
+				return nil
 			}
-			return nil
+
+			// Configuration differs - log differences and return error for caller to decide
+			diff := c.diffConsumerConfig(&existing, cfg)
+			if c.logger != nil {
+				c.logger.Warn("consumer exists with different configuration",
+					zap.String("stream", c.stream),
+					zap.String("consumer", c.consumer),
+					zap.String("differences", diff),
+					zap.Bool("has_active_subscriptions", info.NumPending > 0 || info.NumAckPending > 0),
+				)
+			} else {
+				log.Printf("WARN: consumer exists with different configuration: stream=%s consumer=%s differences=%s has_active_subscriptions=%v",
+					c.stream, c.consumer, diff, info.NumPending > 0 || info.NumAckPending > 0)
+			}
+
+			return fmt.Errorf("ensure consumer: existing consumer has different configuration (differences: %s). manual intervention required to avoid message loss", diff)
 		}
 		return fmt.Errorf("ensure consumer: %w", err)
 	}
 
 	return nil
+}
+
+// compareConsumerConfig compares two consumer configurations and returns true if they match.
+func (c *Consumer) compareConsumerConfig(existing, desired *nats.ConsumerConfig) bool {
+	return existing.Durable == desired.Durable &&
+		existing.DeliverPolicy == desired.DeliverPolicy &&
+		existing.AckPolicy == desired.AckPolicy &&
+		existing.AckWait == desired.AckWait &&
+		existing.MaxDeliver == desired.MaxDeliver &&
+		existing.MaxWaiting == desired.MaxWaiting
+}
+
+// diffConsumerConfig returns a human-readable string describing configuration differences.
+func (c *Consumer) diffConsumerConfig(existing, desired *nats.ConsumerConfig) string {
+	var diffs []string
+
+	if existing.Durable != desired.Durable {
+		diffs = append(diffs, fmt.Sprintf("Durable: %s != %s", existing.Durable, desired.Durable))
+	}
+	if existing.DeliverPolicy != desired.DeliverPolicy {
+		diffs = append(diffs, fmt.Sprintf("DeliverPolicy: %v != %v", existing.DeliverPolicy, desired.DeliverPolicy))
+	}
+	if existing.AckPolicy != desired.AckPolicy {
+		diffs = append(diffs, fmt.Sprintf("AckPolicy: %v != %v", existing.AckPolicy, desired.AckPolicy))
+	}
+	if existing.AckWait != desired.AckWait {
+		diffs = append(diffs, fmt.Sprintf("AckWait: %v != %v", existing.AckWait, desired.AckWait))
+	}
+	if existing.MaxDeliver != desired.MaxDeliver {
+		diffs = append(diffs, fmt.Sprintf("MaxDeliver: %d != %d", existing.MaxDeliver, desired.MaxDeliver))
+	}
+	if existing.MaxWaiting != desired.MaxWaiting {
+		diffs = append(diffs, fmt.Sprintf("MaxWaiting: %d != %d", existing.MaxWaiting, desired.MaxWaiting))
+	}
+
+	if len(diffs) == 0 {
+		return "none"
+	}
+	return strings.Join(diffs, "; ")
 }
 
 // Start begins processing messages.
@@ -182,8 +246,18 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			for _, msg := range msgs {
 				var telegram app.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
-					if ackErr := msg.Ack(); ackErr != nil {
-						c.logAckError("ack after unmarshal failure", msg, ackErr, nil)
+					if c.logger != nil {
+						c.logger.Warn("failed to unmarshal telegram",
+							zap.Error(err),
+							zap.String("subject", msg.Subject),
+							zap.ByteString("data_preview", msg.Data[:min(100, len(msg.Data))]),
+						)
+					}
+					// NAK to allow retry - unmarshal failures may be temporary
+					// (e.g., schema mismatch during deployment, code bugs)
+					// MaxDeliver limit (10) prevents infinite retries
+					if nakErr := msg.Nak(); nakErr != nil {
+						c.logNakError("nak after unmarshal failure", msg, nakErr, err, "")
 					}
 					continue
 				}

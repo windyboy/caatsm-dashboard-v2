@@ -2,8 +2,8 @@
   @component SearchResults
   Displays search results for telegram messages.
 
-  @param {Telegram[]} telegrams - Array of telegram messages to display
-  @param {number} total - Total number of results available
+  @param {Telegram[] | null} [telegrams] - Array of telegram messages to display (optional, defaults to empty array if null/undefined)
+  @param {number} [total] - Total number of results available (optional, defaults to 0 if undefined)
 -->
 
 <script lang="ts">

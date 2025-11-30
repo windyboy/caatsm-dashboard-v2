@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -41,7 +42,7 @@ func ProductionConfigGuardMiddleware(cfg config.AppConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// In production, ensure TLS is enabled
-			if cfg.Environment == "production" && !cfg.Server.TLSEnabled {
+			if cfg.Environment == "production" && (!cfg.Server.TLSEnabled || !c.IsTLS()) {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "production: TLS must be enabled")
 			}
 
@@ -68,11 +69,12 @@ func BasicAuthMiddleware(cfg config.AuthConfig) echo.MiddlewareFunc {
 			}
 		}
 	}
-
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			username, password, ok := c.Request().BasicAuth()
-			if !ok || username != cfg.Username || password != cfg.Password {
+			if !ok ||
+				subtle.ConstantTimeCompare([]byte(username), []byte(cfg.Username)) != 1 ||
+				subtle.ConstantTimeCompare([]byte(password), []byte(cfg.Password)) != 1 {
 				return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 			}
 			return next(c)

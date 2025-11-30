@@ -46,7 +46,10 @@ func (m *SearchIndexMock) Search(ctx context.Context, query string, filter strin
 }
 
 // SearchAutocomplete mocks the SearchAutocomplete method
-func (m *SearchIndexMock) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error) {
+func (m *SearchIndexMock) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (*app.AutocompleteResponse, error) {
 	args := m.Called(ctx, query, limit, attributes)
-	return args.Get(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*app.AutocompleteResponse), args.Error(1)
 }

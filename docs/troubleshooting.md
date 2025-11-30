@@ -8,13 +8,13 @@ This guide helps you find and fix common issues in the CAATSM Dashboard stack. F
 
 Run these commands from the project root to verify that the core services are alive:
 
-```/dev/null/health-check.sh#L1-6
+```bash
 curl -f http://localhost:3002/api/health
 curl -f http://localhost:7700/health
 redis-cli ping
 nats server check
-psql postgres://caatsm:caatsm@localhost:5432/caatsm -c "SELECT 1"
-task sync:status
+psql "$CAATSM_DATABASE_DSN" -c "SELECT 1"
+task dev:logs
 ```
 
 If any command fails, jump to the matching section below.
@@ -33,7 +33,7 @@ If any command fails, jump to the matching section below.
 1. Run `make dev` in a dedicated terminal.
 2. Watch the log output to confirm “server listening on”.
 
-```/dev/null/backend-logs.sh#L1-3
+```bash
 make dev
 # In another terminal:
 tail -f logs/backend.log
@@ -53,7 +53,7 @@ tail -f logs/backend.log
 
 **Diagnostics**
 
-```/dev/null/db-diagnostics.sh#L1-5
+```bash
 make dev-up
 psql "$CAATSM_DATABASE_DSN" -c "SELECT version();"
 psql "$CAATSM_DATABASE_DSN" -c "SELECT COUNT(*) FROM telegrams;"
@@ -78,7 +78,7 @@ psql "$CAATSM_DATABASE_DSN" -c "SELECT * FROM pg_stat_activity;"
 
 **Steps**
 
-```/dev/null/meili-check.sh#L1-4
+```bash
 curl -f http://localhost:7700/health
 curl -f http://localhost:7700/indexes/telegrams/stats
 curl -f -H "Authorization: Bearer $CAATSM_MEILISEARCH_API_KEY" \
@@ -102,10 +102,10 @@ curl -f -H "Authorization: Bearer $CAATSM_MEILISEARCH_API_KEY" \
 
 **Troubleshooting**
 
-```/dev/null/redis-check.sh#L1-3
+```bash
 redis-cli -u "$CAATSM_REDIS_ADDR" ping
 redis-cli monitor
-task sync:status
+task dev:logs
 ```
 
 **Corrective Actions**
@@ -126,7 +126,7 @@ task sync:status
 
 **Steps**
 
-```/dev/null/nats-diagnostics.sh#L1-4
+```bash
 nats server check
 nats stream info telegrams
 nats consumer info telegrams dashboard-sync
@@ -153,7 +153,7 @@ task publish-stream:fast
 2. Check backend logs for “websocket hub” messages.
 3. Inspect metrics:
 
-```/dev/null/ws-metrics.sh#L1-2
+```bash
 curl http://localhost:3002/metrics | grep websocket
 curl http://localhost:3002/metrics | grep backpressure
 ```
@@ -175,7 +175,7 @@ curl http://localhost:3002/metrics | grep backpressure
 
 **Checklist**
 
-```/dev/null/frontend-fix.sh#L1-6
+```bash
 cd frontend
 deno cache --reload
 npm install        # only if using Node.js
@@ -227,7 +227,7 @@ npm run dev        # or deno task dev
 
 If multiple services are failing or data is inconsistent:
 
-```/dev/null/reset.sh#L1-6
+```bash
 make dev-down
 docker compose -f docker-compose.dev.yml down -v
 docker compose -f docker-compose.dev.yml up -d

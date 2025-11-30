@@ -87,7 +87,7 @@ export class WebSocketClient {
   }
 
   private setupVisibilityHandling(): void {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || typeof document === "undefined") return;
 
     this.visibilityHandler = () => {
       if (document.hidden) {
@@ -360,6 +360,10 @@ export class WebSocketClient {
     this.setStatus("reconnecting");
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
+      if (this.isPaused) {
+        logger.debug("Reconnection skipped, connection is paused");
+        return;
+      }
       logger.debug("Executing reconnection attempt", {
         attempt: this.reconnectAttempts,
       });
@@ -390,6 +394,10 @@ export class WebSocketClient {
     this.isPaused = true;
     logger.info("Pausing WebSocket connection");
     this.stopPing();
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;

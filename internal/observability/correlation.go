@@ -4,9 +4,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
+)
+
+var (
+	// correlationCounter is an atomically incremented counter used to ensure
+	// uniqueness in fallback correlation ID generation under high concurrency.
+	correlationCounter uint64
 )
 
 // CorrelationIDMiddleware enhances requests with correlation IDs that flow through all layers.
@@ -37,20 +45,24 @@ func CorrelationIDMiddleware() echo.MiddlewareFunc {
 
 // generateCorrelationID creates a unique correlation ID.
 // It uses crypto/rand for secure random generation, with a time-based fallback
-// if the random source is unavailable.
+// if the random source is unavailable. The fallback combines timestamp, process ID,
+// and an atomic counter (plus any partial random bytes) to guarantee uniqueness
+// under high concurrency.
 func generateCorrelationID() string {
 	b := make([]byte, 8)
 	n, err := rand.Read(b)
 	if err != nil {
-		// Fallback: use time-based ID to ensure uniqueness
-		// Combine timestamp with any partial bytes read
+		// Fallback: combine timestamp, PID, atomic counter, and partial bytes
+		// to ensure uniqueness under high concurrency
 		timestamp := time.Now().UnixNano()
+		pid := uint64(os.Getpid())
+		counter := atomic.AddUint64(&correlationCounter, 1)
 		if n > 0 {
-			// Mix partial random bytes with timestamp for better uniqueness
-			return fmt.Sprintf("%016x-%s", timestamp, hex.EncodeToString(b[:n]))
+			// Include partial random bytes if available
+			return fmt.Sprintf("%016x-%08x-%016x-%s", timestamp, pid, counter, hex.EncodeToString(b[:n]))
 		}
-		// Pure time-based fallback if no bytes were read
-		return fmt.Sprintf("%016x", timestamp)
+		// Deterministic concatenation: timestamp + pid + counter
+		return fmt.Sprintf("%016x-%08x-%016x", timestamp, pid, counter)
 	}
 	return hex.EncodeToString(b)
 }

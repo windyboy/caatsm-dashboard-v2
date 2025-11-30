@@ -54,20 +54,22 @@ test.describe("Accessibility Tests", () => {
       .locator('input[type="search"]')
       .or(page.locator('input[placeholder*="search"]'));
 
-    if ((await searchInput.count()) > 0) {
-      await searchInput.first().focus();
-
-      // Test that input is focused
-      const isFocused = await searchInput.first().evaluate((el) => el === document.activeElement);
-      expect(isFocused).toBe(true);
-
-      // Test typing in search
-      await page.keyboard.type("test query");
-      const inputValue = await searchInput.first().inputValue();
-      expect(inputValue).toBe("test query");
-    } else {
-      test.skip();
+    const inputCount = await searchInput.count();
+    if (inputCount === 0) {
+      test.skip(true, "Search input not found on page");
+      return;
     }
+
+    await searchInput.first().focus();
+
+    // Test that input is focused
+    const isFocused = await searchInput.first().evaluate((el) => el === document.activeElement);
+    expect(isFocused).toBe(true);
+
+    // Test typing in search
+    await page.keyboard.type("test query");
+    const inputValue = await searchInput.first().inputValue();
+    expect(inputValue).toBe("test query");
   });
 
   test("form elements have proper labels", async ({ page }) => {

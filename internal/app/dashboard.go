@@ -69,7 +69,7 @@ func NewDashboardService(
 
 // GetDashboardData retrieves all dashboard data in a single call
 func (ds *DashboardService) GetDashboardData(ctx context.Context, req *DashboardRequest) (*DashboardResponse, error) {
-	ds.logger.Info("fetching dashboard data",
+	ds.logger.Debug("fetching dashboard data",
 		zap.String("user_id", req.UserID),
 		zap.Time("start_time", req.TimeRange.Start),
 		zap.Time("end_time", req.TimeRange.End),
@@ -182,6 +182,12 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- WSM
 	stats, err := ds.statsSvc.GetStats(ctx, window)
 	if err != nil {
 		return fmt.Errorf("get stats: %w", err)
+	}
+
+	// Initialize stats cache with current values to ensure realtime updates
+	// increment from correct baseline
+	if err := ds.initializeStatsCache(ctx, stats); err != nil {
+		return fmt.Errorf("initialize stats cache: %w", err)
 	}
 
 	// Send stats-total
@@ -345,8 +351,24 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMe
 	// Convert string map to int map
 	priorityMap := make(map[int]int64)
 	for k, v := range byPriority {
-		priority, _ := strconv.Atoi(k)
-		count, _ := strconv.ParseInt(v, 10, 64)
+		priority, err := strconv.Atoi(k)
+		if err != nil {
+			ds.logger.Warn("failed to parse priority key from cache",
+				zap.String("raw_key", k),
+				zap.String("raw_value", v),
+				zap.Error(err),
+			)
+			continue
+		}
+		count, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			ds.logger.Warn("failed to parse priority count from cache",
+				zap.String("raw_key", k),
+				zap.String("raw_value", v),
+				zap.Error(err),
+			)
+			continue
+		}
 		priorityMap[priority] = count
 	}
 
@@ -371,7 +393,15 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMe
 	// Convert string values to int64
 	typeMap := make(map[string]int64)
 	for k, v := range byType {
-		count, _ := strconv.ParseInt(v, 10, 64)
+		count, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			ds.logger.Warn("failed to parse type count from cache",
+				zap.String("raw_key", k),
+				zap.String("raw_value", v),
+				zap.Error(err),
+			)
+			continue
+		}
 		typeMap[k] = count
 	}
 
@@ -385,6 +415,45 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMe
 	}:
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+
+	return nil
+}
+
+// initializeStatsCache seeds the cache with initial stats values.
+// It deletes existing keys first to ensure clean state, then sets the total,
+// priority, and type counts using the same cache keys/structure that
+// sendUpdatedStats expects. Respects TTL semantics via cache implementation.
+func (ds *DashboardService) initializeStatsCache(ctx context.Context, stats *TrafficSummary) error {
+	// Delete existing keys to ensure clean state before initializing
+	if err := ds.cache.Delete(ctx, statsTotalKey); err != nil {
+		return fmt.Errorf("delete total key: %w", err)
+	}
+	if err := ds.cache.Delete(ctx, statsPriorityKey); err != nil {
+		return fmt.Errorf("delete priority key: %w", err)
+	}
+	if err := ds.cache.Delete(ctx, statsTypeKey); err != nil {
+		return fmt.Errorf("delete type key: %w", err)
+	}
+
+	// Set total count (Incr creates key if it doesn't exist)
+	if _, err := ds.cache.Incr(ctx, statsTotalKey, stats.TotalMessages); err != nil {
+		return fmt.Errorf("set total count: %w", err)
+	}
+
+	// Set priority counts (HIncrBy creates hash and fields if they don't exist)
+	for priority, count := range stats.ByPriority {
+		priorityField := fmt.Sprintf("%d", priority)
+		if _, err := ds.cache.HIncrBy(ctx, statsPriorityKey, priorityField, count); err != nil {
+			return fmt.Errorf("set priority count for %d: %w", priority, err)
+		}
+	}
+
+	// Set type counts (HIncrBy creates hash and fields if they don't exist)
+	for msgType, count := range stats.ByType {
+		if _, err := ds.cache.HIncrBy(ctx, statsTypeKey, msgType, count); err != nil {
+			return fmt.Errorf("set type count for %s: %w", msgType, err)
+		}
 	}
 
 	return nil

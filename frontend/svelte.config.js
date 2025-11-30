@@ -3,7 +3,11 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
-  preprocess: vitePreprocess(),
+  // Svelte 5 + vite-plugin-svelte v5: Explicitly enable script preprocessing
+  // This ensures TypeScript/JavaScript preprocessing works correctly
+  preprocess: vitePreprocess({
+    script: true, // Explicitly enable script preprocessing
+  }),
 
   kit: {
     adapter: adapter(),

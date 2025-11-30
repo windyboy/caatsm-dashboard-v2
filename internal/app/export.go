@@ -129,7 +129,6 @@ func (e *ExportService) exportCSV(result *SearchResult) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// collectStream collects all telegrams from the streaming channels.
 // ExportStream returns channels for streaming export (for large datasets).
 // The caller should read from the telegram channel and handle errors from the error channel.
 // This method is suitable for exports that may exceed memory limits.

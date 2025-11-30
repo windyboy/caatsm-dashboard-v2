@@ -81,7 +81,7 @@ tasks:
       - |
         if command -v deno >/dev/null 2>&1; then
           echo "Caching frontend dependencies with Deno..."
-          deno cache deno.json || true
+          deno cache vite.config.ts svelte.config.js vitest.config.ts playwright.config.ts src/**/*.ts src/**/*.svelte || true
           echo "Frontend dependencies cached."
         else
           echo "Deno not found, using npm..."

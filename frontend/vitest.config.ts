@@ -12,14 +12,25 @@ const __dirname =
 export default defineConfig({
   plugins: [
     svelte({
-      preprocess: vitePreprocess(),
+      // Svelte 5 + vite-plugin-svelte v5: Explicitly enable script preprocessing
+      // Vite 6: In test environment, skip CSS preprocessing to avoid client dependency issues
+      preprocess: vitePreprocess({
+        script: true, // Explicitly enable script preprocessing for TypeScript/JavaScript
+        style: !process.env.VITEST, // Disable CSS preprocessing in test environment (Vite 6 compatibility)
+      }),
       compilerOptions: {
         dev: true,
-        // Svelte 5: Remove componentApi compatibility mode
+        // Svelte 5: Runes mode is the default, no need for componentApi compatibility mode
         // Migration guide: https://svelte.dev/docs/svelte/v5-migration-guide
       },
+      // Vite 6: Disable hot reload in test environment
+      hot: !process.env.VITEST,
     }),
   ],
+  css: {
+    // Vite 6: Ensure CSS is properly processed in test environment
+    postcss: {},
+  },
   resolve: {
     alias: {
       $lib: resolve(__dirname, "./src/lib"),

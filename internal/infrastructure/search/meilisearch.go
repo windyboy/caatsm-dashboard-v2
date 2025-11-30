@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -54,7 +55,7 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 	idx := i.client.Index(i.index)
 
 	searchableAttributes := []string{"content", "flight_number", "message_id", "source", "destination"}
-	_, err := idx.UpdateSearchableAttributes(&searchableAttributes)
+	_, err := idx.UpdateSearchableAttributesWithContext(ctx, &searchableAttributes)
 	if err != nil {
 		return fmt.Errorf("update searchable attributes: %w", err)
 	}
@@ -64,19 +65,19 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 	for j, v := range filterableAttributes {
 		filterableInterface[j] = v
 	}
-	_, err = idx.UpdateFilterableAttributes(&filterableInterface)
+	_, err = idx.UpdateFilterableAttributesWithContext(ctx, &filterableInterface)
 	if err != nil {
 		return fmt.Errorf("update filterable attributes: %w", err)
 	}
 
 	sortableAttributes := []string{"time", "priority"}
-	_, err = idx.UpdateSortableAttributes(&sortableAttributes)
+	_, err = idx.UpdateSortableAttributesWithContext(ctx, &sortableAttributes)
 	if err != nil {
 		return fmt.Errorf("update sortable attributes: %w", err)
 	}
 
 	primaryKey := "message_id"
-	_, err = idx.UpdateIndex(&meilisearchClient.UpdateIndexRequestParams{
+	_, err = idx.UpdateIndexWithContext(ctx, &meilisearchClient.UpdateIndexRequestParams{
 		PrimaryKey: primaryKey,
 	})
 	if err != nil {
@@ -102,7 +103,7 @@ func (i *Index) Index(ctx context.Context, telegram *app.Telegram) error {
 	}
 
 	primaryKey := "message_id"
-	_, err := idx.AddDocuments([]map[string]any{doc}, &primaryKey)
+	_, err := idx.AddDocumentsWithContext(ctx, []map[string]any{doc}, &primaryKey)
 	if err != nil {
 		return fmt.Errorf("index telegram: %w", err)
 	}
@@ -133,7 +134,7 @@ func (i *Index) BulkIndex(ctx context.Context, telegrams []*app.Telegram) error 
 	}
 
 	primaryKey := "message_id"
-	_, err := idx.AddDocuments(docs, &primaryKey)
+	_, err := idx.AddDocumentsWithContext(ctx, docs, &primaryKey)
 	if err != nil {
 		return fmt.Errorf("bulk index telegrams: %w", err)
 	}
@@ -145,7 +146,7 @@ func (i *Index) BulkIndex(ctx context.Context, telegrams []*app.Telegram) error 
 func (i *Index) Delete(ctx context.Context, messageID string) error {
 	idx := i.client.Index(i.index)
 
-	_, err := idx.DeleteDocument(messageID)
+	_, err := idx.DeleteDocumentWithContext(ctx, messageID)
 	if err != nil {
 		return fmt.Errorf("delete telegram: %w", err)
 	}
@@ -171,7 +172,7 @@ func (i *Index) Search(ctx context.Context, query string, filter string, limit, 
 		searchRequest.Sort = sort
 	}
 
-	result, err := idx.Search(query, searchRequest)
+	result, err := idx.SearchWithContext(ctx, query, searchRequest)
 	if err != nil {
 		return nil, fmt.Errorf("meilisearch search: %w", err)
 	}
@@ -180,7 +181,7 @@ func (i *Index) Search(ctx context.Context, query string, filter string, limit, 
 }
 
 // SearchAutocomplete performs an autocomplete search on the Meilisearch index.
-func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (any, error) {
+func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (*app.AutocompleteResponse, error) {
 	idx := i.client.Index(i.index)
 
 	searchRequest := &meilisearchClient.SearchRequest{
@@ -189,10 +190,48 @@ func (i *Index) SearchAutocomplete(ctx context.Context, query string, limit int6
 		AttributesToRetrieve: attributes,
 	}
 
-	result, err := idx.Search(query, searchRequest)
+	result, err := idx.SearchWithContext(ctx, query, searchRequest)
 	if err != nil {
 		return nil, fmt.Errorf("meilisearch autocomplete: %w", err)
 	}
 
-	return result, nil
+	// Convert Meilisearch SDK response to domain type
+	if result.Hits == nil {
+		return &app.AutocompleteResponse{Hits: []app.AutocompleteHit{}}, nil
+	}
+
+	// Convert hits to domain format
+	// Meilisearch returns Hits as []interface{} where each element is a map[string]interface{}
+	hits := make([]app.AutocompleteHit, 0, len(result.Hits))
+	for _, hit := range result.Hits {
+		// Convert hit to map[string]interface{} via JSON marshaling/unmarshaling
+		// This handles the type conversion safely regardless of the underlying type
+		hitBytes, err := json.Marshal(hit)
+		if err != nil {
+			continue
+		}
+		var hitMap map[string]interface{}
+		if err := json.Unmarshal(hitBytes, &hitMap); err != nil {
+			continue
+		}
+
+		// Convert map to domain AutocompleteHit struct
+		domainHit := app.AutocompleteHit{}
+		if val, ok := hitMap["flight_number"].(string); ok {
+			domainHit.FlightNumber = val
+		}
+		if val, ok := hitMap["message_id"].(string); ok {
+			domainHit.MessageID = val
+		}
+		if val, ok := hitMap["source"].(string); ok {
+			domainHit.Source = val
+		}
+		if val, ok := hitMap["destination"].(string); ok {
+			domainHit.Destination = val
+		}
+
+		hits = append(hits, domainHit)
+	}
+
+	return &app.AutocompleteResponse{Hits: hits}, nil
 }

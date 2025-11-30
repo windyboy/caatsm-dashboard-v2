@@ -46,7 +46,8 @@ test.describe("WebSocket Connection", () => {
     await expect(typeBreakdown).toBeVisible();
   });
 
-  test.skip("should handle WebSocket disconnect and reconnect", "Playwright WS mock limitation: does not trigger onopen/onerror events", async ({ page }) => {
+  // Skip: Playwright WS mock limitation: does not trigger onopen/onerror events
+  test.skip("should handle WebSocket disconnect and reconnect", async ({ page }) => {
     // Mock initial success
     await page.route("**/ws", route => route.fulfill({
       status: 101,
@@ -80,7 +81,8 @@ test.describe("WebSocket Connection", () => {
     await expect(page.locator("[title='Connected']")).toBeVisible({ timeout: 10000 });
   });
 
-  test.skip("should handle WebSocket error state", "Playwright WS mock limitation: does not trigger onopen/onerror events", async ({ page }) => {
+  // Skip: Playwright WS mock limitation: does not trigger onopen/onerror events
+  test.skip("should handle WebSocket error state", async ({ page }) => {
     await page.goto("/");
 
     // Mock WS error

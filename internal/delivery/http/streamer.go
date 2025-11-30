@@ -33,6 +33,8 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 		"content",
 	}
 	if err := writer.Write(headers); err != nil {
+		// Note: HTTP 200 already sent; client will see truncated response
+		// Consider logging: log.Error("CSV header write failed", "error", err)
 		return fmt.Errorf("write CSV headers: %w", err)
 	}
 	c.Response().Flush() // Ensure headers are sent immediately
@@ -100,4 +102,3 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 		}
 	}
 }
-

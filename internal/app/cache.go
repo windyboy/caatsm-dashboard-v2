@@ -113,18 +113,36 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 
 // Incr increments the integer value stored at key by delta. Creates key if not exists.
 func (s *Store) Incr(ctx context.Context, key string, delta int64) (int64, error) {
-	result, err := s.client.IncrBy(ctx, key, delta).Result()
+	// Use pipeline for atomicity
+	pipe := s.client.Pipeline()
+	incrCmd := pipe.IncrBy(ctx, key, delta)
+	pipe.Expire(ctx, key, s.ttl)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("incr key %q: %w", key, err)
 	}
-	// Ensure key has TTL (only sets if no TTL exists)
-	s.client.Expire(ctx, key, s.ttl)
-	return result, nil
+	return incrCmd.Val(), nil
 }
 
 // HIncrBy increments the integer value stored at the specified hash field by delta.
 func (s *Store) HIncrBy(ctx context.Context, key string, field string, delta int64) (int64, error) {
-	return s.client.HIncrBy(ctx, key, field, delta).Result()
+	result, err := s.client.HIncrBy(ctx, key, field, delta).Result()
+	if err != nil {
+		return 0, err
+	}
+	// Check if key has TTL; if not, set expiration
+	ttl, err := s.client.TTL(ctx, key).Result()
+	if err != nil {
+		return result, fmt.Errorf("check ttl for hash key %q: %w", key, err)
+	}
+	// TTL < 0 means no expiration (-1) or key doesn't exist (-2)
+	// Set TTL only if key exists but has no expiration
+	if ttl < 0 {
+		if err := s.client.Expire(ctx, key, s.ttl).Err(); err != nil {
+			return result, fmt.Errorf("set ttl for hash key %q: %w", key, err)
+		}
+	}
+	return result, nil
 }
 
 // GetInt64 fetches the string value stored at key and parses it into an int64.

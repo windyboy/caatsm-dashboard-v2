@@ -36,13 +36,26 @@ type Cache interface {
 	HGetAll(ctx context.Context, key string) (map[string]string, error)
 }
 
+// AutocompleteHit represents a single hit from an autocomplete search.
+type AutocompleteHit struct {
+	FlightNumber string
+	MessageID    string
+	Source       string
+	Destination  string
+}
+
+// AutocompleteResponse represents the response from an autocomplete search.
+type AutocompleteResponse struct {
+	Hits []AutocompleteHit
+}
+
 // SearchIndex defines the interface for search operations.
 type SearchIndex interface {
 	EnsureIndex(ctx context.Context) error
 	Index(ctx context.Context, telegram *Telegram) error
 	BulkIndex(ctx context.Context, telegrams []*Telegram) error
 	Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error)
-	SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error)
+	SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (*AutocompleteResponse, error)
 }
 
 // EventPublisher defines the interface for publishing events.

@@ -33,6 +33,7 @@ type ServerConfig struct {
 	TLSEnabled   bool          `mapstructure:"tls_enabled"`
 	TLSCertFile  string        `mapstructure:"tls_cert_file"`
 	TLSKeyFile   string        `mapstructure:"tls_key_file"`
+	AllowBindAll bool          `mapstructure:"allow_bind_all"`
 }
 
 type LoggerConfig struct {
@@ -153,9 +154,14 @@ func (c *AppConfig) Validate() error {
 			errs = append(errs, errors.New("production: TLS must be enabled"))
 		}
 
-		// Server host cannot be localhost or 0.0.0.0 in production
-		if c.Server.Host == "localhost" || c.Server.Host == "127.0.0.1" || c.Server.Host == "0.0.0.0" {
-			errs = append(errs, errors.New("production: server host cannot be localhost or 0.0.0.0"))
+		// Server host cannot be localhost or 127.0.0.1 in production
+		if c.Server.Host == "localhost" || c.Server.Host == "127.0.0.1" {
+			errs = append(errs, errors.New("production: server host cannot be localhost or 127.0.0.1"))
+		}
+
+		// Server host cannot be 0.0.0.0 in production unless explicitly allowed
+		if c.Server.Host == "0.0.0.0" && !c.Server.AllowBindAll {
+			errs = append(errs, errors.New("production: server host cannot be 0.0.0.0 unless server.allow_bind_all is set to true (required for containerized/multi-interface environments)"))
 		}
 
 		// Redis cannot use default password

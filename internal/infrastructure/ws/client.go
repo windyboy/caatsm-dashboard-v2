@@ -92,6 +92,12 @@ func (c *Client) ReadPump(ctx context.Context) {
 		_ = c.conn.Close()
 	}()
 
+	// Make connection respect context cancellation
+	go func() {
+		<-ctx.Done()
+		_ = c.conn.Close()
+	}()
+
 	// Get timeout config (use defaults if not set)
 	timeouts := c.getTimeouts()
 

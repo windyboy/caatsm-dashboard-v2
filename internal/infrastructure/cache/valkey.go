@@ -126,13 +126,30 @@ func (s *Store) Incr(ctx context.Context, key string, delta int64) (int64, error
 		return 0, err
 	}
 	// Ensure key has TTL (only sets if no TTL exists)
-	s.client.Expire(ctx, key, s.ttl)
+	if err := s.client.Expire(ctx, key, s.ttl).Err(); err != nil {
+		// Log or return error based on desired semantics
+		return result, fmt.Errorf("set ttl for key %q: %w", key, err)
+	}
 	return result, nil
 }
 
 // HIncrBy increments the integer value stored at the specified hash field by delta.
 func (s *Store) HIncrBy(ctx context.Context, key string, field string, delta int64) (int64, error) {
-	return s.client.HIncrBy(ctx, key, field, delta).Result()
+	result, err := s.client.HIncrBy(ctx, key, field, delta).Result()
+	if err != nil {
+		return 0, err
+	}
+	// Ensure key has TTL (only sets if no TTL exists)
+	ttl, err := s.client.TTL(ctx, key).Result()
+	if err != nil {
+		return result, err
+	}
+	if ttl == -1 {
+		if err := s.client.Expire(ctx, key, s.ttl).Err(); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
 }
 
 // GetInt64 fetches the string value stored at key and parses it into an int64.

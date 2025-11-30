@@ -50,7 +50,10 @@ services:
       - backend
 
   nats:
-    image: nats:2.11-alpine
+    # NATS 2.12.2-alpine: See docs/configuration.md section 9 for upgrade verification checklist
+    # Before deploying to production, validate in staging: JetStream metadata backup,
+    # buffer limit checks (128MB/10k messages), exit code compatibility, and stream state validation.
+    image: nats:2.12.2-alpine
     restart: unless-stopped
     command: ["-js", "-m", "8222"]
     ports:

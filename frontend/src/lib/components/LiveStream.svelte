@@ -14,7 +14,7 @@
   import { websocket } from "../stores/websocket";
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import type { WebSocketStatus } from "../services/websocket";
 
   let container = $state<HTMLDivElement>();
@@ -25,6 +25,18 @@
   let currentReconnectAttempts = $state(0);
 
   const typedMessages = $derived((Array.isArray($messages) ? $messages : []) as Telegram[]);
+
+  // Generate stable unique key for each message
+  // Uses message_id when truthy and not "0", otherwise falls back to time-based key
+  const getMessageKey = (message: Telegram, index: number): string => {
+    if (message.message_id && message.message_id !== "0") {
+      return message.message_id;
+    }
+    // Fallback: use time-based key for server-scheduled messages without message_id
+    // time is stable across re-renders; index ensures uniqueness if time is duplicated
+    // Format: scheduled-{time}-{index} or scheduled-{index} if time is missing
+    return message.time ? `scheduled-${message.time}-${index}` : `scheduled-${index}`;
+  };
 
   // Connection status for UI - use local state instead of store subscriptions
   const statusColor = $derived.by(() => {
@@ -57,6 +69,11 @@
   onMount(() => {
     mounted = true;
 
+    // Connect WebSocket (idempotent - only connects if not already connected)
+    if (!websocket.checkIsConnected()) {
+      websocket.connect();
+    }
+
     // Subscribe to status changes
     const statusUnsubscribe = websocket.status.subscribe((status) => {
       currentStatus = status;
@@ -73,16 +90,16 @@
     };
   });
 
-  // Lifecycle with $effect - only run in browser after mount
+  // Cleanup WebSocket only on component destroy
+  onDestroy(() => {
+    websocket.cleanup();
+  });
+
+  // Subscribe to messages for auto-scroll (separate from WebSocket lifecycle)
   $effect(() => {
     // Guard against SSR - only run in browser after component is mounted
     if (typeof window === "undefined" || !mounted) {
       return;
-    }
-
-    // Only connect if not already connected (idempotency check)
-    if (!websocket.checkIsConnected()) {
-      websocket.connect();
     }
 
     // Scroll to top when new messages arrive (new messages appear at top)
@@ -99,7 +116,6 @@
 
     return () => {
       unsubscribe();
-      websocket.cleanup();
     };
   });
 </script>
@@ -120,115 +136,6 @@
         Live Stream
       </h2>
     </div>
-    
-    <style>
-      .live-stream {
-        @apply rounded-lg border-0 p-4 sm:p-8;
-        background: var(--card-glow-bg);
-        backdrop-filter: var(--card-glow-backdrop);
-        box-shadow: var(--card-glow-shadow);
-        border: var(--card-glow-border);
-        transition: var(--card-glow-transition);
-      }
-    
-      .live-stream-header {
-        @apply flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b;
-        border-color: theme('colors.brand.200 / 0.4');
-      }
-    
-      .live-stream-header-content {
-        @apply flex items-center gap-3;
-      }
-    
-      .status-indicator {
-        @apply w-2 h-2 rounded-full shadow-lg;
-      }
-    
-      .live-stream-title {
-        @apply text-xl font-bold tracking-tight;
-        color: theme('colors.slate.800');
-        background: linear-gradient(to right, theme('colors.brand.800'), theme('colors.accent.800'));
-        background-clip: text;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-    
-      .status-info {
-        @apply flex items-center gap-2;
-      }
-    
-      .status-badge {
-        @apply text-xs px-3 py-1 rounded-md font-medium border shadow-md;
-      }
-    
-      .status-badge.bg-green-500 {
-        color: theme('colors.success.700');
-        background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
-        border-color: theme('colors.success.200 / 0.6');
-      }
-    
-      .status-badge.bg-yellow-500 {
-        color: theme('colors.warning.700');
-        background: linear-gradient(to right, theme('colors.warning.50'), theme('colors.warning.50'));
-        border-color: theme('colors.warning.200 / 0.6');
-      }
-    
-      .status-badge.bg-red-500 {
-        color: theme('colors.danger.700');
-        background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.danger.50'));
-        border-color: theme('colors.danger.200 / 0.6');
-      }
-    
-      .status-badge.bg-gray-600 {
-        color: #ffffff !important;
-        background-color: #4a5565 !important;
-        border-color: rgba(107, 114, 128, 0.8);
-      }
-    
-      .reconnect-attempts {
-        @apply text-xs;
-        color: theme('colors.gray.500');
-      }
-    
-      .messages-container {
-        @apply overflow-y-auto scrollbar-thin rounded-lg p-3 sm:p-5 space-y-3 scroll-smooth border-0 shadow-inner;
-        background: linear-gradient(to bottom right, theme('colors.slate.50 / 0.4'), theme('colors.brand.50 / 0.3'));
-        height: 600px;
-        max-height: 600px;
-        min-height: 600px;
-      }
-    
-      @media (min-width: 640px) {
-        .messages-container {
-          height: 800px;
-          max-height: 800px;
-          min-height: 800px;
-        }
-      }
-    
-      .empty-state {
-        @apply text-center py-12;
-      }
-    
-      .empty-state-icon {
-        @apply w-16 h-16 mx-auto mb-4 rounded-full;
-        background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
-      }
-    
-      .empty-state-text {
-        @apply text-sm font-medium;
-        color: theme('colors.slate.500');
-      }
-    
-      .empty-state-subtitle {
-        @apply text-xs mt-1;
-        color: theme('colors.slate.400');
-      }
-    
-      .message-wrapper {
-        /* No specific styles needed */
-      }
-    </style>
     <div class="status-info">
       <span class="status-badge {statusColor}">
         {statusText}
@@ -256,7 +163,7 @@
         <p class="empty-state-subtitle">Real-time messages will appear here</p>
       </div>
     {:else}
-      {#each typedMessages as message, index (message.message_id)}
+      {#each typedMessages as message, index (getMessageKey(message, index))}
         <div class="message-wrapper">
           <MessageItem telegram={message} />
         </div>
@@ -264,3 +171,112 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .live-stream {
+    @apply rounded-lg border-0 p-4 sm:p-8;
+    background: var(--card-glow-bg);
+    backdrop-filter: var(--card-glow-backdrop);
+    box-shadow: var(--card-glow-shadow);
+    border: var(--card-glow-border);
+    transition: var(--card-glow-transition);
+  }
+
+  .live-stream-header {
+    @apply flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b;
+    border-color: theme('colors.brand.200 / 0.4');
+  }
+
+  .live-stream-header-content {
+    @apply flex items-center gap-3;
+  }
+
+  .status-indicator {
+    @apply w-2 h-2 rounded-full shadow-lg;
+  }
+
+  .live-stream-title {
+    @apply text-xl font-bold tracking-tight;
+    color: theme('colors.slate.800');
+    background: linear-gradient(to right, theme('colors.brand.800'), theme('colors.accent.800'));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .status-info {
+    @apply flex items-center gap-2;
+  }
+
+  .status-badge {
+    @apply text-xs px-3 py-1 rounded-md font-medium border shadow-md;
+  }
+
+  .status-badge.bg-green-500 {
+    color: theme('colors.success.700');
+    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
+    border-color: theme('colors.success.200 / 0.6');
+  }
+
+  .status-badge.bg-yellow-500 {
+    color: theme('colors.warning.700');
+    background: linear-gradient(to right, theme('colors.warning.50'), theme('colors.warning.50'));
+    border-color: theme('colors.warning.200 / 0.6');
+  }
+
+  .status-badge.bg-red-500 {
+    color: theme('colors.danger.700');
+    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.danger.50'));
+    border-color: theme('colors.danger.200 / 0.6');
+  }
+
+  .status-badge.bg-gray-600 {
+    color: #ffffff !important;
+    background-color: #4a5565 !important;
+    border-color: rgba(107, 114, 128, 0.8);
+  }
+
+  .reconnect-attempts {
+    @apply text-xs;
+    color: theme('colors.gray.500');
+  }
+
+  .messages-container {
+    @apply overflow-y-auto scrollbar-thin rounded-lg p-3 sm:p-5 space-y-3 scroll-smooth border-0 shadow-inner;
+    background: linear-gradient(to bottom right, theme('colors.slate.50 / 0.4'), theme('colors.brand.50 / 0.3'));
+    height: 600px;
+    max-height: 600px;
+    min-height: 600px;
+  }
+
+  @media (min-width: 640px) {
+    .messages-container {
+      height: 800px;
+      max-height: 800px;
+      min-height: 800px;
+    }
+  }
+
+  .empty-state {
+    @apply text-center py-12;
+  }
+
+  .empty-state-icon {
+    @apply w-16 h-16 mx-auto mb-4 rounded-full;
+    background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
+  }
+
+  .empty-state-text {
+    @apply text-sm font-medium;
+    color: theme('colors.slate.500');
+  }
+
+  .empty-state-subtitle {
+    @apply text-xs mt-1;
+    color: theme('colors.slate.400');
+  }
+
+  .message-wrapper {
+    /* No specific styles needed */
+  }
+</style>

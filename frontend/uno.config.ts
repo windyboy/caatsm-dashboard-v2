@@ -66,7 +66,7 @@ export default defineConfig({
       "2xl": ["var(--text-2xl, 1.5rem)", "var(--leading-2xl, 2rem)"], // 24px
       "3xl": ["var(--text-3xl, 1.875rem)", "var(--leading-3xl, 2.25rem)"], // 30px
       "4xl": ["var(--text-4xl, 2.25rem)", "var(--leading-4xl, 2.5rem)"], // 36px
-      "5xl": ["var(--text-5xl, 3rem)", "var(--leading-5xl, 1)"], // 48px
+      "5xl": ["var(--text-5xl, 3rem)", "var(--leading-5xl, 3rem)"], // 48px
     },
 
     fontWeight: {
@@ -200,6 +200,10 @@ export default defineConfig({
       glow: {
         "0%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)" },
         "100%": { boxShadow: "0 0 30px rgba(59, 130, 246, 0.8)" },
+      },
+      pulse: {
+        "0%, 100%": { opacity: "1" },
+        "50%": { opacity: "0.5" },
       },
     },
   },

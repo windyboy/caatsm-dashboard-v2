@@ -6,33 +6,38 @@
   let error: string | null = null;
   let reconnectAttempts: number = 0;
   let isVisible = false;
+  let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Subscribe to stores
-  const unsubscribeStatus = websocket.status.subscribe(value => {
-    status = value;
-    // Always show for debugging and testing
-    isVisible = true;
-  });
-
-  const unsubscribeError = websocket.error.subscribe(value => {
-    error = value;
-  });
-
-  const unsubscribeAttempts = websocket.reconnectAttempts.subscribe(value => {
-    reconnectAttempts = value;
-  });
-
   onMount(() => {
-    // Auto-hide after successful connection
-    const unsubscribe = websocket.status.subscribe(currentStatus => {
-      if (currentStatus === 'connected' && status !== 'connected') {
-        setTimeout(() => {
+    const unsubscribeStatus = websocket.status.subscribe(value => {
+      status = value;
+      isVisible = true;
+      
+      // Auto-hide after successful connection
+      if (value === 'connected') {
+        if (hideTimeout) clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
           isVisible = false;
+          hideTimeout = null;
         }, 2000); // Hide after 2 seconds
       }
     });
+    
+    const unsubscribeError = websocket.error.subscribe(value => {
+      error = value;
+    });
+    
+    const unsubscribeAttempts = websocket.reconnectAttempts.subscribe(value => {
+      reconnectAttempts = value;
+    });
 
-    return unsubscribe;
+    return () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
+      unsubscribeStatus();
+      unsubscribeError();
+      unsubscribeAttempts();
+    };
   });
 
   function getStatusIcon() {

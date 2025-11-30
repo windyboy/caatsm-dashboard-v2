@@ -8,11 +8,12 @@
   - Debounced autocomplete (500ms)
   - Form validation and reset functionality
 
-  @event {SearchParams} search - Dispatched when search is performed
-  @event reset - Dispatched when form is reset
+  @prop {(detail: SearchParams) => void} [onsearch] - Called when search is performed
+  @prop {() => void} [onreset] - Called when form is reset
 -->
 
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { autocomplete } from "../services/api";
   import { createLogger } from "../utils/logger";
   import type { SearchParams } from "../services/api";
@@ -34,6 +35,13 @@
   let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
   let autocompleteTimeout = $state<number | null>(null);
+
+  onDestroy(() => {
+    if (autocompleteTimeout !== null) {
+      clearTimeout(autocompleteTimeout);
+      autocompleteTimeout = null;
+    }
+  });
 
   function toIsoString(value: string): string | undefined {
     if (!value) {

@@ -1,178 +1,152 @@
 # CAATSM Dashboard Architecture
 
-This document explains how the CAATSM Dashboard backend is structured and how the major pieces work together. The intent is to keep things simple: understand the layers, know how data moves, and see where to add new behavior without breaking the design.
+This document describes how the CAATSM Dashboard backend is organized today. It focuses on practical guidance: which packages own which responsibilities, how data flows through the system, and what you should touch when adding new features.
 
 ---
 
-## 1. Big Picture
+## 1. Overview
 
-- **Goal:** Collect aviation telegrams, store them safely, index them for search, and stream them to the dashboard UI in real time.
-- **Stack:** Go (backend), NATS (stream), PostgreSQL + TimescaleDB (storage), Meilisearch (search), Valkey/Redis (cache), SvelteKit (frontend).
-- **Style:** Clean Architecture with four layers. Each outer layer depends only on the next inner layer.
-
----
-
-## 2. Layer Map
+- **Goal:** Collect aviation telegrams, validate them, persist them, index them for search, and serve them to operators in real time.
+- **Stack:** Go backend (Echo, pgx), PostgreSQL/TimescaleDB, Meilisearch, Valkey/Redis, NATS JetStream, SvelteKit frontend.
+- **Architecture Style:** Clean Architecture with three concentric layers. Domain entities and validation live inside the Application layer rather than a standalone `internal/domain` package.
 
 ```
-Delivery ──► Application ──► Domain ──► Infrastructure
+Delivery ──► Application ──► Infrastructure
 ```
 
-| Layer | Directory | What it does | Depends on |
-| --- | --- | --- | --- |
-| Delivery | `internal/delivery/` | HTTP + WebSocket handlers, request parsing, response formatting | Application services |
-| Application | `internal/app/` | Business workflows, services, ports, dependency container | Domain + port interfaces |
-| Domain | `internal/domain/` | Entities, validation, business rules, domain events | Only Go stdlib |
-| Infrastructure | `internal/infrastructure/` | Concrete adapters (Postgres, Meilisearch, Valkey, NATS, WS hub) | Application ports, Domain types |
-
-**Rules:**
-
-- Delivery never calls infrastructure directly.
-- Infrastructure implements interfaces defined in `internal/app/ports`.
-- Domain stays pure Go with no third-party or infrastructure imports.
+Dependencies only point inward: the Delivery layer depends on Application services; Infrastructure implements Application ports.
 
 ---
 
-## 3. Responsibilities by Layer
+## 2. Layer Responsibilities
 
 ### Delivery (`internal/delivery/`)
-- Sets up HTTP routes and WebSocket endpoints with Echo.
-- Validates input quickly (time range ≤ 90 days, safe sort fields).
-- Applies rate limiting (10 requests/sec default) and CORS.
-- Translates errors into consistent JSON responses.
+
+- HTTP and WebSocket handlers built with Echo.
+- Request parsing, lightweight input validation (range checks, rate limiting).
+- Response formatting, error to JSON translation, CSV streaming.
+- No direct imports from infrastructure packages.
 
 ### Application (`internal/app/`)
-- Houses services such as `DashboardService`, `SearchService`, `StatsService`, `ExportService`, `RealtimeService`.
-- Exposes a `Container` that wires config, logging, ports, and services.
-- Orchestrates workflows (example: search → validate → query repository → enrich → cache).
-- Publishes domain events to infrastructure listeners.
 
-### Domain (`internal/domain/`)
-- Defines core objects: `Telegram`, `SearchFilters`, events like `TelegramProcessed`.
-- Enforces constraints: timestamp ordering, priority enums, 90-day window, safe filter combinations.
-- Provides reusable validators and error types (e.g., `ErrInvalidTimeRange`).
-- Emits domain events so that infrastructure can react without tight coupling.
+- Houses domain entities (`Telegram`, `SearchFilters`, `TimeWindow`, events) plus validation logic (90-day window cap, whitelist of sortable fields, enum validation).
+- Provides services: `DashboardService`, `SearchService`, `StatsService`, `ExportService`, `RealtimeService`.
+- Defines port interfaces in `ports.go` for repository/search/cache/event/websocket abstractions.
+- Exposes a dependency container (`Container`) that wires config, logger, ports, and services. Health checks are implemented as `Container.HealthCheck()` in `internal/app/app.go`.
+- Emits domain events consumed by infrastructure adapters.
 
 ### Infrastructure (`internal/infrastructure/`)
-- **Persistence:** Direct PostgreSQL implementation of `ports.Repository` using pgx/Timescale.
-- **Search:** Meilisearch adapter implementing `ports.SearchIndex`.
-- **Cache:** Valkey/Redis adapter implementing `ports.Cache`.
-- **Streaming:** NATS consumer producing domain events.
-- **Events:** Pub/Sub bridge for cross-component notifications.
-- **WebSocket hub:** Manages clients, backpressure, disconnects slow consumers.
-- **Resilience utilities:** Circuit breakers, retry helpers, connection health checks.
+
+- Concrete implementations of Application ports:
+  - `persistence/` – PostgreSQL repository via pgx and TimescaleDB.
+  - `search/` – Meilisearch client for full-text and autocomplete.
+  - `cache/` – Valkey/Redis cache for stats and query responses.
+  - `streaming/` – NATS JetStream consumer for ingestion.
+  - `event/` – Pub/Sub bridge for domain events.
+  - `ws/` – WebSocket hub with backpressure and per-IP limits.
+- Handles connection lifecycle, retries, and adapter-specific metrics.
 
 ---
 
-## 4. Data Flow
+## 3. Data Flow
 
-### Message Ingestion
-1. NATS JetStream receives raw telegram.
-2. Sync worker (under `internal/sync/`) pulls the message.
-3. Worker uses application services to validate the telegram (domain layer).
-4. Repository stores the telegram in PostgreSQL.
-5. Search indexer pushes the telegram into Meilisearch.
-6. Event bus broadcasts `TelegramProcessed`.
-7. Realtime service pushes updates to WebSocket hub.
+### Ingestion Path
 
-### Query / Dashboard Request
-1. Client calls REST API or opens a WebSocket.
-2. Delivery layer validates parameters and rate limits.
-3. Application service loads data:
-   - Reads cache when possible.
-   - Hits repository for fresh aggregates.
-   - Fan-outs to search service when needed.
-4. Domain layer ensures the request follows business rules.
-5. Infrastructure returns data from Postgres/Meilisearch/Redis.
-6. Delivery serializes response or streams via WebSocket.
-7. Metrics and traces capture latency, errors, and call span.
+1. NATS JetStream receives raw telegram messages.
+2. `cmd/sync` worker pulls messages via the streaming adapter.
+3. Application services validate and normalize telegrams (enforcing domain rules).
+4. Repository stores telegrams in PostgreSQL/TimescaleDB.
+5. Search adapter updates Meilisearch indices.
+6. Event adapter publishes a `TelegramProcessed` domain event.
+7. Realtime service pushes updates to the WebSocket hub.
+
+### Query / Dashboard Path
+
+1. Client issues REST requests or subscribes over WebSocket.
+2. Delivery layer authenticates, rate-limits, and normalizes parameters.
+3. Application services coordinate cache lookups, repository queries, and search index calls.
+4. Validation ensures requests remain within the 90-day window and use supported sort keys.
+5. Responses are returned as JSON or streamed CSV; realtime updates broadcast via WebSocket.
 
 ---
 
-## 5. Core Services and Ports
+## 4. Application Services and Ports
 
-| Service | Key Functions | Ports used |
-| --- | --- | --- |
-| DashboardService | Load dashboard metrics in parallel | Repository, Cache |
-| SearchService | Build queries, call search index, persist history | Repository, SearchIndex |
-| StatsService | Aggregate totals, priority/type breakdowns | Repository, Cache |
-| ExportService | Stream CSV in chunks (1000 rows) to avoid OOM | Repository |
-| RealtimeService | Fan-out domain events to WebSocket hub | EventPublisher, WebSocketHubPort |
-| HealthService | Probe dependencies and report degraded state | Repository, Cache, SearchIndex, StreamConsumer |
+| Service            | Purpose                                        | Ports Consumed                                |
+| ------------------ | ---------------------------------------------- | --------------------------------------------- |
+| `DashboardService` | Aggregated metrics for dashboard widgets       | `Repository`, `Cache`                         |
+| `SearchService`    | Telegram search, autocomplete, CSV prep        | `Repository`, `SearchIndex`, `Cache`          |
+| `StatsService`     | Priority/type aggregations, cached snapshots   | `Repository`, `Cache`                         |
+| `ExportService`    | Streaming CSV export (chunked to avoid OOM)    | `Repository`                                  |
+| `RealtimeService`  | Broadcasts domain events to WebSocket clients  | `EventPublisher`, `WebSocketHubPort`          |
 
-All ports live in `internal/app/ports/`. If a new external dependency is needed, define a new port interface there.
+**Health Checks:** Health check functionality is implemented in `internal/app/app.go` as `Container.HealthCheck()`, which verifies connectivity to PostgreSQL, Meilisearch, and Redis. The HTTP handler in `internal/delivery/http/handlers.go` exposes this via the `/api/health` endpoint.
 
----
-
-## 6. Runtime Components
-
-- **HTTP server:** Configured in `internal/server/`, starts Echo, middleware, and routes.
-- **WebSocket hub:** Maintains client registry, enforces per-IP and global connection caps.
-- **Sync worker:** Lives under `cmd/sync`; consumes NATS messages and calls app services.
-- **Observability:** `internal/observability/` injects logger (Zap), metrics (Prometheus), tracing (OpenTelemetry).
-- **Config loader:** `config/` package parses TOML + env, validates production guardrails (TLS, non-default secrets, auth rules).
+All ports live in `internal/app/ports.go`. Add new ports there whenever you need to integrate an external system.
 
 ---
 
-## 7. Configuration Highlights
+## 5. Runtime Components
 
-- **Defaults:** Safe development values baked in.
-- **Overrides:** `config/config.local.toml` + `.env.local`.
-- **Production checks:** On startup we fail fast if TLS disabled, API keys are defaults, or auth is off.
-- **Secrets:** Pull from env or secret managers (AWS Secrets Manager, Vault). Infrastructure layer provides helper adapters.
-
----
-
-## 8. Resilience and Safety
-
-- **Circuit breakers:** Wrap external calls; open after repeated failures.
-- **Graceful shutdown:** Stop HTTP listener, drain WebSocket hub, close NATS, Postgres, Redis, tracing exporter.
-- **Rate limiting:** Token bucket at delivery layer.
-- **Backpressure:** Hub disconnects clients that stop reading.
-- **Streaming export:** Sends CSV in chunks so memory stays flat.
-- **Time window guard:** Refuses searches over 90 days to keep queries bounded.
+- **HTTP Server (`internal/server/`):** Configures Echo, middleware (logging, correlation IDs, rate limiting), and wires handlers.
+- **WebSocket Hub (`internal/infrastructure/ws/`):** Manages clients, enforces per-IP and global caps, applies backpressure by dropping slow consumers.
+- **Sync Worker (`cmd/sync`):** Consumes NATS messages, invokes Application services, and acknowledges messages.
+- **Observability (`internal/observability/`):** Provides structured logging (Zap) and Prometheus metrics. Tracing configuration keys exist, but OpenTelemetry exporters are not wired yet.
 
 ---
 
-## 9. Observability
+## 6. Configuration Model
 
-- **Metrics:** `/metrics` exposes ingestion counts, search latency histograms, HTTP request stats, active WebSocket connections.
-- **Tracing:** Optional OTLP exporter; spans wrap HTTP handlers, DB calls, search calls, NATS processing.
-- **Logging:** Structured JSON with correlation IDs propagated via headers.
-
----
-
-## 10. Development Checklist
-
-When adding a feature:
-1. Start in the **Domain** layer. Add/extend entities, validation, or events.
-2. Define or update **ports** if a new capability is required.
-3. Implement or adjust **Application** services to coordinate use cases.
-4. Create/extend **Infrastructure** adapters that satisfy the ports.
-5. Update **Delivery** handlers to expose the new behavior.
-6. Wire dependencies in `internal/app/container.go`.
-7. Add tests at the right level (domain → service → handler).
-8. Run `make test`, `make test-integration`, and frontend tests.
-9. Update docs if behavior or endpoints change.
+- Config structs live in `config/config.go`; loader merges defaults, TOML files, and environment variables (prefix `CAATSM_`).
+- `AppConfig.Validate()` enforces guardrails: TLS, non-default secrets, enabled auth in production, tracing enabled flag, etc.
+- Production deployments must set `CAATSM_ENVIRONMENT=production` and satisfy validation (TLS on, no default credentials, at least one auth mechanism).
 
 ---
 
-## 11. Common Extension Points
+## 7. Observability
 
-- **New data source:** Create a port interface, implement it under `internal/infrastructure/<category>/`.
-- **New API endpoint:** Add handler in `internal/delivery/http`, hook into existing services.
-- **Additional metrics:** Register in `internal/observability/metrics` and export via `/metrics`.
-- **Alternate cache or search backend:** Add a new adapter implementing the same port; wire it through config.
+- **Logging:** JSON or console (based on config) with correlation IDs injected via middleware.
+- **Metrics:** Prometheus metrics at `/metrics`, including HTTP request histograms, ingestion counters, WebSocket gauges (optional).
+- **Tracing:** Configuration flags (`tracing.enabled`, `tracing.otlp_endpoint`) exist, but the exporter/instrumentation is not currently implemented. Keep `tracing.enabled=false` until tracing support is added.
 
 ---
 
-## 12. Summary
+## 8. Resilience Features
 
-The CAATSM Dashboard backend stays maintainable by:
-- Keeping business logic in the Domain layer.
-- Letting Application services coordinate work through port interfaces.
-- Plugging external systems directly in Infrastructure without extra wrappers.
-- Making Delivery responsible only for transport concerns.
-- Enforcing guardrails that protect performance, security, and reliability.
+- 90-day time window guard prevents expensive queries.
+- Sort field whitelist avoids SQL injection and misindexed queries.
+- Streaming CSV export sends chunks (~1k rows) to keep memory usage bounded.
+- WebSocket hub drops slow consumers and limits client buffers.
+- Rate limiter defaults to 10 requests/sec per client.
+- Graceful shutdown path closes HTTP server, drains WebSocket hub, and tears down NATS/PostgreSQL/Redis connections.
 
-Build new features by respecting these boundaries and the system will remain predictable, testable, and easy to scale.
+---
+
+## 9. Working with the Architecture
+
+### Adding a Feature
+
+1. Start in `internal/app/`: update or introduce entities, validation, events, and service methods.
+2. Define new port interfaces in `ports.go` if an external dependency is required.
+3. Implement adapters under `internal/infrastructure/<category>/` that satisfy the ports.
+4. Wire adapters into the container (see `internal/app/app.go` and `internal/server/server.go`).
+5. Update Delivery handlers (`internal/delivery/http` or `internal/delivery/ws`) to expose the new functionality.
+6. Add unit/integration tests across the layers.
+7. Document configuration changes in `env.example`, `docs/configuration.md`, and the README.
+
+### Extending Infrastructure
+
+- Swap implementations by providing different adapters that satisfy the same port.
+- Inject the chosen adapter through configuration and container wiring; no changes needed in the Delivery layer.
+
+---
+
+## 10. Summary
+
+- The Delivery layer handles transport concerns only.
+- The Application layer owns business logic, domain entities, validation, and orchestrates ports.
+- The Infrastructure layer implements ports for persistence, search, cache, streaming, events, and WebSockets.
+- Observability currently covers logging and metrics; tracing is planned but not yet active.
+- Respect the dependency direction (outer layers depend on inner layers) to keep the codebase testable and maintainable.
+
+Stay within these boundaries when implementing new features to maintain clarity and reliability across the system.

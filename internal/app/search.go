@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	meilisearch "github.com/meilisearch/meilisearch-go"
 	"go.uber.org/zap"
 )
 
@@ -168,14 +167,8 @@ func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string,
 		return nil, fmt.Errorf("autocomplete search failed: %w", err)
 	}
 
-	// Type assert to Meilisearch SDK's SearchResponse
-	searchResp, ok := result.(*meilisearch.SearchResponse)
-	if !ok {
-		return nil, fmt.Errorf("failed to parse autocomplete response: expected *meilisearch.SearchResponse, got %T", result)
-	}
-
-	if searchResp.Hits == nil {
-		s.logger.Warn("autocomplete response has nil hits",
+	if result == nil || len(result.Hits) == 0 {
+		s.logger.Debug("autocomplete response has no hits",
 			zap.String("query", query),
 		)
 		return []AutocompleteSuggestion{}, nil
@@ -193,58 +186,43 @@ func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string,
 	seen := make(map[string]bool) // key: "type:value"
 	suggestions := make([]AutocompleteSuggestion, 0, limit)
 
-	for _, hit := range searchResp.Hits {
+	for _, hit := range result.Hits {
 		if len(suggestions) >= limit {
 			break
 		}
 
-		// Decode hit into a map to access dynamic fields
-		var hitData map[string]interface{}
-		hitBytes, err := json.Marshal(hit)
-		if err != nil {
-			s.logger.Error("failed to marshal hit",
-				zap.Error(err),
-				zap.String("query", query),
-			)
-			return nil, fmt.Errorf("failed to marshal hit: %w", err)
-		}
-
-		if err := json.Unmarshal(hitBytes, &hitData); err != nil {
-			s.logger.Error("failed to unmarshal hit",
-				zap.Error(err),
-				zap.String("query", query),
-			)
-			return nil, fmt.Errorf("failed to unmarshal hit: %w", err)
-		}
-
 		// Extract values from each attribute with priority order
-		priorityOrder := []string{"flight_number", "message_id", "source", "destination"}
-		for _, attr := range priorityOrder {
+		// Use domain AutocompleteHit struct fields instead of map access
+		attributes := []struct {
+			attr  string
+			value string
+		}{
+			{"flight_number", hit.FlightNumber},
+			{"message_id", hit.MessageID},
+			{"source", hit.Source},
+			{"destination", hit.Destination},
+		}
+
+		for _, attrData := range attributes {
 			if len(suggestions) >= limit {
 				break
 			}
 
-			val, exists := hitData[attr]
-			if !exists || val == nil {
-				continue
-			}
-
-			strVal, ok := val.(string)
-			if !ok || strVal == "" {
+			if attrData.value == "" {
 				continue
 			}
 
 			// Create unique key for deduplication
-			key := fmt.Sprintf("%s:%s", attr, strVal)
+			key := fmt.Sprintf("%s:%s", attrData.attr, attrData.value)
 			if !seen[key] {
-				label := attrLabels[attr]
+				label := attrLabels[attrData.attr]
 				if label == "" {
-					label = attr
+					label = attrData.attr
 				}
 
 				suggestions = append(suggestions, AutocompleteSuggestion{
-					Value: strVal,
-					Type:  attr,
+					Value: attrData.value,
+					Type:  attrData.attr,
 					Label: label,
 				})
 				seen[key] = true

@@ -16,14 +16,15 @@ import (
 
 // Connect creates a NATS connection and JetStream context.
 func Connect(ctx context.Context, cfg config.NATSConfig) (*nats.Conn, nats.JetStreamContext, error) {
-	opts := []nats.Option{
-		nats.Name("caatsm-dashboard"),
-		nats.Timeout(cfg.ConnectTimeout),
-		nats.RetryOnFailedConnect(true),
+	timeout := cfg.ConnectTimeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
 	}
 
-	if cfg.ConnectTimeout <= 0 {
-		opts = append(opts, nats.Timeout(5*time.Second))
+	opts := []nats.Option{
+		nats.Name("caatsm-dashboard"),
+		nats.Timeout(timeout),
+		nats.RetryOnFailedConnect(true),
 	}
 
 	conn, err := nats.Connect(cfg.URL, opts...)
@@ -111,22 +112,12 @@ func (c *Consumer) EnsureConsumer(ctx context.Context) error {
 
 	_, err := c.js.AddConsumer(c.stream, cfg)
 	if err != nil {
-		// Consumer might already exist, try to delete and recreate
-		if strings.Contains(err.Error(), "consumer name already in use") {
-			// Delete existing consumer
-			if deleteErr := c.js.DeleteConsumer(c.stream, c.consumer); deleteErr != nil {
-				// If delete fails, consumer might be in use or doesn't exist
-				// Return original error
-				return fmt.Errorf("ensure consumer: %w (delete failed: %v)", err, deleteErr)
-			}
-			// Try to create again after deletion
-			_, err = c.js.AddConsumer(c.stream, cfg)
-			if err != nil {
-				return fmt.Errorf("recreate consumer: %w", err)
-			}
-			return nil
+		// Consumer might already exist - this is typically fine for durable consumers
+		// Only fail if the error indicates a real problem
+		if !strings.Contains(err.Error(), "consumer name already in use") {
+			return fmt.Errorf("ensure consumer: %w", err)
 		}
-		return fmt.Errorf("ensure consumer: %w", err)
+		// Consumer already exists with this name - proceed with existing consumer
 	}
 
 	return nil

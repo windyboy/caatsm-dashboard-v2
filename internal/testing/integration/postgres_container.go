@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
@@ -65,10 +66,22 @@ func (c *PostgresContainer) Pool(ctx context.Context) (*pgxpool.Pool, error) {
 
 // Close stops and removes the container
 func (c *PostgresContainer) Close(ctx context.Context) error {
-	if c.container != nil {
-		return c.container.Terminate(ctx)
+	if c.container == nil {
+		return nil
 	}
-	return nil
+
+	err := c.container.Terminate(ctx)
+
+	// Handle "no such container" errors - container may have already been terminated
+	if err != nil && strings.Contains(err.Error(), "no such container") {
+		err = nil
+	}
+
+	// Set container to nil after termination (successful or already terminated)
+	// to make subsequent calls idempotent
+	c.container = nil
+
+	return err
 }
 
 // Terminate is an alias for Close for backward compatibility
