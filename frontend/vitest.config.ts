@@ -1,23 +1,38 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import UnoCSS from "unocss/vite";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { PreprocessorGroup } from "svelte/types/compiler/preprocess";
 
 const __dirname =
   typeof (import.meta as any).dirname !== "undefined"
     ? (import.meta as any).dirname
     : dirname(fileURLToPath(import.meta.url));
 
+// Custom preprocessor for tests that bypasses Vite client requirement
+const testStylePreprocess: PreprocessorGroup = {
+  style: async ({ content }) => {
+    // Return CSS as-is - UnoCSS and Vite will process it through their pipelines
+    // This avoids the "Cannot read properties of undefined (reading 'client')" error
+    return { code: content || "", map: null };
+  },
+};
+
 export default defineConfig({
   plugins: [
+    // UnoCSS must come before Svelte plugin to process CSS properly
+    UnoCSS(),
     svelte({
-      // Svelte 5 + vite-plugin-svelte v5: Explicitly enable script preprocessing
-      // Vite 6: In test environment, skip CSS preprocessing to avoid client dependency issues
-      preprocess: vitePreprocess({
-        script: true, // Explicitly enable script preprocessing for TypeScript/JavaScript
-        style: !process.env.VITEST, // Disable CSS preprocessing in test environment (Vite 6 compatibility)
-      }),
+      // In test environment, use custom style preprocessor to avoid Vite client dependency
+      // Script preprocessing still uses vitePreprocess for TypeScript support
+      preprocess: process.env.VITEST
+        ? [
+            testStylePreprocess,
+            vitePreprocess({ script: true, style: false }),
+          ]
+        : vitePreprocess(),
       compilerOptions: {
         dev: true,
         // Svelte 5: Runes mode is the default, no need for componentApi compatibility mode

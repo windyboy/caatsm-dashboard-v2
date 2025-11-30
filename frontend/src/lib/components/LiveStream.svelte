@@ -67,6 +67,11 @@
 
   // Subscribe to stores only in browser (onMount)
   onMount(() => {
+    // Guard against SSR - only run in browser environment
+    if (typeof window === "undefined") {
+      return;
+    }
+
     mounted = true;
 
     // Connect WebSocket (idempotent - only connects if not already connected)
@@ -274,9 +279,5 @@
   .empty-state-subtitle {
     @apply text-xs mt-1;
     color: theme('colors.slate.400');
-  }
-
-  .message-wrapper {
-    /* No specific styles needed */
   }
 </style>
