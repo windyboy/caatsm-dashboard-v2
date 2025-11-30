@@ -33,7 +33,7 @@ export default defineConfig({
     "import.meta.env.DEV": "true",
     "import.meta.env.VITE_API_BASE_URL": '""',
     "import.meta.env.VITE_WS_URL": '""',
-    "import.meta.env.VITE_LOG_LEVEL": "undefined",
+    "import.meta.env.VITE_LOG_LEVEL": '""',
   },
   test: {
     globals: true,

@@ -4,20 +4,19 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
-// RepositoryMock is a mock implementation of ports.Repository
+// RepositoryMock is a mock implementation of app.Repository
 type RepositoryMock struct {
 	mock.Mock
 }
 
-// Ensure RepositoryMock implements ports.Repository
-var _ ports.Repository = (*RepositoryMock)(nil)
+// Ensure RepositoryMock implements app.Repository
+var _ app.Repository = (*RepositoryMock)(nil)
 
 // Save mocks the Save method
-func (m *RepositoryMock) Save(ctx context.Context, telegram *domain.Telegram) error {
+func (m *RepositoryMock) Save(ctx context.Context, telegram *app.Telegram) error {
 	args := m.Called(ctx, telegram)
 	return args.Error(0)
 }
@@ -29,36 +28,36 @@ func (m *RepositoryMock) BulkSave(ctx context.Context, telegrams []any) error {
 }
 
 // Search mocks the Search method
-func (m *RepositoryMock) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
+func (m *RepositoryMock) Search(ctx context.Context, filter app.SearchFilters) (*app.SearchResult, error) {
 	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SearchResult), args.Error(1)
+	return args.Get(0).(*app.SearchResult), args.Error(1)
 }
 
 // TrafficSummary mocks the TrafficSummary method
-func (m *RepositoryMock) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error) {
+func (m *RepositoryMock) TrafficSummary(ctx context.Context, window app.TimeWindow) (*app.TrafficSummary, error) {
 	args := m.Called(ctx, window)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TrafficSummary), args.Error(1)
+	return args.Get(0).(*app.TrafficSummary), args.Error(1)
 }
 
 // RouteStats mocks the RouteStats method
-func (m *RepositoryMock) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error) {
+func (m *RepositoryMock) RouteStats(ctx context.Context, limit int) ([]app.RouteStat, error) {
 	args := m.Called(ctx, limit)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]domain.RouteStat), args.Error(1)
+	return args.Get(0).([]app.RouteStat), args.Error(1)
 }
 
 // StreamSearch mocks the StreamSearch method
-func (m *RepositoryMock) StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error) {
+func (m *RepositoryMock) StreamSearch(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error) {
 	args := m.Called(ctx, filters)
-	telegramCh := make(chan *domain.Telegram, 100)
+	telegramCh := make(chan *app.Telegram, 100)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -67,7 +66,7 @@ func (m *RepositoryMock) StreamSearch(ctx context.Context, filters domain.Search
 
 		// If mock returns a result, send it to channel
 		if result := args.Get(0); result != nil {
-			if searchResult, ok := result.(*domain.SearchResult); ok {
+			if searchResult, ok := result.(*app.SearchResult); ok {
 				for i := range searchResult.Telegrams {
 					telegramCh <- &searchResult.Telegrams[i]
 				}
@@ -83,6 +82,21 @@ func (m *RepositoryMock) StreamSearch(ctx context.Context, filters domain.Search
 	}()
 
 	return telegramCh, errCh
+}
+
+// FindByID mocks the FindByID method
+func (m *RepositoryMock) FindByID(ctx context.Context, messageID string) (*app.Telegram, error) {
+	args := m.Called(ctx, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*app.Telegram), args.Error(1)
+}
+
+// Delete mocks the Delete method
+func (m *RepositoryMock) Delete(ctx context.Context, messageID string) error {
+	args := m.Called(ctx, messageID)
+	return args.Error(0)
 }
 
 // TelegramStoreMock is kept for backward compatibility, now wraps RepositoryMock

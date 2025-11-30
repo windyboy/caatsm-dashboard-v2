@@ -2,23 +2,27 @@
 
 ## Architecture
 
-The project follows **Clean Architecture** with four layers (fully optimized, zero wrapper patterns):
+The project follows **Clean Architecture** with three main layers (Domain logic integrated into Application layer):
 - **Delivery Layer** (`internal/delivery/`) - HTTP/WebSocket handlers with streaming export
-- **Application Layer** (`internal/app/`) - Services, ports, container pattern
-- **Domain Layer** (`internal/domain/`) - Business logic, entities, events, validation (with time range limits)
+- **Application Layer** (`internal/app/`) - Services, ports, container pattern, **and domain entities** (Telegram, SearchFilters, TimeWindow, etc.)
 - **Infrastructure Layer** (`internal/infrastructure/`) - **Direct port implementations** (PostgreSQL, Meilisearch, Valkey, NATS, WebSocket hub)
+
+**Note**: Unlike traditional Clean Architecture, this project integrates domain entities and business logic directly into the `internal/app/` package rather than maintaining a separate `internal/domain/` layer. This simplifies the structure while maintaining clear separation of concerns.
 
 **Additional Packages**:
 - **Observability** (`internal/observability/`) - Cross-cutting concerns: logging, metrics, tracing
 - **Server** (`internal/server/`) - HTTP server setup and configuration
 - **Sync** (`internal/sync/`) - NATS synchronization worker
 - **Testing** (`internal/testing/`) - Shared test utilities and helpers
+- **Errors** (`pkg/errors/`) - Shared error handling utilities
 
 **Key Architecture Principles**:
 - Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - **Infrastructure directly implements `app/ports` interfaces** - no wrapper layers
 - **No `internal/repository/` package** - removed wrapper pattern (Dec 2025)
+- **No separate `internal/domain/` package** - domain entities live in `internal/app/` (Telegram, SearchFilters, TimeWindow, etc.)
 - Container only exposes port interfaces, ensuring proper dependency inversion
+- Domain logic (validation, business rules) is co-located with entities in `internal/app/`
 
 **Production Features**:
 - Time range validation: Max 90 days to prevent unbounded queries
@@ -128,8 +132,8 @@ task clean:all            # Clean all including node_modules
 
 To run a specific test:
 ```bash
-go test ./internal/domain -v -run TestValidateTelegram
-go test ./internal/app/services -v -run TestDashboardService
+go test ./internal/app -v -run TestValidateTelegram
+go test ./internal/app -v -run TestDashboardService
 ```
 
 ## Code Style Guidelines
@@ -155,9 +159,9 @@ go test ./internal/app/services -v -run TestDashboardService
 **General:**
 - No comments unless explaining complex business logic
 - Use dependency injection pattern
-- Follow clean architecture: domain → application → infrastructure → delivery
-- Domain layer must have no external dependencies (✅ enforced)
-- Application layer depends only on domain and port interfaces (✅ enforced)
+- Follow clean architecture: delivery → application → infrastructure
+- Domain entities and business logic live in `internal/app/` (not a separate domain package)
+- Application layer depends only on port interfaces (✅ enforced)
 - Infrastructure **directly implements** application ports (✅ enforced, no wrapper layers)
 - All legacy handlers/services/models/repository wrappers have been removed (✅ complete)
 
@@ -173,10 +177,22 @@ caatsm-dashboard/
 │   └── extract-dsn/
 ├── internal/
 │   ├── delivery/          # HTTP/WebSocket handlers (delivery layer)
-│   ├── app/               # Services, ports, container (application layer)
-│   │   ├── services/      # Application services
-│   │   └── ports/         # Port interfaces (Repository, Cache, SearchIndex, etc.)
-│   ├── domain/            # Business logic, entities, validation
+│   │   ├── http/          # HTTP handlers, routes, middleware
+│   │   └── ws/            # WebSocket handlers and broadcasters
+│   ├── app/               # Application layer (services, ports, entities, domain logic)
+│   │   ├── app.go         # Container and dependency wiring
+│   │   ├── ports.go       # Port interfaces (Repository, Cache, SearchIndex, etc.)
+│   │   ├── telegram.go    # Telegram entity and validation
+│   │   ├── query.go       # Query types and filters
+│   │   ├── filters.go     # Search filter logic
+│   │   ├── dashboard.go   # DashboardService
+│   │   ├── search.go      # SearchService
+│   │   ├── stats.go       # StatsService
+│   │   ├── export.go      # ExportService
+│   │   ├── realtime.go    # RealtimeService
+│   │   ├── events.go      # Domain events
+│   │   ├── errors.go      # Error types
+│   │   └── ports_backup/  # Legacy backup (not used)
 │   ├── infrastructure/    # Direct port implementations
 │   │   ├── persistence/   # PostgreSQL (implements ports.Repository)
 │   │   ├── search/        # Meilisearch (implements ports.SearchIndex)
@@ -188,14 +204,31 @@ caatsm-dashboard/
 │   ├── server/            # Server setup and configuration
 │   ├── sync/              # Synchronization worker
 │   └── testing/           # Test utilities and helpers
+├── pkg/                   # Shared packages
+│   └── errors/           # Error handling utilities
 ├── frontend/              # SvelteKit frontend
 │   ├── src/
-│   │   ├── routes/       # Pages
-│   │   └── lib/          # Components, stores, services
+│   │   ├── routes/       # Pages and routes
+│   │   └── lib/          # Shared code
+│   │       ├── components/  # Svelte components
+│   │       ├── services/   # Frontend services (API clients, WebSocket)
+│   │       ├── stores/     # Svelte stores (state management)
+│   │       ├── types/      # TypeScript type definitions
+│   │       └── utils/      # Utility functions
 │   └── tests/            # E2E and unit tests
 ├── migrations/            # Database migrations (goose)
-├── config/               # TOML configuration
-└── Taskfile.yaml         # Task automation
+├── config/               # TOML configuration files
+├── api/                  # API specifications
+│   └── openapi.yaml     # OpenAPI 3.0 specification
+├── docs/                 # Additional documentation
+│   ├── ARCHITECTURE.md
+│   ├── configuration.md
+│   ├── security.md
+│   └── troubleshooting.md
+├── scripts/              # Utility scripts
+├── deploy/               # Deployment configurations
+├── Taskfile.yaml         # Task automation
+└── Makefile              # Quick command shortcuts
 ```
 
 ## Quick Start Guide
@@ -236,16 +269,18 @@ caatsm-dashboard/
 ## Common Workflows
 
 **Adding a New Feature:**
-1. Write domain logic in `internal/domain/`
-2. Define port interface in `internal/app/ports/` (if needed)
-3. Add service in `internal/app/services/`
+1. Define domain entities/types in `internal/app/` (e.g., `telegram.go`, `query.go`)
+2. Define port interface in `internal/app/ports.go` (if needed)
+3. Add service methods in `internal/app/` (e.g., `dashboard.go`, `search.go`)
 4. Implement infrastructure in `internal/infrastructure/` (directly implements ports)
 5. Add HTTP/WS handlers in `internal/delivery/`
 6. Wire dependencies in `internal/app/app.go` Container
 7. Write tests at each layer
 8. Run `make lint` and `make test`
 
-**Note**: Infrastructure implementations should directly implement port interfaces from `app/ports/`. No wrapper layers or intermediate abstractions.
+**Note**: 
+- Domain entities (Telegram, SearchFilters, TimeWindow) and business logic live in `internal/app/`, not a separate domain package
+- Infrastructure implementations should directly implement port interfaces from `app/ports.go`. No wrapper layers or intermediate abstractions.
 
 **Database Changes:**
 1. Create migration: `goose -dir migrations create <name> sql`
@@ -255,8 +290,10 @@ caatsm-dashboard/
 **Frontend Changes:**
 1. Edit components in `frontend/src/lib/components/`
 2. Edit routes in `frontend/src/routes/`
-3. Test with: `make frontend-test-unit`
-4. E2E test with: `make frontend-test`
+3. Edit services in `frontend/src/lib/services/`
+4. Edit stores in `frontend/src/lib/stores/`
+5. Test with: `make frontend-test-unit`
+6. E2E test with: `make frontend-test`
 
 ## Environment Variables
 
@@ -268,7 +305,7 @@ Key environment variables (set in `.env.local` or config file):
 ## Dependencies
 
 **Backend:**
-- Go 1.25+
+- Go 1.25.4+
 - PostgreSQL 14+
 - Redis/Valkey 7+
 - NATS 2.10+

@@ -1,4 +1,4 @@
-package services
+package app
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -15,14 +14,14 @@ import (
 type ExportService struct {
 	searchSvc *SearchService
 	repo      interface {
-		StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
+		StreamSearch(ctx context.Context, filters SearchFilters) (<-chan *Telegram, <-chan error)
 	}
 	logger *zap.Logger
 }
 
 // NewExportService creates a new export service
 func NewExportService(searchSvc *SearchService, repo interface {
-	StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
+	StreamSearch(ctx context.Context, filters SearchFilters) (<-chan *Telegram, <-chan error)
 }, logger *zap.Logger) *ExportService {
 	return &ExportService{
 		searchSvc: searchSvc,
@@ -32,10 +31,10 @@ func NewExportService(searchSvc *SearchService, repo interface {
 }
 
 // Export exports search results in the specified format
-func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
+func (e *ExportService) Export(ctx context.Context, filters SearchFilters, format ExportFormat) ([]byte, error) {
 	// Validate format first (before expensive operations)
 	switch format {
-	case domain.ExportFormatCSV:
+	case ExportFormatCSV:
 		// Valid format, continue
 	default:
 		return nil, fmt.Errorf("unsupported export format: %s", format)
@@ -54,7 +53,7 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 
 	// Export based on format
 	switch format {
-	case domain.ExportFormatCSV:
+	case ExportFormatCSV:
 		return e.exportCSV(result)
 	default:
 		// Should never reach here due to validation above
@@ -63,24 +62,24 @@ func (e *ExportService) Export(ctx context.Context, filters domain.SearchFilters
 }
 
 // validateExportFilters validates filters for export operations
-func (e *ExportService) validateExportFilters(filters *domain.SearchFilters) error {
+func (e *ExportService) validateExportFilters(filters *SearchFilters) error {
 	// Validate domain filters including time range (max 90 days)
 	if err := filters.Validate(); err != nil {
 		return err
 	}
 
 	// Check export limits
-	if filters.Pagination.Limit != 0 && filters.Pagination.Limit > domain.MaxExportRecords {
-		return fmt.Errorf("export limit cannot exceed %d records", domain.MaxExportRecords)
+	if filters.Pagination.Limit != 0 && filters.Pagination.Limit > MaxExportRecords {
+		return fmt.Errorf("export limit cannot exceed %d records", MaxExportRecords)
 	}
 
 	return nil
 }
 
 // exportCSV exports data as CSV
-func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
+func (e *ExportService) exportCSV(result *SearchResult) ([]byte, error) {
 	if result == nil {
-		result = &domain.SearchResult{}
+		result = &SearchResult{}
 	}
 	e.logger.Info("exporting to CSV", zap.Int("records", len(result.Telegrams)))
 
@@ -134,7 +133,7 @@ func (e *ExportService) exportCSV(result *domain.SearchResult) ([]byte, error) {
 // ExportStream returns channels for streaming export (for large datasets).
 // The caller should read from the telegram channel and handle errors from the error channel.
 // This method is suitable for exports that may exceed memory limits.
-func (e *ExportService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+func (e *ExportService) ExportStream(ctx context.Context, filters SearchFilters) (<-chan *Telegram, <-chan error, error) {
 	if e.repo == nil {
 		return nil, nil, fmt.Errorf("streaming export not available: repository not configured")
 	}

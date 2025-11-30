@@ -10,36 +10,35 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/app/services"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap/zaptest"
 )
 
 type mockDashboardService struct {
-	lastExportFilters domain.SearchFilters
-	lastExportFormat  domain.ExportFormat
-	lastStatsRange    domain.TimeWindow
-	statsResult       *domain.TrafficSummary
+	lastExportFilters app.SearchFilters
+	lastExportFormat  app.ExportFormat
+	lastStatsRange    app.TimeWindow
+	statsResult       *app.TrafficSummary
 	exportData        []byte
 }
 
-func (m *mockDashboardService) GetDashboardData(ctx context.Context, req *services.DashboardRequest) (*services.DashboardResponse, error) {
+func (m *mockDashboardService) GetDashboardData(ctx context.Context, req *app.DashboardRequest) (*app.DashboardResponse, error) {
 	return nil, nil
 }
 
-func (m *mockDashboardService) Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error) {
+func (m *mockDashboardService) Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error) {
 	return nil, nil
 }
 
-func (m *mockDashboardService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
+func (m *mockDashboardService) GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error) {
 	m.lastStatsRange = timeRange
 	if m.statsResult != nil {
 		return m.statsResult, nil
 	}
-	return &domain.TrafficSummary{}, nil
+	return &app.TrafficSummary{}, nil
 }
 
-func (m *mockDashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
+func (m *mockDashboardService) Export(ctx context.Context, filters app.SearchFilters, format app.ExportFormat) ([]byte, error) {
 	m.lastExportFilters = filters
 	m.lastExportFormat = format
 	if m.exportData != nil {
@@ -48,9 +47,9 @@ func (m *mockDashboardService) Export(ctx context.Context, filters domain.Search
 	return []byte("export"), nil
 }
 
-func (m *mockDashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+func (m *mockDashboardService) ExportStream(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error, error) {
 	m.lastExportFilters = filters
-	telegramCh := make(chan *domain.Telegram)
+	telegramCh := make(chan *app.Telegram)
 	errCh := make(chan error)
 	go func() {
 		defer close(telegramCh)
@@ -63,11 +62,11 @@ func (m *mockDashboardService) Autocomplete(ctx context.Context, query string, s
 	return []string{}, nil
 }
 
-func (m *mockDashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error) {
-	return []services.AutocompleteSuggestion{}, nil
+func (m *mockDashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]app.AutocompleteSuggestion, error) {
+	return []app.AutocompleteSuggestion{}, nil
 }
 
-// Note: Full handler tests would require integration tests with real services.
+// Note: Full handler tests would require integration tests with real app.
 // These are simplified tests that verify basic functionality without mocking
 // the entire DashboardService.
 

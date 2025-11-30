@@ -50,7 +50,21 @@ function createWebSocketStore() {
             if (newStatus === "connected") {
               error.set(null);
             } else if (newStatus === "error") {
-              error.set("Connection error. Please check your network.");
+              const attempts = wsClient.getReconnectAttempts();
+              const maxAttempts = wsClient.getMaxReconnectAttempts();
+              if (attempts >= maxAttempts) {
+                error.set("Unable to connect to live stream after multiple attempts. Please refresh the page or check your network connection.");
+              } else {
+                error.set("Connection lost. Attempting to reconnect...");
+              }
+            } else if (newStatus === "reconnecting") {
+              const attempts = wsClient.getReconnectAttempts();
+              const maxAttempts = wsClient.getMaxReconnectAttempts();
+              error.set(`Reconnecting... (attempt ${attempts + 1}/${maxAttempts})`);
+            } else if (newStatus === "connecting") {
+              error.set("Connecting to live stream...");
+            } else if (newStatus === "disconnected") {
+              error.set("Disconnected from live stream.");
             }
           });
         }
@@ -67,13 +81,9 @@ function createWebSocketStore() {
               case "message":
                 messages.add(message.data);
                 break;
-              case "stats-total":
+              case "stats":
                 stats.setTotal(message.data.total);
-                break;
-              case "stats-priority":
                 stats.setByPriority(message.data.byPriority);
-                break;
-              case "stats-type":
                 stats.setByType(message.data.byType);
                 break;
               case "pong":

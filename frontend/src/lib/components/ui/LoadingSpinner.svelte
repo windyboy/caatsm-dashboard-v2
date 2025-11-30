@@ -42,6 +42,7 @@
     success: "text-success",
     warning: "text-warning",
     danger: "text-error",
+    gradient: "text-primary", // or appropriate gradient styling
   };
 </script>
 

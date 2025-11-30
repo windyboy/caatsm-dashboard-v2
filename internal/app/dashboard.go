@@ -1,4 +1,4 @@
-package services
+package app
 
 import (
 	"context"
@@ -7,24 +7,22 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
 // DashboardRequest represents a request for dashboard data
 type DashboardRequest struct {
-	SearchFilters domain.SearchFilters
-	TimeRange     domain.TimeWindow
+	SearchFilters SearchFilters
+	TimeRange     TimeWindow
 	UserID        string
 }
 
 // DashboardResponse contains all dashboard data
 type DashboardResponse struct {
-	Search    *domain.SearchResult   `json:"search,omitempty"`
-	Stats     *domain.TrafficSummary `json:"stats"`
-	Realtime  *RealtimeInfo          `json:"realtime"`
-	Timestamp time.Time              `json:"timestamp"`
+	Search    *SearchResult   `json:"search,omitempty"`
+	Stats     *TrafficSummary `json:"stats"`
+	Realtime  *RealtimeInfo   `json:"realtime"`
+	Timestamp time.Time       `json:"timestamp"`
 }
 
 // RealtimeInfo contains real-time dashboard information
@@ -40,8 +38,8 @@ type DashboardService struct {
 	statsSvc  *StatsService
 	exportSvc *ExportService
 	realtime  *RealtimeManager
-	repo      ports.Repository
-	cache     ports.Cache
+	repo      Repository
+	cache     Cache
 	statsTTL  time.Duration
 	logger    *zap.Logger
 }
@@ -52,8 +50,8 @@ func NewDashboardService(
 	statsSvc *StatsService,
 	exportSvc *ExportService,
 	realtime *RealtimeManager,
-	repo ports.Repository,
-	cache ports.Cache,
+	repo Repository,
+	cache Cache,
 	statsTTL time.Duration,
 	logger *zap.Logger,
 ) *DashboardService {
@@ -104,8 +102,8 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 }
 
 // getDashboardDataHelper fetches dashboard data sequentially
-func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *DashboardRequest) (*domain.SearchResult, *domain.TrafficSummary, *RealtimeInfo, error) {
-	var searchResult *domain.SearchResult
+func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *DashboardRequest) (*SearchResult, *TrafficSummary, *RealtimeInfo, error) {
+	var searchResult *SearchResult
 	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
 		result, err := ds.searchSvc.Search(ctx, req.SearchFilters)
 		if err != nil {
@@ -124,22 +122,22 @@ func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *Das
 }
 
 // Search performs a search operation
-func (ds *DashboardService) Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error) {
+func (ds *DashboardService) Search(ctx context.Context, filters SearchFilters) (*SearchResult, error) {
 	return ds.searchSvc.Search(ctx, filters)
 }
 
 // GetStats retrieves traffic statistics
-func (ds *DashboardService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
+func (ds *DashboardService) GetStats(ctx context.Context, timeRange TimeWindow) (*TrafficSummary, error) {
 	return ds.statsSvc.GetStats(ctx, timeRange)
 }
 
 // Export exports data in the specified format
-func (ds *DashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
+func (ds *DashboardService) Export(ctx context.Context, filters SearchFilters, format ExportFormat) ([]byte, error) {
 	return ds.exportSvc.Export(ctx, filters, format)
 }
 
 // ExportStream returns channels for streaming export (for large datasets)
-func (ds *DashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
+func (ds *DashboardService) ExportStream(ctx context.Context, filters SearchFilters) (<-chan *Telegram, <-chan error, error) {
 	return ds.exportSvc.ExportStream(ctx, filters)
 }
 
@@ -169,13 +167,13 @@ const (
 // StreamInitialData implements ports.DashboardPort.
 // It sends initial stats (total/priority/type) and recent 50 messages (batch).
 // Messages sent to ch in order: stats-total, stats-priority, stats-type, then messages (oldest first).
-func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- ports.WSMessage) error {
+func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- WSMessage) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	// Create time window for last 90 days
-	window := domain.TimeWindow{
+	window := TimeWindow{
 		Start: time.Now().Add(-Days90 * 24 * time.Hour),
 		End:   time.Now(),
 	}
@@ -188,7 +186,7 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 
 	// Send stats-total
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-total",
 		Data: map[string]interface{}{
 			"total": stats.TotalMessages,
@@ -200,7 +198,7 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 
 	// Send stats-priority
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-priority",
 		Data: map[string]interface{}{
 			"byPriority": stats.ByPriority,
@@ -212,7 +210,7 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 
 	// Send stats-type
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-type",
 		Data: map[string]interface{}{
 			"byType": stats.ByType,
@@ -223,8 +221,8 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 	}
 
 	// Get recent messages (order by time DESC, then reverse to oldest first)
-	filters := domain.SearchFilters{
-		Pagination: domain.Pagination{
+	filters := SearchFilters{
+		Pagination: Pagination{
 			Limit:  RecentLimit,
 			SortBy: "time",
 			Order:  "desc",
@@ -241,7 +239,7 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 		// Reverse the slice to get oldest first
 		for i := len(searchResult.Telegrams) - 1; i >= 0; i-- {
 			select {
-			case ch <- ports.WSMessage{
+			case ch <- WSMessage{
 				Type: "message",
 				Data: searchResult.Telegrams[i],
 			}:
@@ -257,13 +255,13 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- por
 // HandleEvent implements ports.DashboardPort.
 // It processes a realtime event: parse telegram, increment stats cache atomically,
 // send message, then updated stats (total/priority/type).
-func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch chan<- ports.WSMessage) error {
+func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch chan<- WSMessage) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	// Parse the event as TelegramReceived
-	var telegramReceived domain.TelegramReceived
+	var telegramReceived TelegramReceived
 	if err := json.Unmarshal(event, &telegramReceived); err != nil {
 		return fmt.Errorf("parse event: %w", err)
 	}
@@ -281,7 +279,7 @@ func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch ch
 
 	// Send message to channel
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "message",
 		Data: telegram,
 	}:
@@ -298,7 +296,7 @@ func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch ch
 }
 
 // updateStatsCache atomically increments the stats counters in cache
-func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *domain.Telegram) error {
+func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *Telegram) error {
 	// Increment total messages
 	if _, err := ds.cache.Incr(ctx, statsTotalKey, 1); err != nil {
 		return fmt.Errorf("incr total: %w", err)
@@ -319,7 +317,7 @@ func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *doma
 }
 
 // sendUpdatedStats sends the current stats from cache to the channel
-func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- ports.WSMessage) error {
+func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMessage) error {
 	// Get total
 	total, err := ds.cache.GetInt64(ctx, statsTotalKey)
 	if err != nil {
@@ -328,7 +326,7 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- port
 
 	// Send stats-total
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-total",
 		Data: map[string]interface{}{
 			"total": total,
@@ -354,7 +352,7 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- port
 
 	// Send stats-priority
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-priority",
 		Data: map[string]interface{}{
 			"byPriority": priorityMap,
@@ -379,7 +377,7 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- port
 
 	// Send stats-type
 	select {
-	case ch <- ports.WSMessage{
+	case ch <- WSMessage{
 		Type: "stats-type",
 		Data: map[string]interface{}{
 			"byType": typeMap,

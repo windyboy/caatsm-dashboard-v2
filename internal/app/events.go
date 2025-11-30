@@ -1,9 +1,9 @@
-package domain
+package app
 
 import "time"
 
 // Event represents a domain event in the system.
-// Domain events capture something meaningful that happened in the domain.
+// Domain events capture something meaningful that happened in the app.
 type Event interface {
 	EventType() string
 	OccurredAt() time.Time

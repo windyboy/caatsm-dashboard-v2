@@ -8,8 +8,7 @@ import (
 
 	meilisearchClient "github.com/meilisearch/meilisearch-go"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
 // NewMeilisearchClient initialises a Meilisearch service manager with sensible defaults.
@@ -47,8 +46,8 @@ func NewMeilisearchIndex(client meilisearchClient.ServiceManager, index string) 
 	}
 }
 
-// Ensure Index implements ports.SearchIndex
-var _ ports.SearchIndex = (*Index)(nil)
+// Ensure Index implements app.SearchIndex
+var _ app.SearchIndex = (*Index)(nil)
 
 // EnsureIndex creates or updates the Meilisearch index with proper settings.
 func (i *Index) EnsureIndex(ctx context.Context) error {
@@ -88,7 +87,7 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 }
 
 // Index adds/updates a telegram document in Meilisearch.
-func (i *Index) Index(ctx context.Context, telegram *domain.Telegram) error {
+func (i *Index) Index(ctx context.Context, telegram *app.Telegram) error {
 	idx := i.client.Index(i.index)
 
 	doc := map[string]any{
@@ -112,7 +111,7 @@ func (i *Index) Index(ctx context.Context, telegram *domain.Telegram) error {
 }
 
 // BulkIndex ingests multiple telegrams.
-func (i *Index) BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error {
+func (i *Index) BulkIndex(ctx context.Context, telegrams []*app.Telegram) error {
 	if len(telegrams) == 0 {
 		return nil
 	}

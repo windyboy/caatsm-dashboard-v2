@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/windy/caatsm-dashboard/internal/app/services"
-	"github.com/windy/caatsm-dashboard/internal/domain"
-	appErrors "github.com/windy/caatsm-dashboard/pkg/errors"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
@@ -26,13 +24,13 @@ const (
 
 // DashboardService defines the application boundary used by this transport layer.
 type DashboardService interface {
-	GetDashboardData(ctx context.Context, req *services.DashboardRequest) (*services.DashboardResponse, error)
-	Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error)
-	GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error)
-	Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error)
-	ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error)
+	GetDashboardData(ctx context.Context, req *app.DashboardRequest) (*app.DashboardResponse, error)
+	Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error)
+	GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
+	Export(ctx context.Context, filters app.SearchFilters, format app.ExportFormat) ([]byte, error)
+	ExportStream(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error, error)
 	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
-	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]services.AutocompleteSuggestion, error)
+	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]app.AutocompleteSuggestion, error)
 }
 
 // Handler handles HTTP requests for the dashboard
@@ -59,15 +57,15 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	}
 
 	// Parse query parameters
-	req := &services.DashboardRequest{
+	req := &app.DashboardRequest{
 		UserID: userID,
 	}
 
 	// Parse search filters
 	if query := c.QueryParam("query"); query != "" {
-		req.SearchFilters = domain.SearchFilters{
+		req.SearchFilters = app.SearchFilters{
 			Query: query,
-			Pagination: domain.Pagination{
+			Pagination: app.Pagination{
 				Limit:  DefaultLimit,
 				Offset: 0,
 				SortBy: "time",
@@ -92,7 +90,7 @@ func (h *Handler) Dashboard(c echo.Context) error {
 	timeRange, err := buildTimeWindow(c)
 	if err != nil {
 		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, appErrors.ErrInvalidInput)
+		return handleError(c, app.ErrInvalidInput)
 	}
 	req.TimeRange = timeRange
 
@@ -113,7 +111,7 @@ func (h *Handler) Search(c echo.Context) error {
 	timeRange, err := parseTimeRange(c)
 	if err != nil {
 		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, appErrors.ErrInvalidInput)
+		return handleError(c, app.ErrInvalidInput)
 	}
 	filters.TimeRange = timeRange
 
@@ -127,7 +125,7 @@ func (h *Handler) Search(c echo.Context) error {
 	// Ensure telegrams is always a non-nil slice (empty array instead of nil)
 	telegrams := result.Telegrams
 	if telegrams == nil {
-		telegrams = []domain.Telegram{}
+		telegrams = []app.Telegram{}
 	}
 
 	// Convert page object to have proper JSON field names
@@ -150,7 +148,7 @@ func (h *Handler) Stats(c echo.Context) error {
 	timeRange, err := buildTimeWindow(c)
 	if err != nil {
 		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, appErrors.ErrInvalidInput)
+		return handleError(c, app.ErrInvalidInput)
 	}
 
 	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
@@ -165,14 +163,14 @@ func (h *Handler) Stats(c echo.Context) error {
 // Export handles GET /api/export - data export
 func (h *Handler) Export(c echo.Context) error {
 	filters := parseSearchFilters(c)
-	filters.Pagination = domain.Pagination{
-		Limit:  domain.MaxExportRecords,
+	filters.Pagination = app.Pagination{
+		Limit:  app.MaxExportRecords,
 		Offset: 0,
 	}
 	timeRange, err := parseTimeRange(c)
 	if err != nil {
 		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, appErrors.ErrInvalidInput)
+		return handleError(c, app.ErrInvalidInput)
 	}
 	filters.TimeRange = timeRange
 
@@ -181,10 +179,10 @@ func (h *Handler) Export(c echo.Context) error {
 		formatStr = "csv"
 	}
 
-	var format domain.ExportFormat
+	var format app.ExportFormat
 	switch formatStr {
 	case "csv":
-		format = domain.ExportFormatCSV
+		format = app.ExportFormatCSV
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "invalid format. supported: csv",
@@ -192,7 +190,7 @@ func (h *Handler) Export(c echo.Context) error {
 	}
 
 	// Use streaming export for CSV (supports large datasets)
-	if format == domain.ExportFormatCSV {
+	if format == app.ExportFormatCSV {
 		stream, errCh, err := h.dashboardSvc.ExportStream(c.Request().Context(), filters)
 		if err != nil {
 			h.logger.Error("export stream failed", zap.Error(err))
@@ -213,7 +211,7 @@ func (h *Handler) Export(c echo.Context) error {
 	filename := "telegrams." + formatStr
 
 	switch format {
-	case domain.ExportFormatCSV:
+	case app.ExportFormatCSV:
 		contentType = "text/csv"
 	}
 
@@ -240,16 +238,16 @@ func (h *Handler) Health(c echo.Context) error {
 func getUserID(c echo.Context) (string, error) {
 	userID := c.Get("user_id")
 	if userID == nil {
-		return "", appErrors.ErrUnauthorized
+		return "", app.ErrUnauthorized
 	}
 
 	userIDStr, ok := userID.(string)
 	if !ok {
-		return "", appErrors.ErrUnauthorized
+		return "", app.ErrUnauthorized
 	}
 
 	if userIDStr == "" {
-		return "", appErrors.ErrUnauthorized
+		return "", app.ErrUnauthorized
 	}
 
 	return userIDStr, nil
@@ -259,49 +257,69 @@ func parseTime(timeStr string) (time.Time, error) {
 	return time.Parse(time.RFC3339, timeStr)
 }
 
-func buildTimeWindow(c echo.Context) (domain.TimeWindow, error) {
-	timeRange := domain.TimeWindow{}
+func buildTimeWindow(c echo.Context) (app.TimeWindow, error) {
+	timeRange := app.TimeWindow{}
 
 	if startStr := c.QueryParam("start_time"); startStr != "" {
 		start, err := parseTime(startStr)
 		if err != nil {
-			return domain.TimeWindow{}, fmt.Errorf("invalid start_time: %w", err)
+			return app.TimeWindow{}, fmt.Errorf("invalid start_time: %w", err)
 		}
 		timeRange.Start = start
 	}
 	if endStr := c.QueryParam("end_time"); endStr != "" {
 		end, err := parseTime(endStr)
 		if err != nil {
-			return domain.TimeWindow{}, fmt.Errorf("invalid end_time: %w", err)
+			return app.TimeWindow{}, fmt.Errorf("invalid end_time: %w", err)
 		}
 		timeRange.End = end
 	}
 
 	if !timeRange.Start.IsZero() && !timeRange.End.IsZero() && timeRange.Start.After(timeRange.End) {
-		return domain.TimeWindow{}, fmt.Errorf("start_time must be before end_time")
+		return app.TimeWindow{}, fmt.Errorf("start_time must be before end_time")
 	}
 
 	return timeRange, nil
 }
 
+// handleError handles API errors and returns standardized error responses
 func handleError(c echo.Context, err error) error {
-	switch {
-	case stdErrors.Is(err, appErrors.ErrNotFound):
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
-	case stdErrors.Is(err, appErrors.ErrInvalidInput):
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid input"})
-	case stdErrors.Is(err, appErrors.ErrUnauthorized):
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	default:
-		// Note: In a real implementation, we'd need access to logger here
-		// For now, just return generic error
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+	var apiErr app.APIError
+
+	// Check if it's already an APIError
+	if e, ok := err.(app.APIError); ok {
+		apiErr = e
+	} else {
+		// Handle legacy errors and convert them
+		switch {
+		case stdErrors.Is(err, app.ErrNotFound):
+			apiErr = app.ErrNotFound
+		case stdErrors.Is(err, app.ErrInvalidInput):
+			apiErr = app.ErrInvalidInput
+		case stdErrors.Is(err, app.ErrUnauthorized):
+			apiErr = app.ErrUnauthorized
+		default:
+			// Check for custom domain errors
+			if invalidTelegram, ok := err.(app.ErrInvalidTelegram); ok {
+				apiErr = invalidTelegram.ToAPIError()
+			} else if invalidFilter, ok := err.(app.ErrInvalidFilter); ok {
+				apiErr = invalidFilter.ToAPIError()
+			} else {
+				// Default to internal error for unknown errors
+				apiErr = app.ErrInternalError
+			}
+		}
 	}
+
+	// Get HTTP status from error code
+	status := app.GetHTTPStatus(apiErr.Code)
+
+	return c.JSON(status, apiErr)
 }
 
 // parseSearchFilters parses search filter parameters from the request context
-func parseSearchFilters(c echo.Context) domain.SearchFilters {
-	filters := domain.SearchFilters{}
+func parseSearchFilters(c echo.Context) app.SearchFilters {
+	filters := app.SearchFilters{}
 
 	if query := c.QueryParam("query"); query != "" {
 		filters.Query = query
@@ -325,8 +343,8 @@ func parseSearchFilters(c echo.Context) domain.SearchFilters {
 }
 
 // parsePagination parses pagination parameters from the request context
-func parsePagination(c echo.Context) domain.Pagination {
-	pagination := domain.Pagination{
+func parsePagination(c echo.Context) app.Pagination {
+	pagination := app.Pagination{
 		Limit:  DefaultLimit,
 		Offset: 0,
 		SortBy: "time",
@@ -354,6 +372,6 @@ func parsePagination(c echo.Context) domain.Pagination {
 }
 
 // parseTimeRange parses time range parameters from the request context
-func parseTimeRange(c echo.Context) (domain.TimeWindow, error) {
+func parseTimeRange(c echo.Context) (app.TimeWindow, error) {
 	return buildTimeWindow(c)
 }

@@ -3,6 +3,7 @@
   import "virtual:uno.css";
   import "../app.css";
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
+  import ConnectionStatus from "$lib/components/ConnectionStatus.svelte";
 
   interface Props {
     children?: Snippet;
@@ -13,4 +14,5 @@
 
 <ErrorBoundary context={{ component: "layout" }}>
   {@render children?.()}
+  <ConnectionStatus />
 </ErrorBoundary>

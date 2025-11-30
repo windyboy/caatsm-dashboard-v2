@@ -426,9 +426,9 @@ describe("WebSocketClient", () => {
         ws.onmessage({
           data: JSON.stringify({ type: "message", data: {} }),
         } as MessageEvent);
-        // stats-total requires data.total to be a number, so empty object should be rejected
+        // stats requires data.total, byPriority, and byType to be present and correct types
         ws.onmessage({
-          data: JSON.stringify({ type: "stats-total", data: {} }),
+          data: JSON.stringify({ type: "stats", data: {} }),
         } as MessageEvent);
       }
 
@@ -436,7 +436,7 @@ describe("WebSocketClient", () => {
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledWith(expect.objectContaining({ type: "message" }));
       expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "invalid-type" }));
-      expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "stats-total" }));
+      expect(handler).not.toHaveBeenCalledWith(expect.objectContaining({ type: "stats" }));
     } finally {
       vi.useRealTimers();
     }

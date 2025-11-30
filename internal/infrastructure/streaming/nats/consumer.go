@@ -10,8 +10,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
@@ -54,7 +53,7 @@ type Consumer struct {
 	stream   string
 	consumer string
 	sub      *nats.Subscription
-	handler  func(context.Context, *domain.Telegram) error
+	handler  func(context.Context, *app.Telegram) error
 	logger   *zap.Logger
 }
 
@@ -63,8 +62,8 @@ func New(js nats.JetStreamContext, stream, consumer string) *Consumer {
 	return &Consumer{js: js, stream: stream, consumer: consumer}
 }
 
-// Ensure Consumer implements ports.StreamConsumer
-var _ ports.StreamConsumer = (*Consumer)(nil)
+// Ensure Consumer implements app.StreamConsumer
+var _ app.StreamConsumer = (*Consumer)(nil)
 
 // SetLogger sets the logger for the consumer.
 func (c *Consumer) SetLogger(logger *zap.Logger) {
@@ -72,7 +71,7 @@ func (c *Consumer) SetLogger(logger *zap.Logger) {
 }
 
 // SetHandler sets the message handler.
-func (c *Consumer) SetHandler(handler func(context.Context, *domain.Telegram) error) {
+func (c *Consumer) SetHandler(handler func(context.Context, *app.Telegram) error) {
 	c.handler = handler
 }
 
@@ -180,7 +179,7 @@ func (c *Consumer) processMessages(ctx context.Context) {
 			}
 
 			for _, msg := range msgs {
-				var telegram domain.Telegram
+				var telegram app.Telegram
 				if err := json.Unmarshal(msg.Data, &telegram); err != nil {
 					if ackErr := msg.Ack(); ackErr != nil {
 						c.logAckError("ack after unmarshal failure", msg, ackErr, nil)

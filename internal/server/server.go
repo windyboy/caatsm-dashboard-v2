@@ -11,12 +11,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/app/services"
 	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
-	"github.com/windy/caatsm-dashboard/internal/domain"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
 	"go.uber.org/zap"
@@ -55,6 +53,29 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Initialize infrastructure implementations in server layer to avoid circular imports
+	pool, err := app.NewPostgresPool(initCtx, cfg.Database)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres pool: %w", err)
+	}
+
+	meiliSvc, err := app.NewMeilisearchClient(cfg.Meilisearch)
+	if err != nil {
+		return nil, fmt.Errorf("create meilisearch client: %w", err)
+	}
+
+	store := persistence.New(pool)
+	meiliIndex := search.NewMeilisearchIndex(meiliSvc, cfg.Meilisearch.Index)
+
+	// Ensure Meilisearch index is set up
+	if err := meiliIndex.EnsureIndex(initCtx); err != nil {
+		logger.Warn("failed to ensure meilisearch index", zap.Error(err))
+	}
+
+	// Set infrastructure ports
+	container.Repo = store
+	container.Search = meiliIndex
 
 	// Only create metrics exporter if metrics are enabled
 	var metricsExporter *observability.MetricsExporter
@@ -275,14 +296,14 @@ func (s *Server) registerRoutes() {
 
 // statsServiceAdapter adapts DashboardService to the interface expected by WebSocket handler
 type statsServiceAdapter struct {
-	statsService *services.DashboardService
+	statsService *app.DashboardService
 }
 
 func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interface{}) (interface{}, error) {
-	timeWindow, ok := window.(domain.TimeWindow)
+	timeWindow, ok := window.(app.TimeWindow)
 	if !ok {
 		// If window is empty or wrong type, use empty TimeWindow (will get all-time stats)
-		timeWindow = domain.TimeWindow{}
+		timeWindow = app.TimeWindow{}
 	}
 
 	stats, err := a.statsService.GetStats(ctx, timeWindow)
@@ -290,23 +311,19 @@ func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interfa
 		return nil, err
 	}
 
-	// Convert domain.TrafficSummary to persistence.TrafficSummary
-	return &persistence.TrafficSummary{
-		TotalMessages: stats.TotalMessages,
-		ByType:        stats.ByType,
-		ByPriority:    stats.ByPriority,
-	}, nil
+	// Return app.TrafficSummary directly (types are now unified)
+	return stats, nil
 }
 
 // queryServiceAdapter adapts Repository to the interface expected by WebSocket handler
 type queryServiceAdapter struct {
-	repo ports.Repository
+	repo app.Repository
 }
 
-func (a *queryServiceAdapter) Recent(ctx context.Context, limit int) ([]*domain.Telegram, error) {
+func (a *queryServiceAdapter) Recent(ctx context.Context, limit int) ([]*app.Telegram, error) {
 	// Use Search with empty filters and order by time descending to get recent messages
-	filters := domain.SearchFilters{
-		Pagination: domain.Pagination{
+	filters := app.SearchFilters{
+		Pagination: app.Pagination{
 			Limit:  limit,
 			SortBy: "time",
 			Order:  "desc",
@@ -318,8 +335,8 @@ func (a *queryServiceAdapter) Recent(ctx context.Context, limit int) ([]*domain.
 		return nil, err
 	}
 
-	// Convert []domain.Telegram to []*domain.Telegram
-	telegrams := make([]*domain.Telegram, len(result.Telegrams))
+	// Convert []app.Telegram to []*app.Telegram
+	telegrams := make([]*app.Telegram, len(result.Telegrams))
 	for i := range result.Telegrams {
 		telegrams[i] = &result.Telegrams[i]
 	}

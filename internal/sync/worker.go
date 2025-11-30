@@ -4,27 +4,25 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
 // Worker coordinates streaming telegram ingestion and indexing.
 type Worker struct {
-	consumer ports.StreamConsumer
-	store    ports.Repository
-	search   ports.SearchIndex
-	eventBus event.EventBus
+	consumer app.StreamConsumer
+	store    app.Repository
+	search   app.SearchIndex
+	eventBus app.EventBus
 	logger   *zap.Logger
 }
 
 // NewWorker creates a Worker instance.
 func NewWorker(
-	consumer ports.StreamConsumer,
-	store ports.Repository,
-	search ports.SearchIndex,
-	eventBus event.EventBus,
+	consumer app.StreamConsumer,
+	store app.Repository,
+	search app.SearchIndex,
+	eventBus app.EventBus,
 	logger *zap.Logger,
 ) *Worker {
 	return &Worker{
@@ -37,7 +35,7 @@ func NewWorker(
 }
 
 // Handle processes a telegram message.
-func (w *Worker) Handle(ctx context.Context, telegram *domain.Telegram) error {
+func (w *Worker) Handle(ctx context.Context, telegram *app.Telegram) error {
 	w.logger.Info("worker received telegram",
 		zap.String("message_id", telegram.MessageID),
 		zap.String("type", telegram.Type),
@@ -90,7 +88,7 @@ func (w *Worker) Handle(ctx context.Context, telegram *domain.Telegram) error {
 	if w.eventBus != nil {
 		eventData := map[string]any{
 			"type":     "telegram_processed",
-			"telegram": telegram, // domain.Telegram now has JSON tags
+			"telegram": telegram, // app.Telegram now has JSON tags
 		}
 		if err := w.eventBus.Publish(ctx, "telegram_processed", eventData); err != nil {
 			w.logger.Warn("failed to publish event",
@@ -112,8 +110,8 @@ func (w *Worker) Handle(ctx context.Context, telegram *domain.Telegram) error {
 
 // NATSConsumer is an interface for NATS-specific consumer operations.
 type NATSConsumer interface {
-	ports.StreamConsumer
-	SetHandler(handler func(context.Context, *domain.Telegram) error)
+	app.StreamConsumer
+	SetHandler(handler func(context.Context, *app.Telegram) error)
 	SetLogger(logger *zap.Logger)
 }
 

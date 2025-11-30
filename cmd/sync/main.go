@@ -73,9 +73,9 @@ func main() {
 	// Create worker with port interfaces
 	worker := sync.NewWorker(
 		streamConsumer,
-		container.Repo,   // ports.Repository
-		container.Search, // ports.SearchIndex
-		container.EventBus,
+		container.Repo,     // ports.Repository
+		container.Search,   // ports.SearchIndex
+		container.EventBus, // EventBus for real-time updates
 		logger,
 	)
 	if err := worker.Run(ctx); err != nil {

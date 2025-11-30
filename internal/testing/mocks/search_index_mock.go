@@ -4,26 +4,31 @@ import (
 	"context"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
-// SearchIndexMock is a mock implementation of ports.SearchIndex
+// SearchIndexMock is a mock implementation of app.SearchIndex
 type SearchIndexMock struct {
 	mock.Mock
 }
 
-// Ensure SearchIndexMock implements ports.SearchIndex
-var _ ports.SearchIndex = (*SearchIndexMock)(nil)
+// Ensure SearchIndexMock implements app.SearchIndex
+var _ app.SearchIndex = (*SearchIndexMock)(nil)
+
+// EnsureIndex mocks the EnsureIndex method
+func (m *SearchIndexMock) EnsureIndex(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
 
 // Index mocks the Index method
-func (m *SearchIndexMock) Index(ctx context.Context, telegram *domain.Telegram) error {
+func (m *SearchIndexMock) Index(ctx context.Context, telegram *app.Telegram) error {
 	args := m.Called(ctx, telegram)
 	return args.Error(0)
 }
 
 // BulkIndex mocks the BulkIndex method
-func (m *SearchIndexMock) BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error {
+func (m *SearchIndexMock) BulkIndex(ctx context.Context, telegrams []*app.Telegram) error {
 	args := m.Called(ctx, telegrams)
 	return args.Error(0)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/testing/mocks"
 	"go.uber.org/zap/zaptest"
 )
@@ -17,7 +17,7 @@ import (
 func TestWorker_Handle(t *testing.T) {
 	tests := []struct {
 		name             string
-		telegram         *domain.Telegram
+		telegram         *app.Telegram
 		serviceError     error
 		expectError      bool
 		expectBadData    bool
@@ -25,7 +25,7 @@ func TestWorker_Handle(t *testing.T) {
 	}{
 		{
 			name: "valid telegram - success",
-			telegram: &domain.Telegram{
+			telegram: &app.Telegram{
 				MessageID: "TEST-001",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -35,7 +35,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "invalid telegram - empty message_id",
-			telegram: &domain.Telegram{
+			telegram: &app.Telegram{
 				MessageID: "",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -46,7 +46,7 @@ func TestWorker_Handle(t *testing.T) {
 		},
 		{
 			name: "service error - app failure",
-			telegram: &domain.Telegram{
+			telegram: &app.Telegram{
 				MessageID: "TEST-001",
 				Type:      "AFTN",
 				Time:      time.Now(),
@@ -77,13 +77,13 @@ func TestWorker_Handle(t *testing.T) {
 			if !tt.expectBadData {
 				if tt.telegram.Validate() == nil {
 					// Expect Save call
-					storeMock.On("Save", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
+					storeMock.On("Save", mock.Anything, mock.MatchedBy(func(tg *app.Telegram) bool {
 						return tg.MessageID == tt.telegram.MessageID
 					})).Return(tt.serviceError)
 
 					// Expect Index and Publish calls only if Save succeeds
 					if tt.serviceError == nil {
-						searchMock.On("Index", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
+						searchMock.On("Index", mock.Anything, mock.MatchedBy(func(tg *app.Telegram) bool {
 							return tg.MessageID == tt.telegram.MessageID
 						})).Return(nil)
 						eventBusMock.On("Publish", mock.Anything, "telegram_processed", mock.Anything).Return(nil)

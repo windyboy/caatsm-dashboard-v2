@@ -595,8 +595,18 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Host:   "http://meilisearch:7700",
 					APIKey: "secure-key",
 				},
+				Redis: RedisConfig{
+					Addr:     "redis:6379",
+					Password: "secure-redis-pass",
+				},
 				NATS: NATSConfig{
 					URL: "nats://nats:4222",
+				},
+				Logger: LoggerConfig{
+					Level: "info",
+				},
+				Tracing: TracingConfig{
+					Enabled: true,
 				},
 				Auth: AuthConfig{
 					EnableBasic: true,

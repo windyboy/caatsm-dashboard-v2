@@ -108,18 +108,12 @@ func (c *Client) ReadPump(ctx context.Context) {
 
 	// Read loop (mainly for pong messages and context cancellation)
 	for {
-		select {
-		case <-ctx.Done():
-			c.logger.Info("read pump context cancelled", zap.String("remote_addr", c.remoteAddr))
-			return
-		default:
-			_, _, err := c.conn.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					c.logger.Warn("websocket read error", zap.Error(err))
-				}
-				return
+		_, _, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				c.logger.Warn("websocket read error", zap.Error(err))
 			}
+			return
 		}
 	}
 }

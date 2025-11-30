@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
@@ -65,7 +65,7 @@ func TestWorker_Integration_ErrorHandling(t *testing.T) {
 	defer env.Cleanup(ctx)
 
 	// Test invalid telegram (should return ErrBadData)
-	invalidTelegram := &domain.Telegram{
+	invalidTelegram := &app.Telegram{
 		MessageID: "", // Invalid: empty message_id
 		Type:      "AFTN",
 		Time:      time.Now(),

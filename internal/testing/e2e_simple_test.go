@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"github.com/windy/caatsm-dashboard/internal/testing/integration"
 )
@@ -53,7 +53,7 @@ func TestE2E_BasicPipelineWithContainers(t *testing.T) {
 	telegramStore := persistence.NewPostgresStore(pool)
 
 	// Create test telegram
-	telegram := domain.Telegram{
+	telegram := app.Telegram{
 		MessageID:    "E2E-SIMPLE-001",
 		Type:         "AFTN",
 		Time:         time.Now(),
@@ -174,8 +174,8 @@ func TestE2E_LargeDatasetHandling(t *testing.T) {
 	t.Log("Large dataset handling test passed")
 }
 
-func NewTelegram(messageID string) domain.Telegram {
-	return domain.Telegram{
+func NewTelegram(messageID string) app.Telegram {
+	return app.Telegram{
 		MessageID:    messageID,
 		Type:         "AFTN",
 		Time:         time.Now(),

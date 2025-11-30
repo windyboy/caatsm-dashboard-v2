@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/windy/caatsm-dashboard/internal/app/services"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
@@ -41,7 +41,7 @@ func (h *Handler) Autocomplete(c echo.Context) error {
 	query := c.QueryParam("term")
 	if query == "" {
 		return c.JSON(200, map[string]interface{}{
-			"suggestions": []services.AutocompleteSuggestion{},
+			"suggestions": []app.AutocompleteSuggestion{},
 		})
 	}
 

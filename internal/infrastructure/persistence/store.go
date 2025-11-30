@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
 const (
@@ -26,8 +25,8 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
-// NewPostgresPool initialises a pgx connection pool using the provided configuration.
-func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
+// NewPool initialises a pgx connection pool using the provided configuration.
+func NewPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
 	if cfg.DSN == "" {
 		return nil, fmt.Errorf("database dsn is empty")
 	}
@@ -57,16 +56,16 @@ func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.P
 	return pool, nil
 }
 
-// NewPostgresStore creates a new Store from the given pgx pool.
-func NewPostgresStore(pool *pgxpool.Pool) *Store {
+// New creates a new Store from the given pgx pool.
+func New(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
-// Ensure Store implements ports.Repository
-var _ ports.Repository = (*Store)(nil)
+// Ensure Store implements app.Repository
+var _ app.Repository = (*Store)(nil)
 
 // Save persists a single telegram.
-func (s *Store) Save(ctx context.Context, telegram *domain.Telegram) error {
+func (s *Store) Save(ctx context.Context, telegram *app.Telegram) error {
 	query := `INSERT INTO telegrams (message_id, type, time, flight_number, source, destination, content, priority, raw_data)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (message_id) DO UPDATE SET
@@ -124,9 +123,9 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 
 	batch := &pgx.Batch{}
 	for _, item := range telegrams {
-		telegram, ok := item.(*domain.Telegram)
+		telegram, ok := item.(*app.Telegram)
 		if !ok {
-			return fmt.Errorf("bulk save: invalid type, expected *domain.Telegram, got %T", item)
+			return fmt.Errorf("bulk save: invalid type, expected *app.Telegram, got %T", item)
 		}
 		batch.Queue(query,
 			telegram.MessageID,
@@ -142,17 +141,17 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 	}
 
 	results := tx.SendBatch(ctx, batch)
-	defer func() { _ = results.Close() }()
 
 	for i := 0; i < len(telegrams); i++ {
 		_, err := results.Exec()
 		if err != nil {
 			msgID := "unknown"
 			if i < len(telegrams) && telegrams[i] != nil {
-				if telegram, ok := telegrams[i].(*domain.Telegram); ok {
+				if telegram, ok := telegrams[i].(*app.Telegram); ok {
 					msgID = telegram.MessageID
 				}
 			}
+			_ = results.Close()
 			return fmt.Errorf("bulk save failed at index %d (message_id: %s, total: %d): %w", i, msgID, len(telegrams), err)
 		}
 	}
@@ -168,7 +167,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 }
 
 // Search performs a structured query over telegram records.
-func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
+func (s *Store) Search(ctx context.Context, filter app.SearchFilters) (*app.SearchResult, error) {
 	var conditions []string
 	var args []any
 	argPos := 1
@@ -295,9 +294,9 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domai
 	}
 	defer rows.Close()
 
-	var telegrams []domain.Telegram
+	var telegrams []app.Telegram
 	for rows.Next() {
-		var t domain.Telegram
+		var t app.Telegram
 		err := rows.Scan(
 			&t.MessageID,
 			&t.Type,
@@ -319,7 +318,7 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domai
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	return &domain.SearchResult{
+	return &app.SearchResult{
 		Telegrams: telegrams,
 		Total:     total,
 		Page:      filter.Pagination,
@@ -329,8 +328,8 @@ func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domai
 // StreamSearch streams search results for large exports.
 // It returns two channels: one for telegrams and one for errors.
 // The telegram channel will be closed when all results are sent or an error occurs.
-func (s *Store) StreamSearch(ctx context.Context, filter domain.SearchFilters) (<-chan *domain.Telegram, <-chan error) {
-	telegramCh := make(chan *domain.Telegram, 100) // Buffered channel for better performance
+func (s *Store) StreamSearch(ctx context.Context, filter app.SearchFilters) (<-chan *app.Telegram, <-chan error) {
+	telegramCh := make(chan *app.Telegram, 100) // Buffered channel for better performance
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -468,7 +467,7 @@ func (s *Store) StreamSearch(ctx context.Context, filter domain.SearchFilters) (
 			default:
 			}
 
-			var t domain.Telegram
+			var t app.Telegram
 			err := rows.Scan(
 				&t.MessageID,
 				&t.Type,
@@ -504,7 +503,7 @@ func (s *Store) StreamSearch(ctx context.Context, filter domain.SearchFilters) (
 }
 
 // TrafficSummary returns aggregated data for dashboards.
-func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error) {
+func (s *Store) TrafficSummary(ctx context.Context, window app.TimeWindow) (*app.TrafficSummary, error) {
 	var whereClause string
 	var args []any
 
@@ -583,7 +582,7 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 		return nil, fmt.Errorf("priority rows error: %w", err)
 	}
 
-	return &domain.TrafficSummary{
+	return &app.TrafficSummary{
 		TotalMessages: total,
 		ByType:        byType,
 		ByPriority:    byPriority,
@@ -591,7 +590,7 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 }
 
 // RouteStats returns top routes.
-func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error) {
+func (s *Store) RouteStats(ctx context.Context, limit int) ([]app.RouteStat, error) {
 	if limit <= 0 {
 		limit = DefaultRouteStatsLimit
 	}
@@ -611,9 +610,9 @@ func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, 
 	}
 	defer rows.Close()
 
-	var stats []domain.RouteStat
+	var stats []app.RouteStat
 	for rows.Next() {
-		var stat domain.RouteStat
+		var stat app.RouteStat
 		if err := rows.Scan(&stat.Source, &stat.Destination, &stat.Count); err != nil {
 			return nil, fmt.Errorf("scan route stat: %w", err)
 		}
@@ -625,4 +624,40 @@ func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, 
 	}
 
 	return stats, nil
+}
+
+// FindByID retrieves a single telegram by message ID.
+func (s *Store) FindByID(ctx context.Context, messageID string) (*app.Telegram, error) {
+	query := `SELECT message_id, type, time, flight_number, source, destination, content, priority, raw_data
+		FROM telegrams WHERE message_id = $1`
+
+	var t app.Telegram
+	err := s.pool.QueryRow(ctx, query, messageID).Scan(
+		&t.MessageID,
+		&t.Type,
+		&t.Time,
+		&t.FlightNumber,
+		&t.Source,
+		&t.Destination,
+		&t.Content,
+		&t.Priority,
+		&t.RawData,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("find telegram by ID: %w", err)
+	}
+
+	return &t, nil
+}
+
+// Delete removes a telegram by message ID.
+func (s *Store) Delete(ctx context.Context, messageID string) error {
+	query := `DELETE FROM telegrams WHERE message_id = $1`
+
+	_, err := s.pool.Exec(ctx, query, messageID)
+	if err != nil {
+		return fmt.Errorf("delete telegram: %w", err)
+	}
+
+	return nil
 }

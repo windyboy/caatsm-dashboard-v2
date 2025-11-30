@@ -32,9 +32,7 @@ export interface TrafficSummary {
 // Discriminated union for type-safe WebSocket messages
 export type WebSocketMessage =
   | { type: "message"; data: Telegram }
-  | { type: "stats-total"; data: { total: number } }
-  | { type: "stats-priority"; data: { byPriority: Record<number, number> } }
-  | { type: "stats-type"; data: { byType: Record<string, number> } }
+  | { type: "stats"; data: { total: number; byPriority: Record<number, number>; byType: Record<string, number> } }
   | { type: "pong"; data?: never };
 
 export interface SearchFilter {

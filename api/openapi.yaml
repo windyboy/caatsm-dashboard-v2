@@ -3,9 +3,67 @@ info:
   title: CAATSM Dashboard API
   version: 1.0.0
   description: |
-    Civil Aviation Aerogram Traffic Stream Monitor Dashboard API provides realtime monitoring, 
+    Civil Aviation Aerogram Traffic Stream Monitor Dashboard API provides realtime monitoring,
     search, and analytics for aviation telegram traffic across AFTN, SITA, ACARS, and CPDLC networks.
-    
+
+    ## Architecture Overview
+
+    The API follows Clean Architecture with four layers:
+    - **Delivery Layer**: HTTP/WebSocket handlers with request parsing and validation
+    - **Application Layer**: Business logic orchestration and service coordination
+    - **Domain Layer**: Business rules, entities, and validation (e.g., max 90-day time ranges)
+    - **Infrastructure Layer**: Direct implementation of data persistence and external services
+
+    ## Data Flow: HTTP Request to Database
+
+    ```
+    HTTP Request
+        ↓
+    Delivery Layer (HTTP Handler)
+        ↓ Parse request, validate input, apply rate limiting (10 req/sec)
+    Application Layer (DashboardService)
+        ↓ Orchestrate business logic, parallel data fetching
+    Domain Layer (Business Entities)
+        ↓ Apply business rules (time range limits, filtering)
+    Infrastructure Layer (Repository)
+        ↓ Execute queries against PostgreSQL + Meilisearch
+    Database/Cache/External Systems
+    ```
+
+    ## WebSocket Real-time Streaming
+
+    WebSocket connections provide real-time updates with automatic backpressure control:
+
+    ```
+    WebSocket Connection (ws://host:port/ws)
+        ↓
+    Infrastructure Layer (WebSocket Hub)
+        ↓ Connection management, slow client detection
+    Application Layer (Realtime Service)
+        ↓ Broadcast stats updates and new messages
+    Client receives JSON messages:
+    - { "type": "message", "data": {...} }
+    - { "type": "stats-total", "data": { "total": 1234 } }
+    - { "type": "stats-priority", "data": { "byPriority": {...} } }
+    - { "type": "stats-type", "data": { "byType": {...} } }
+    ```
+
+    ## Component Interactions
+
+    - **PostgreSQL**: Primary data storage with TimescaleDB for time-series optimization
+    - **Meilisearch**: Full-text search and autocomplete with typo tolerance
+    - **Valkey/Redis**: Caching layer for performance optimization
+    - **NATS JetStream**: Message ingestion and event streaming
+    - **WebSocket Hub**: Real-time client connections with connection limits (5/IP, 10k global)
+
+    ## Security Mechanisms
+
+    - **Rate Limiting**: 10 requests/second per IP address (configurable)
+    - **Input Validation**: Whitelist-based filtering, SQL injection prevention
+    - **Time Range Limits**: Maximum 90 days to prevent unbounded queries
+    - **Authentication**: Basic Auth (configurable) with JWT support planned
+    - **Production Guards**: TLS enforcement, localhost restrictions in production
+
     Features:
     - Full-text search with Meilisearch
     - Real-time analytics and statistics
@@ -35,13 +93,26 @@ tags:
     description: Data export operations
   - name: health
     description: Health check endpoints
+  - name: websocket
+    description: WebSocket real-time streaming endpoints
 
 components:
   securitySchemes:
     BasicAuth:
       type: http
       scheme: basic
-      description: Basic authentication (configurable via auth.enable_basic)
+      description: |
+        Basic authentication with configurable credentials.
+        Enabled when `auth.enable_basic = true` in configuration.
+        Username and password must be set in config for authentication to work.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication (planned for future implementation).
+        Tokens will be issued via separate authentication endpoint.
+        Currently configured with `auth.jwt_secret` for token signing.
     
   schemas:
     Telegram:
@@ -211,7 +282,56 @@ components:
         latency_ms:
           type: integer
           description: Component response latency in milliseconds
-    
+
+    WebSocketMessage:
+      type: object
+      description: |
+        WebSocket message format for real-time updates.
+        Messages are JSON objects with a type field indicating the message category.
+      properties:
+        type:
+          type: string
+          enum: [message, stats-total, stats-priority, stats-type, pong]
+          description: Message type identifier
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/Telegram'
+            - type: object
+              properties:
+                total:
+                  type: integer
+                  description: Total message count
+            - type: object
+              properties:
+                byPriority:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Message count by priority level (1-3)
+            - type: object
+              properties:
+                byType:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Message count by telegram type
+            - type: string
+              enum: [null]
+              description: Empty data for pong messages
+      required:
+        - type
+      example:
+        type: "message"
+        data:
+          message_id: "MSG-20241126-001"
+          type: "AFTN"
+          time: "2024-11-26T10:00:00Z"
+          flight_number: "CA1234"
+          source: "ZBAA"
+          destination: "ZSPD"
+          priority: 2
+          content: "Flight information update"
+
     Error:
       type: object
       properties:
@@ -226,7 +346,26 @@ paths:
       summary: Search telegrams
       description: |
         Search aviation telegrams with full-text search and filters.
-        Time range is limited to maximum 90 days to prevent unbounded queries.
+
+        **Data Flow:**
+        1. Request parsed and validated at Delivery layer
+        2. Rate limiting applied (10 req/sec per IP)
+        3. Application layer orchestrates parallel queries to PostgreSQL + Meilisearch
+        4. Domain layer validates time range (max 90 days) and applies business rules
+        5. Infrastructure layer executes optimized queries with caching
+
+        **Security & Validation:**
+        - Input sanitization and SQL injection prevention
+        - Time range validation (max 90 days from start_time)
+        - Query length limit (500 characters)
+        - Pagination limits (max 1000 results per page)
+        - Sort field whitelist validation
+
+        **Performance Features:**
+        - Parallel execution of database and search queries
+        - Valkey caching for frequently accessed results
+        - Meilisearch typo-tolerant full-text search
+        - TimescaleDB optimization for time-series data
       tags:
         - search
       parameters:
@@ -423,8 +562,30 @@ paths:
       summary: Export telegrams
       description: |
         Export search results to CSV, Excel, or PDF format with streaming support.
-        CSV exports use chunked streaming to efficiently handle the maximum 10,000 records without memory issues.
-        Maximum export limit is 10,000 records per request.
+
+        **Streaming Export Process:**
+        1. Request validated and rate limited at Delivery layer
+        2. Application layer initiates streaming query with chunking (1000 records/chunk)
+        3. Infrastructure layer streams data from PostgreSQL without loading all records into memory
+        4. Response streamed directly to client with proper Content-Type headers
+        5. Automatic cleanup on client disconnection or completion
+
+        **Memory Management:**
+        - Chunked processing prevents OOM for large exports
+        - Maximum 10,000 records per export (configurable)
+        - Streaming response with Transfer-Encoding: chunked
+        - Automatic resource cleanup on errors or disconnection
+
+        **Security & Limits:**
+        - Rate limiting (10 req/sec per IP)
+        - Export size limits to prevent resource exhaustion
+        - Input validation on all filter parameters
+        - SQL injection prevention through parameterized queries
+
+        **Supported Formats:**
+        - CSV: Plain text with proper escaping
+        - Excel (XLSX): Structured spreadsheet format
+        - PDF: Formatted report with headers and pagination
       tags:
         - export
       parameters:
@@ -507,6 +668,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
 
+  /ws:
+    get:
+      summary: WebSocket real-time updates
+      description: |
+        Establish WebSocket connection for real-time telegram updates and statistics.
+
+        **Connection Details:**
+        - Protocol: WebSocket (ws:// or wss://)
+        - Message Format: JSON with type-based routing
+        - Heartbeat: Ping/pong messages supported
+        - Backpressure: Automatic disconnection of slow clients
+        - Limits: 5 connections per IP, 10,000 global connections
+
+        **Message Types:**
+        - `message`: New telegram received
+        - `stats-total`: Updated total message count
+        - `stats-priority`: Updated priority breakdown
+        - `stats-type`: Updated message type breakdown
+        - `pong`: Heartbeat response
+
+        **Example Message:**
+        ```json
+        {
+          "type": "message",
+          "data": {
+            "message_id": "MSG-20241126-001",
+            "type": "AFTN",
+            "time": "2024-11-26T10:00:00Z",
+            "content": "Flight information update"
+          }
+        }
+        ```
+
+        **Client Implementation:**
+        - Handle automatic reconnection on disconnection
+        - Implement exponential backoff for reconnection attempts
+        - Monitor connection status for UI updates
+      tags:
+        - websocket
+      responses:
+        '101':
+          description: WebSocket connection established
+          content:
+            application/json:
+              schema:
+                type: object
+                description: JSON messages streamed over WebSocket connection
+
 security:
-  - BasicAuth: []
+ - BasicAuth: []
 

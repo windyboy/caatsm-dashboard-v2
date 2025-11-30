@@ -3,14 +3,14 @@ package ports
 import (
 	"context"
 
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
 // Repository defines the interface for data access operations.
 // This is the primary port for the application layer.
 type Repository interface {
 	// Search operations
-	Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error)
+	Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error)
 	// StreamSearch streams search results for large exports (avoids loading all data into memory).
 	//
 	// Channel Lifecycle:
@@ -60,14 +60,14 @@ type Repository interface {
 	//   - Ensure the error channel has sufficient buffering (at least 1) to prevent blocking
 	//     when sending terminal errors.
 	//   - Avoid goroutine leaks by ensuring all code paths eventually close channels and return.
-	StreamSearch(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
+	StreamSearch(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error)
 
 	// Statistics operations
-	TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error)
-	RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error)
+	TrafficSummary(ctx context.Context, window app.TimeWindow) (*app.TrafficSummary, error)
+	RouteStats(ctx context.Context, limit int) ([]app.RouteStat, error)
 
 	// Persistence operations
-	Save(ctx context.Context, telegram *domain.Telegram) error
+	Save(ctx context.Context, telegram *app.Telegram) error
 	BulkSave(ctx context.Context, telegrams []any) error
 }
 
@@ -84,15 +84,15 @@ type Cache interface {
 
 // SearchIndex defines the interface for search operations.
 type SearchIndex interface {
-	Index(ctx context.Context, telegram *domain.Telegram) error
-	BulkIndex(ctx context.Context, telegrams []*domain.Telegram) error
+	Index(ctx context.Context, telegram *app.Telegram) error
+	BulkIndex(ctx context.Context, telegrams []*app.Telegram) error
 	Search(ctx context.Context, query string, filter string, limit, offset int64, sort []string) (interface{}, error)
 	SearchAutocomplete(ctx context.Context, query string, limit int64, attributes []string) (interface{}, error)
 }
 
 // EventPublisher defines the interface for publishing events.
 type EventPublisher interface {
-	Publish(ctx context.Context, event domain.Event) error
+	Publish(ctx context.Context, event app.Event) error
 }
 
 // StreamConsumer processes live telegram events from NATS JetStream.

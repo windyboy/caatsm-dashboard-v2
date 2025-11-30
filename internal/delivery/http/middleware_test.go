@@ -25,7 +25,9 @@ func TestRateLimitMiddleware(t *testing.T) {
 			return c.String(http.StatusOK, "OK")
 		}
 
-		err := handler(c)
+		middleware := RateLimitMiddleware()
+		wrappedHandler := middleware(handler)
+		err := wrappedHandler(c)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
 	})

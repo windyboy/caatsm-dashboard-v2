@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
 	"go.uber.org/zap"
 )
@@ -32,8 +32,8 @@ var (
 	}
 )
 
-func generateTestData(count int) []*domain.Telegram {
-	telegrams := make([]*domain.Telegram, count)
+func generateTestData(count int) []*app.Telegram {
+	telegrams := make([]*app.Telegram, count)
 	now := time.Now()
 
 	for i := 0; i < count; i++ {
@@ -53,7 +53,7 @@ func generateTestData(count int) []*domain.Telegram {
 			dst = airports[rand.Intn(len(airports))]
 		}
 
-		telegrams[i] = &domain.Telegram{
+		telegrams[i] = &app.Telegram{
 			MessageID:    fmt.Sprintf("MSG%06d", i+1),
 			Type:         messageTypes[rand.Intn(len(messageTypes))],
 			Time:         timestamp,
@@ -89,13 +89,13 @@ func main() {
 	defer func() { _ = logger.Sync() }()
 
 	// Initialize database connection
-	pool, err := persistence.NewPostgresPool(ctx, cfg.Database)
+	pool, err := app.NewPostgresPool(ctx, cfg.Database)
 	if err != nil {
 		logger.Fatal("create postgres pool", zap.Error(err))
 	}
 	defer pool.Close()
 
-	store := persistence.NewPostgresStore(pool)
+	store := persistence.New(pool)
 
 	// Clear existing data if requested
 	if *clear {

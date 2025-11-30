@@ -3,37 +3,84 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	meilisearchClient "github.com/meilisearch/meilisearch-go"
 	"github.com/redis/go-redis/v9"
 	"github.com/windy/caatsm-dashboard/config"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/app/services"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"go.uber.org/zap"
 )
+
+// NewPostgresPool initialises a pgx connection pool using the provided configuration.
+func NewPostgresPool(ctx context.Context, cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
+	if cfg.DSN == "" {
+		return nil, fmt.Errorf("database dsn is empty")
+	}
+
+	poolCfg, err := pgxpool.ParseConfig(cfg.DSN)
+	if err != nil {
+		return nil, fmt.Errorf("parse dsn: %w", err)
+	}
+
+	if cfg.MaxOpenConnections > 0 {
+		poolCfg.MaxConns = int32(cfg.MaxOpenConnections)
+	}
+	if cfg.MaxIdleConnections > 0 {
+		poolCfg.MinConns = int32(cfg.MaxIdleConnections)
+	}
+	if cfg.ConnectionMaxLifetime > 0 {
+		poolCfg.MaxConnLifetime = cfg.ConnectionMaxLifetime
+	} else {
+		poolCfg.MaxConnLifetime = 30 * time.Minute
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create pool: %w", err)
+	}
+
+	return pool, nil
+}
+
+// NewMeilisearchClient initialises a Meilisearch service manager with sensible defaults.
+func NewMeilisearchClient(cfg config.SearchConfig) (meilisearchClient.ServiceManager, error) {
+	if cfg.Host == "" {
+		return nil, fmt.Errorf("meilisearch host is empty")
+	}
+
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	opts := []meilisearchClient.Option{
+		meilisearchClient.WithCustomClient(httpClient),
+	}
+	if cfg.APIKey != "" {
+		opts = append(opts, meilisearchClient.WithAPIKey(cfg.APIKey))
+	}
+
+	manager := meilisearchClient.New(cfg.Host, opts...)
+	return manager, nil
+}
 
 // Container wires together dependencies for the simplified architecture
 type Container struct {
 	Config *config.AppConfig
 	Logger *zap.Logger
 
-	// Infrastructure ports
-	Repo     ports.Repository
-	Cache    ports.Cache
-	Search   ports.SearchIndex
-	Pub      ports.EventPublisher
-	EventBus event.EventBus // Redis pub/sub for real-time updates
+	// Core infrastructure ports
+	Repo     Repository
+	Cache    Cache
+	Search   SearchIndex
+	Pub      EventPublisher
+	EventBus EventBus
 
 	// Application services
-	DashboardService *services.DashboardService
+	DashboardService *DashboardService
 
-	// Client references for health checks
+	// Client references for health checks (simplified)
 	pool     *pgxpool.Pool
 	meiliSvc meilisearchClient.ServiceManager
 	redisCli redis.UniversalClient
@@ -47,29 +94,30 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	}
 
 	// Initialize database connection
-	pool, err := persistence.NewPostgresPool(ctx, cfg.Database)
+	pool, err := NewPostgresPool(ctx, cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
 
 	// Initialize Meilisearch client
-	meiliSvc, err := search.NewMeilisearchClient(cfg.Meilisearch)
+	meiliSvc, err := NewMeilisearchClient(cfg.Meilisearch)
 	if err != nil {
 		return nil, fmt.Errorf("create meilisearch client: %w", err)
 	}
 
 	// Initialize Redis client
-	redisCli, err := cache.NewValkeyClient(cfg.Redis)
+	redisCli, err := NewValkeyClient(cfg.Redis)
 	if err != nil {
 		return nil, fmt.Errorf("create redis client: %w", err)
 	}
 
 	// Initialize event bus for real-time updates
-	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
+	eventBus := NewRedisEventBus(redisCli, "stats:update")
 
 	// Initialize infrastructure implementations
-	store := persistence.NewPostgresStore(pool)
-	meiliIndex := search.NewMeilisearchIndex(meiliSvc, cfg.Meilisearch.Index)
+	// TODO: Move infrastructure creation to server layer to avoid circular imports
+	var store Repository
+	var meiliIndex SearchIndex
 
 	// Ensure Meilisearch index is set up
 	if err := meiliIndex.EnsureIndex(ctx); err != nil {
@@ -77,30 +125,30 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	}
 
 	// Initialize cache
-	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
+	cacheStore := NewValkeyStore(redisCli, 5*time.Minute)
 
-	// Create adapter to bridge EventBus to ports.EventPublisher
-	eventPublisher := event.NewEventPublisherAdapter(eventBus)
+	// Create adapter to bridge EventBus to EventPublisher
+	eventPublisher := NewEventPublisherAdapter(eventBus)
 
 	// Set infrastructure ports
-	container.Repo = store        // implements ports.Repository
-	container.Cache = cacheStore  // implements ports.Cache
-	container.Search = meiliIndex // implements ports.SearchIndex
+	container.Repo = store         // implements ports.Repository
+	container.Cache = cacheStore   // implements ports.Cache
+	container.Search = meiliIndex  // implements ports.SearchIndex
 	container.Pub = eventPublisher // implements ports.EventPublisher
-	container.EventBus = eventBus   // Redis pub/sub for real-time updates
+	container.EventBus = eventBus  // EventBus for real-time updates
 
-	searchService := services.NewSearchService(store, cacheStore, meiliIndex, eventPublisher, logger)
+	searchService := NewSearchService(store, cacheStore, meiliIndex, eventPublisher, logger)
 
 	// Initialize application services
-	container.DashboardService = services.NewDashboardService(
+	container.DashboardService = NewDashboardService(
 		searchService,
-		services.NewStatsService(store, cacheStore, logger),
-		services.NewExportService(
+		NewStatsService(store, cacheStore, logger),
+		NewExportService(
 			searchService,
 			store, // Pass repository for streaming
 			logger,
 		),
-		services.NewRealtimeManager(),
+		NewRealtimeManager(),
 		store,
 		cacheStore,
 		5*time.Minute, // statsTTL
@@ -207,9 +255,9 @@ func (c *Container) Close() error {
 		c.Logger.Info("closing Redis client")
 		if err := c.redisCli.Close(); err != nil {
 			c.Logger.Warn("Redis close error", zap.Error(err))
-			if firstErr == nil {
-				firstErr = fmt.Errorf("redis close: %w", err)
-			}
+			// if firstErr == nil {
+			firstErr = fmt.Errorf("redis close: %w", err)
+			// }
 		} else {
 			c.Logger.Info("Redis client closed")
 		}

@@ -13,8 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
-	"github.com/windy/caatsm-dashboard/internal/domain"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap"
 )
@@ -34,7 +33,7 @@ type Handler struct {
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	}
 	queryService interface {
-		Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
+		Recent(ctx context.Context, limit int) ([]*app.Telegram, error)
 	}
 	redisCli          redis.UniversalClient
 	upgrader          websocket.Upgrader
@@ -49,7 +48,7 @@ func NewHandler(
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	},
 	queryService interface {
-		Recent(ctx context.Context, limit int) ([]*domain.Telegram, error)
+		Recent(ctx context.Context, limit int) ([]*app.Telegram, error)
 	},
 	redisCli redis.UniversalClient,
 	allowedOrigins []string,
@@ -224,49 +223,30 @@ func (h *Handler) sendInitialData(ctx context.Context, client *ws.Client) error 
 
 // sendInitialStats sends initial statistics.
 func (h *Handler) sendInitialStats(ctx context.Context, client *ws.Client) error {
-	window := persistence.TimeWindow{}
+	window := app.TimeWindow{}
 	summaryResult, err := h.statsService.TrafficSummary(ctx, window)
 	if err != nil {
 		return fmt.Errorf("get traffic summary: %w", err)
 	}
 
 	// Type assert to get the summary
-	summary, ok := summaryResult.(*persistence.TrafficSummary)
+	summary, ok := summaryResult.(*app.TrafficSummary)
 	if !ok {
 		return fmt.Errorf("unexpected summary type")
 	}
 
-	// Send total count
+	// Send unified stats message
+	statsData := &ws.StatsData{
+		Total:      summary.TotalMessages,
+		ByPriority: summary.ByPriority,
+		ByType:     summary.ByType,
+	}
 	msg := &ws.Message{
-		Type: ws.MessageTypeStatsTotal,
-		Data: map[string]any{
-			"total": summary.TotalMessages,
-		},
+		Type: ws.MessageTypeStats,
+		Data: statsData,
 	}
 	if !client.SendMessageJSON(msg) {
-		return fmt.Errorf("failed to send stats-total")
-	}
-
-	// Send priority breakdown
-	msg = &ws.Message{
-		Type: ws.MessageTypeStatsPriority,
-		Data: map[string]any{
-			"byPriority": summary.ByPriority,
-		},
-	}
-	if !client.SendMessageJSON(msg) {
-		return fmt.Errorf("failed to send stats-priority")
-	}
-
-	// Send type breakdown
-	msg = &ws.Message{
-		Type: ws.MessageTypeStatsType,
-		Data: map[string]any{
-			"byType": summary.ByType,
-		},
-	}
-	if !client.SendMessageJSON(msg) {
-		return fmt.Errorf("failed to send stats-type")
+		return fmt.Errorf("failed to send stats")
 	}
 
 	return nil
@@ -289,7 +269,7 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 
 		msg := &ws.Message{
 			Type: ws.MessageTypeMessage,
-			Data: telegram, // domain.Telegram now has JSON tags
+			Data: telegram, // app.Telegram now has JSON tags
 		}
 
 		if !client.SendMessageJSON(msg) {

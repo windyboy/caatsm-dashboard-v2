@@ -1,557 +1,195 @@
-# Testing Guide
+# CAATSM Dashboard Testing Guide
 
-This document describes how to test the CAATSM Dashboard functionality, including the Deno + Svelte frontend and Go backend.
+This guide explains how to verify the CAATSM Dashboard from end to end using clear, step-by-step language. It covers the backend (Go), the frontend (SvelteKit), real-time features, and smoke checks for critical endpoints.
 
-## Prerequisites
+## 1. Before You Start
 
-1. Ensure all dependency services are running:
-   ```bash
-   make dev-up
-   # or
-   task dev:up
-   # or
-   docker compose -f docker-compose.dev.yml up -d
-   ```
+1. Install the toolchain:
+   - Go 1.25 or newer
+   - Deno 2 (preferred) or Node.js 20
+   - Docker and Docker Compose (for integration tests)
+2. Copy the local environment file: `cp env.local.example .env.local`
+3. Bring up local services (PostgreSQL, Meilisearch, Valkey, NATS) before you run tests.
 
-2. Start the Go backend:
-   ```bash
-   make dev
-   # or
-   task dev
-   # or
-   ./bin/caatsm -config config/config.local.toml
-   ```
+To start the service stack, open a terminal in the project root and run:
 
-3. Start the frontend development server:
-   ```bash
-   # Using Deno (recommended)
-   make frontend-dev
-   # or
-   task frontend:dev
-   
-   # Using Node.js
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-## Backend Testing
-
-### Unit Tests
-
-Run unit tests with coverage:
-
-```bash
-make test
-# or
-task test
+```/dev/null/bootstrap.sh#L1-3
+make dev-up
+task migrate
+task dev:config
 ```
 
-Run specific package tests:
+## 2. Quick System Check
 
-```bash
-go test ./internal/domain -v
-go test ./internal/app/services -v
-go test ./internal/observability -v
+Run this smoke script to confirm the essentials are alive:
+
+```/dev/null/smoke.sh#L1-6
+curl -f http://localhost:3002/api/health
+curl -f http://localhost:7700/health
+redis-cli ping
+nats server check
+psql postgres://caatsm:caatsm@localhost:5432/caatsm -c "SELECT 1"
 ```
 
-Run tests with race detection:
+Proceed only after every command finishes without errors.
 
-```bash
+## 3. Backend Test Matrix
+
+### 3.1 Unit Tests (fast feedback)
+
+Scope: domain logic, services, helper packages.
+
+```/dev/null/backend-unit.sh#L1-2
+make test-unit
+go test ./internal/domain ./internal/app/services -v
+```
+
+Key things to watch:
+- Failing tests usually indicate validation rules (90-day window, sort whitelist) or event sequencing issues.
+- If a new test relies on time, fix the clock dependency by using the existing time provider utilities in `internal/testing`.
+
+### 3.2 Integration Tests (full stack with containers)
+
+Scope: Postgres, Meilisearch, Valkey, NATS, streaming export.
+
+```/dev/null/backend-integration.sh#L1-4
+make dev-up
+make test-integration
+task test:integration
+docker compose -f docker-compose.dev.yml logs --tail=50
+```
+
+Focus areas:
+- CSV export streams data in chunks; expect long-running tests rather than memory spikes.
+- Sync worker scenarios validate that NATS messages persist to Postgres and index into Meilisearch.
+- Full data flow integration tests (TestFullDataFlowIntegration) verify complete API-to-database pipelines.
+- WebSocket handler tests cover message broadcasting, slow client disconnects, and connection errors.
+- Error scenario tests validate input validation, malformed requests, and edge cases.
+- Health checks must return `status=degraded` if any dependency is stopped mid-test.
+
+### 3.3 Race Detector (concurrency safety)
+
+Run this weekly or before releases:
+
+```/dev/null/backend-race.sh#L1-1
 make test-race
-# or
-task test:race
 ```
 
-### Integration Tests
+Any race warning must be resolved before merging.
 
-Integration tests use Testcontainers for real external dependencies:
+## 4. Frontend Test Matrix
 
-```bash
-# Run all integration tests
-task test:integration
+### 4.1 Unit Tests with Vitest
 
-# Run specific integration tests
-go test -tags=integration ./internal/testing -v
-```
+Scope: Svelte stores, WebSocket client, helper utilities.
 
-**Test Coverage**:
-- ✅ PostgreSQL container setup and queries
-- ✅ Time range validation (90-day limit)
-- ✅ Large dataset handling (100+ records)
-- ✅ Pagination and sorting
-
-### Key Test Files
-
-**Domain Layer**:
-- `internal/domain/validator_test.go` - Domain validation, time range limits
-- `internal/domain/filters_test.go` - Search filter validation
-- `internal/domain/telegram_test.go` - Telegram entity validation
-
-**Application Layer** (Migrated to `internal/app/` Nov 2025):
-- `internal/app/services/*` - Application services (dashboard, search, stats, export)
-- `internal/sync/worker_test.go` - Sync worker unit tests (✅ migrated)
-- `internal/sync/worker_integration_test.go` - Sync worker integration tests (✅ migrated)
-
-**Infrastructure Layer**:
-- `internal/infrastructure/event/*_test.go` - Event bus tests
-- `internal/infrastructure/ws/*_test.go` - WebSocket tests
-
-**Configuration**:
-- `config/config_test.go` - Production config validation
-
-**Observability**:
-- `internal/observability/` - Logger, middleware, correlation IDs
-
-### Test Statistics (Nov 2025)
-
-```bash
-Total Packages: 42
-Packages with Tests: 7
-Test Pass Rate: 100%
-Key Test Areas:
-  ✅ Domain validation
-  ✅ Sync worker (newly migrated)
-  ✅ Event broadcasting
-  ✅ WebSocket handling
-  ✅ Observability
-```
-
-**Integration**:
-- `internal/testing/e2e_simple_test.go` - End-to-end pipeline tests
-
-### Production Feature Tests
-
-**Time Range Validation**:
-```bash
-# Test that > 90 day ranges are rejected
-go test ./internal/domain -run TestSearchFilters_Validate_TimeRangeTooLarge -v
-```
-
-**Streaming Export**:
-```bash
-# Test CSV export with large datasets
-go test ./internal/app/services -run TestExportService_Export -v
-```
-
-**Production Config Guards**:
-```bash
-# Test production validation
-go test ./config -run TestAppConfig_Validate_ProductionDefaults -v
-```
-
-
-## Frontend Testing
-
-### Unit Tests
-
-Run Vitest unit tests:
-
-```bash
+```/dev/null/frontend-unit.sh#L1-3
 make frontend-test-unit
-# or
-task frontend:test:unit
+deno task test:unit
+npm run test:unit
 ```
 
-### E2E Tests
+Look for:
+- Message store keeps only the most recent 50 entries.
+- Stats store resets correctly on disconnect.
+- WebSocket client backoff behaves as expected.
 
-Run Playwright E2E tests:
+### 4.2 End-to-End Tests with Playwright
 
-```bash
+Scope: full UI workflow, real-time dashboard, search flows.
+
+```/dev/null/frontend-e2e.sh#L1-3
 make frontend-test
-# or
-task frontend:test
+deno task test
+npm run test
 ```
 
-## WebSocket Testing
+Recommended assertions:
+- Live stream displays new telegrams after running `task publish-stream:fast`.
+- Search page enforces the 90-day range limit.
+- Export button downloads CSV without blocking the UI.
+- WebSocket connection handles disconnect and reconnect scenarios gracefully.
+- Error states are properly displayed for connection failures.
 
-### Manual Testing Steps
+## 5. Manual Real-Time Verification
 
-1. **Open Dashboard Page**
-   - Visit `http://localhost:5173`
-   - You should see "Live Stream" component and statistics cards
+1. Start backend (`make dev`) and frontend (`make frontend-dev`).
+2. Publish sample messages:
 
-2. **Check WebSocket Connection**
-   - Open browser developer tools (F12)
-   - Switch to Network tab
-   - Filter for "WS" (WebSocket)
-   - You should see a connection to `ws://localhost:3002/ws`
-
-3. **Verify Real-time Message Reception**
-   - If messages are flowing through NATS
-   - You should see new messages appear in Live Stream
-   - Statistics numbers should update in real-time
-
-4. **Test Connection Reconnection**
-   - In developer console, you should see "WebSocket connected" logs
-   - If connection drops, you should see reconnection attempt logs
-
-### WebSocket Load Testing
-
-Test WebSocket with multiple connections:
-
-```bash
-# Open multiple browser tabs (test client limits)
-# Default limits: 5 per IP, 10,000 global
-```
-
-**Backpressure Testing**:
-- Slow clients (not consuming messages fast enough) are auto-disconnected
-- Check WebSocket metrics for dropped connections
-
-## REST API Testing
-
-### Manual Testing Steps
-
-1. **Test Search Functionality**
-   - Visit `http://localhost:5173/search`
-   - Enter search keywords
-   - Click "Search" button
-   - You should see search results
-   - **Test time range**: Try searching with date range > 90 days (should be rejected)
-
-2. **Test Autocomplete**
-   - Type at least 2 characters in the search box
-   - You should see autocomplete suggestion dropdown
-
-3. **Test Statistics Endpoints**
-   - Visit Dashboard page
-   - Statistics cards should display data
-   - Check API requests in browser developer tools Network tab
-
-4. **Test Export Functionality**
-   - Execute a search on the search page
-   - Use export button to download CSV
-   - **Test streaming**: Export large result sets (should stream without OOM)
-
-### API Endpoint Testing
-
-Use curl or Postman to test APIs:
-
-```bash
-# Test search
-curl "http://localhost:3002/api/search?query=test"
-
-# Test search with time range (should reject > 90 days)
-curl "http://localhost:3002/api/search?start_time=2024-01-01T00:00:00Z&end_time=2024-11-01T00:00:00Z"
-
-# Test total statistics
-curl "http://localhost:3002/api/stats/total"
-
-# Test priority statistics
-curl "http://localhost:3002/api/stats/priority"
-
-# Test type statistics
-curl "http://localhost:3002/api/stats/type"
-
-# Test autocomplete
-curl "http://localhost:3002/api/autocomplete?term=test&size=5"
-
-# Test health endpoint
-curl "http://localhost:3002/api/health"
-
-# Test export (streaming CSV)
-curl "http://localhost:3002/api/export?format=csv&query=test" -o telegrams.csv
-```
-
-All APIs should return JSON responses (except export which returns CSV).
-
-### Rate Limiting Testing
-
-Test rate limiting (default: 10 req/sec):
-
-```bash
-# Bash loop to test rate limiting
-for i in {1..20}; do
-  curl -w "%{http_code}\n" "http://localhost:3002/api/health" &
-done
-wait
-
-# Should see some 429 (Too Many Requests) responses
-```
-
-## Health Check Testing
-
-### Test Health Endpoint
-
-```bash
-# Full health check (all dependencies)
-curl http://localhost:3002/api/health | jq
-
-# Expected response:
-# {
-#   "status": "ok",
-#   "timestamp": "2024-11-26T10:00:00Z",
-#   "postgresql": { "status": "ok", "latency_ms": 5 },
-#   "meilisearch": { "status": "ok", "latency_ms": 10 },
-#   "redis": { "status": "ok", "latency_ms": 2 },
-#   "nats": { "status": "ok" },
-#   "websocket": { "status": "ok", "message": "active clients: 3" }
-# }
-```
-
-### Test Degraded Mode
-
-Stop a dependency and check degraded status:
-
-```bash
-# Stop Redis
-docker compose -f docker-compose.dev.yml stop redis
-
-# Check health (should return 503 with "degraded" status)
-curl -w "%{http_code}" http://localhost:3002/api/health
-```
-
-## Integration Testing
-
-### Complete Flow Testing
-
-1. **Start All Services**
-   ```bash
-   # Terminal 1: Start dependencies
-   make dev-up
-   
-   # Terminal 2: Start Go backend
-   make dev
-   
-   # Terminal 3: Start frontend
-   make frontend-dev
-   ```
-
-2. **Test Real-time Data Flow**
-   - Publish test messages to NATS:
-     ```bash
-     task publish-stream:fast
-     ```
-   - Observe if Dashboard updates in real-time
-   - Check if statistics numbers update correctly
-
-3. **Test Search and Real-time Updates Together**
-   - Execute a search on the search page
-   - Simultaneously observe Dashboard real-time updates
-   - Both should work independently
-
-### Full Pipeline Test
-
-Test the complete message pipeline:
-
-```bash
-# 1. Generate test data
-task generate-test-data
-
-# 2. Publish to NATS stream
+```/dev/null/publish.sh#L1-1
 task publish-stream:fast
-
-# 3. Verify in UI
-# - Open http://localhost:5173
-# - Should see messages in live stream
-# - Statistics should update
-
-# 4. Test search
-# - Search for generated messages
-# - Export results to CSV
 ```
 
-## Performance Testing
+3. Confirm in the browser (http://localhost:5173):
+   - Live stream widgets update within a second.
+   - Stats cards increment in sync with the incoming messages.
+   - WebSocket status indicator remains “Connected”.
 
-### Export Performance
+If updates stop, check:
+- Browser console for WebSocket warnings.
+- Backend logs for “slow client” disconnects.
+- Metrics endpoint for `websocket_connections`.
 
-Test large export:
+## 6. API Spot Checks
 
-```bash
-# Generate large dataset
-task generate-test-data  # Creates 50 records
+Run these curl calls to validate core endpoints:
 
-# Export with streaming (should not cause OOM)
-curl "http://localhost:3002/api/export?format=csv&limit=10000" -o large_export.csv
-
-# Monitor memory usage during export
+```/dev/null/api-checks.sh#L1-6
+curl -f "http://localhost:3002/api/search?query=test"
+curl -f "http://localhost:3002/api/stats/total"
+curl -f "http://localhost:3002/api/autocomplete?term=TE&size=5"
+curl -f "http://localhost:3002/api/export?format=csv&limit=100" -o /tmp/export.csv
+curl -f "http://localhost:3002/api/health"
 ```
 
-### WebSocket Performance
+Expected outcomes:
+- Search returns JSON, never more than 1000 results per page.
+- Export streams CSV without loading everything in memory.
+- Health endpoint lists each dependency with `status` and (when available) `latency_ms`.
 
-Test multiple concurrent connections:
+## 7. Performance Sanity Checks
 
-```bash
-# Open multiple browser tabs
-# Monitor WebSocket hub metrics
-# Check for slow client disconnections
+1. Generate sample data:
+
+```/dev/null/data.sh#L1-1
+task generate-test-data
 ```
 
-### Search Performance
+2. Export 10k records:
 
-Test search with large result sets:
-
-```bash
-# Search without limits (should use default pagination)
-curl "http://localhost:3002/api/search?query=*"
-
-# Search with max limit (1000)
-curl "http://localhost:3002/api/search?query=*&limit=1000"
+```/dev/null/perf.sh#L1-1
+curl "http://localhost:3002/api/export?format=csv&limit=10000" -o /tmp/large_export.csv
 ```
 
-## Error Handling Testing
+3. Observe memory usage with your system monitor. The process should stay stable because export is chunked.
 
-### Network Disconnection
+## 8. Troubleshooting Checklist
 
-1. Disconnect network connection
-2. WebSocket should attempt to reconnect
-3. After network restoration, should automatically reconnect
+| Symptom | Likely Cause | Resolution |
+| --- | --- | --- |
+| Search returns empty | Meilisearch not indexed | Re-run `task sync`, check API key |
+| WebSocket disconnects | Slow client or rate limit hit | Increase buffer in config or inspect client logic |
+| Health check degraded | Dependency down | Restart service via `make dev-up` and rerun tests |
+| `config validation failed` | Missing TLS/auth in prod mode | Set required config keys before restart |
 
-### Backend Service Stop
+Refer to `docs/troubleshooting.md` for deeper playbooks.
 
-1. Stop Go backend service
-2. WebSocket should detect disconnection
-3. Should show reconnection attempts
-4. After restarting backend, should automatically reconnect
+## 9. Release Gate
 
-### Invalid Input Testing
+A build is ready for release when:
+1. `make test`, `make test-integration`, and `make test-race` are green.
+2. `make frontend-test-unit` and `make frontend-test` succeed.
+3. Smoke checks and manual real-time verification pass.
+4. Export, search, and health API spot checks work in the staging environment.
+5. Observability dashboards show metrics for ingestion, search latency, and WebSocket connections.
 
-```bash
-# Test invalid time range (> 90 days)
-curl "http://localhost:3002/api/search?start_time=2024-01-01T00:00:00Z&end_time=2024-12-01T00:00:00Z"
-# Expected: 400 Bad Request with "range cannot exceed 90 days" error
+Document any deviations and capture logs, screenshots, or trace IDs in the release notes.
 
-# Test invalid sort field (SQL injection prevention)
-curl "http://localhost:3002/api/search?sort_by=invalid; DROP TABLE telegrams;"
-# Expected: 400 Bad Request with validation error
+## 10. Continuous Improvement
 
-# Test invalid priority
-curl "http://localhost:3002/api/search?priority=-1"
-# Expected: 400 Bad Request with validation error
-```
+- Add new regression tests whenever defects are fixed.
+- Keep Playwright scenarios aligned with real user flows.
+- Rotate integration tests into CI to catch drift in dependencies.
+- Use `make security-scan` before major releases to ensure gosec and Trivy reports are clean.
 
-## OpenTelemetry Tracing Testing
-
-### Enable Tracing
-
-Update `config/config.local.toml`:
-
-```toml
-[tracing]
-enabled = true
-service_name = "caatsm-dashboard"
-otlp_endpoint = "localhost:4318"
-sampling_ratio = 1.0
-```
-
-### Start Jaeger (for viewing traces)
-
-```bash
-docker run -d --name jaeger \
-  -p 16686:16686 \
-  -p 4318:4318 \
-  jaegertracing/all-in-one:latest
-```
-
-### View Traces
-
-1. Make some API requests
-2. Open Jaeger UI: http://localhost:16686
-3. Select service "caatsm-dashboard"
-4. View distributed traces
-
-
-## Browser Compatibility
-
-Test on the following browsers:
-- Chrome/Edge (Chromium)
-- Firefox
-- Safari
-
-## Known Issues
-
-- WebSocket reconnection may take a few seconds
-- Large exports (10k+ records) may take time but won't cause OOM due to streaming
-
-## Troubleshooting
-
-### WebSocket Connection Failure
-
-1. Check if Go backend is running on `localhost:3002`
-2. Check firewall settings
-3. Check browser console error messages
-4. Verify WebSocket hub is initialized (check health endpoint)
-
-### API Request Failure
-
-1. Check Vite proxy configuration
-2. Check CORS settings (should be configured)
-3. Check backend logs
-4. Verify rate limiting isn't blocking requests
-
-### Frontend Build Failure
-
-1. Run `npm install` to reinstall dependencies (or use Deno)
-2. Run `npm run check` to check type errors (or `deno task check`)
-3. Clear `.svelte-kit` directory and retry
-
-### Test Failures
-
-1. Ensure all Docker containers are running:
-   ```bash
-   docker compose -f docker-compose.dev.yml ps
-   ```
-
-2. Check Docker container logs:
-   ```bash
-   docker compose -f docker-compose.dev.yml logs
-   ```
-
-3. Reset test environment:
-   ```bash
-   make dev-down
-   make dev-up
-   make migrate
-   ```
-
-## Continuous Integration
-
-### GitHub Actions / CI Pipeline
-
-The project includes comprehensive tests suitable for CI:
-
-```bash
-# Run all tests in CI mode
-make test
-make frontend-test-unit
-
-# Integration tests (requires Docker)
-task test:integration
-
-# Build verification
-make build
-make frontend-build
-```
-
-## OpenAPI Specification Testing
-
-View and test API with OpenAPI specification:
-
-```bash
-# View spec file
-cat api/openapi.yaml
-
-# Serve with Swagger UI (using Docker)
-docker run -p 8080:8080 \
-  -e SWAGGER_JSON=/api/openapi.yaml \
-  -v $(pwd)/api:/api \
-  swaggerapi/swagger-ui
-
-# Open http://localhost:8080
-```
-
-## Test Coverage
-
-Current test coverage includes:
-
-- ✅ Domain validation (time ranges, input sanitization)
-- ✅ Streaming export (large datasets)
-- ✅ Production config validation
-- ✅ Health checks (all dependencies)
-- ✅ WebSocket backpressure
-- ✅ Rate limiting
-- ✅ Integration tests with Testcontainers
-- ✅ E2E pipeline tests
-
-**Target Coverage**: 80%+ for critical paths
+Following this guide keeps the CAATSM Dashboard reliable, observable, and production-ready.

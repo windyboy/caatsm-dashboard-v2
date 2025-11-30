@@ -1,4 +1,4 @@
-package services
+package app
 
 import (
 	"context"
@@ -8,26 +8,24 @@ import (
 	"time"
 
 	meilisearch "github.com/meilisearch/meilisearch-go"
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
 // SearchService handles search operations
 type SearchService struct {
-	repo   ports.Repository
-	cache  ports.Cache
-	search ports.SearchIndex
-	pub    ports.EventPublisher
+	repo   Repository
+	cache  Cache
+	search SearchIndex
+	pub    EventPublisher
 	logger *zap.Logger
 }
 
 // NewSearchService creates a new search service
 func NewSearchService(
-	repo ports.Repository,
-	cache ports.Cache,
-	search ports.SearchIndex,
-	pub ports.EventPublisher,
+	repo Repository,
+	cache Cache,
+	search SearchIndex,
+	pub EventPublisher,
 	logger *zap.Logger,
 ) *SearchService {
 	return &SearchService{
@@ -40,7 +38,7 @@ func NewSearchService(
 }
 
 // Search performs a search operation with caching
-func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error) {
+func (s *SearchService) Search(ctx context.Context, filters SearchFilters) (*SearchResult, error) {
 	// Validate filters
 	if err := filters.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid search filters: %w", err)
@@ -63,7 +61,7 @@ func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters
 				s.logger.Warn("failed to marshal cached search result", zap.String("key", cacheKey), zap.Error(err))
 				_ = s.cache.Delete(ctx, cacheKey)
 			} else {
-				var result domain.SearchResult
+				var result SearchResult
 
 				if err := json.Unmarshal(resultBytes, &result); err != nil {
 
@@ -104,7 +102,7 @@ func (s *SearchService) Search(ctx context.Context, filters domain.SearchFilters
 
 	// Publish search event
 	if s.pub != nil {
-		event := domain.SearchPerformed{
+		event := SearchPerformed{
 			Query:       filters.Query,
 			ResultCount: result.Total,
 			Duration:    duration,
@@ -258,7 +256,7 @@ func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string,
 }
 
 // buildCacheKey creates a deterministic cache key for search filters
-func (s *SearchService) buildCacheKey(filters domain.SearchFilters) string {
+func (s *SearchService) buildCacheKey(filters SearchFilters) string {
 	key := fmt.Sprintf("search:%s", filters.Query)
 
 	// Add filter components

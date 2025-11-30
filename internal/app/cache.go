@@ -1,25 +1,17 @@
-package cache
+package app
 
 import (
 	"context"
-
 	"crypto/tls"
-
 	"encoding/json"
-
 	"errors"
 	"fmt"
 	"strconv"
-
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
 	"github.com/redis/go-redis/v9/maintnotifications"
-
 	"github.com/windy/caatsm-dashboard/config"
-
-	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
 // NewValkeyClient creates a Valkey/Redis client based on configuration.
@@ -73,8 +65,8 @@ func NewValkeyStore(client redis.UniversalClient, ttl time.Duration) *Store {
 	return &Store{client: client, ttl: ttl}
 }
 
-// Ensure Store implements app.Cache
-var _ app.Cache = (*Store)(nil)
+// Ensure Store implements Cache
+var _ Cache = (*Store)(nil)
 
 // Set stores a value for a given key.
 func (s *Store) Set(ctx context.Context, key string, value interface{}) error {

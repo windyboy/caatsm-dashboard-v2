@@ -21,9 +21,7 @@
     "test:unit:ui": "vitest --ui",
     "test:unit:coverage": "vitest --coverage"
   },
-  "dependencies": {
-    "daisyui": "5.5.5"
-  },
+
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@deno/svelte-adapter": "^0.1.0",

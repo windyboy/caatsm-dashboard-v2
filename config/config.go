@@ -153,7 +153,7 @@ func (c *AppConfig) Validate() error {
 			errs = append(errs, errors.New("production: TLS must be enabled"))
 		}
 
-		// Server host cannot be localhost in production
+		// Server host cannot be localhost or 0.0.0.0 in production
 		if c.Server.Host == "localhost" || c.Server.Host == "127.0.0.1" || c.Server.Host == "0.0.0.0" {
 			errs = append(errs, errors.New("production: server host cannot be localhost or 0.0.0.0"))
 		}

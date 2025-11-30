@@ -124,7 +124,7 @@
 
         {#if loading}
           <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
-            <LoadingSpinner size="lg" variant="gradient" message="Searching telegrams..." />
+            <LoadingSpinner size="lg" variant="primary" message="Searching telegrams..." />
           </div>
         {:else if error}
           <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">

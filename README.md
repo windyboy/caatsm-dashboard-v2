@@ -1,599 +1,286 @@
 # CAATSM Dashboard
 
-**CAATSM** (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard provides realtime monitoring, search, and analytics for aviation telegram traffic across AFTN, SITA, ACARS, and CPDLC networks.
+CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviation telegram traffic across AFTN, SITA, ACARS, and CPDLC networks. It collects messages in real time, stores them safely, and serves them through a Go API and a SvelteKit frontend.
 
-## Features
+## Highlights
 
-- ⚡️ **High Performance**: Go + Echo API with Deno + Svelte front-end
-- 📬 **Real-time Ingestion**: NATS JetStream for message streaming
-- 🔍 **Full-text Search**: Meilisearch for fast, typo-tolerant search
-- 📊 **Analytics**: PostgreSQL + TimescaleDB for time-series data
-- 🚀 **Scalable**: Valkey caching, connection pooling, and async processing
-- 📈 **Observability**: Prometheus + Grafana for metrics and monitoring
-- 🔒 **Security**: Auth & rate limiting with production config validation, time range limits (90 days max)
-- 🌐 **WebSocket**: Real-time updates via WebSocket (replacing SSE)
+- Fast Go backend with Echo
+- Realtime ingestion through NATS JetStream and background workers
+- PostgreSQL + TimescaleDB for analytics
+- Meilisearch for full text search and autocomplete
+- Valkey/Redis cache for hot data
+- WebSocket updates with backpressure control
+- Streaming CSV export that handles large result sets
+- Prometheus metrics, OpenTelemetry traces, structured logging
+- Rate limiting (10 requests per second by default)
+- Production config safety checks and 90-day time range guard
 
-## Architecture
+## Clean Architecture Layout
 
-The CAATSM Dashboard follows a **Simplified Clean Architecture** with clear layer separation and minimal abstractions.
+The code follows a four-layer Clean Architecture pattern:
 
-```
-┌─────────────────────────────────────────┐
-│         Delivery Layer                  │
-│   HTTP/WebSocket Handlers               │
-└───────────────┬─────────────────────────┘
-                │
-┌───────────────▼─────────────────────────┐
-│      Application Layer (app/)           │
-│   Services + Container (DI)             │
-│   (dashboard, search, stats, export)    │
-└───────────────┬─────────────────────────┘
-                │
-┌───────────────▼─────────────────────────┐
-│         Domain Layer                    │
-│   Business Logic & Validation           │
-└───────────────┬─────────────────────────┘
-                │
-┌───────────────▼─────────────────────────┐
-│      Infrastructure Layer               │
-│   PostgreSQL, Meilisearch, Redis/Valkey │
-└─────────────────────────────────────────┘
-```
+1. **Delivery** (`internal/delivery/`): HTTP and WebSocket handlers plus validation.
+2. **Application** (`internal/app/`): Services, ports, and the dependency container.
+3. **Domain** (`internal/domain/`): Entities, value objects, business rules, and events. No external imports.
+4. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and WebSocket hub.
 
-**Key Components** (Post-Optimization, Dec 2025):
-- **Frontend**: Deno + Svelte + SvelteKit (real-time dashboard via WebSocket)
-- **Delivery**: HTTP REST API + WebSocket handlers (`internal/delivery/`)
-- **App**: Unified services with Container pattern for DI (`internal/app/`)
-- **Domain**: Business entities, events, validation rules (`internal/domain/`)
-- **Infrastructure**: Direct port implementations (`internal/infrastructure/`) - **no wrapper layers**
+Dependencies always flow inward. Infrastructure implements the interfaces from `internal/app/ports/` directly. No repository wrapper package remains.
 
-**Data Flow**:
-- NATS JetStream → Sync Worker → Repository → DB + Search Index + EventBus
-- HTTP Request → Delivery → App Services → Domain → Infrastructure
+Extra support packages:
 
-**Production Features**:
-- ✅ Streaming CSV export (handles 50k+ records without OOM)
-- ✅ Time range validation (max 90 days to prevent unbounded queries)
-- ✅ Production config guards (prevents insecure defaults in prod)
-- ✅ Rate limiting (10 req/sec, configurable)
-- ✅ WebSocket backpressure handling (auto-disconnects slow clients)
-- ✅ **Optimized architecture** (removed wrapper patterns, infrastructure directly implements ports - Dec 2025)
+- `internal/observability/`
+- `internal/server/`
+- `internal/sync/`
+- `internal/testing/`
 
-For detailed architecture documentation, see:
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical architecture details
-
-## Getting Started
-
-### Prerequisites
+## Requirements
 
 - Go 1.25+
-- **Deno 2.0+** (recommended for frontend) or **Node.js 20+** (alternative)
-- Docker & Docker Compose (for containerized services)
-- PostgreSQL 15+ (or TimescaleDB)
-- Meilisearch
-- NATS Server
-- Valkey 9+
+- Deno 2.0+ (recommended) or Node.js 20+
+- Docker + Docker Compose (optional but recommended)
+- PostgreSQL 15+
+- Meilisearch 1.5+
+- Valkey/Redis 7+
+- NATS 2.10+
 
-### Development Utilities & Dependencies
+## Quick Start
 
-The following development tools and dependencies are required for the dev commands:
+1. Clone the repo:
 
-#### Required Tools
+   ```
+   git clone https://github.com/windy/caatsm-dashboard.git
+   cd caatsm-dashboard
+   ```
 
-- **air** - Hot reload tool for Go development
-  ```bash
-  go install github.com/air-verse/air@latest
+2. Install dependencies:
+
+   ```
+   make install
+   # or
+   task install
+   ```
+
+   This downloads Go modules, installs Deno when missing, and caches frontend deps.
+
+3. Create local config:
+
+   ```
+   task dev:config
+   ```
+
+   This copies `.env.local` from the example file.
+
+4. Start dependencies (Postgres, Meilisearch, Valkey, NATS):
+
+   ```
+   make dev-up
+   ```
+
+5. Run migrations:
+
+   ```
+   task migrate
+   # or
+   goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
+   ```
+
+6. Start backend with hot reload:
+
+   ```
+   make dev
+   ```
+
+7. Start frontend:
+
+   ```
+   make frontend-dev
+   # or
+   task frontend:dev
+   ```
+
+8. Open http://localhost:5173 in your browser.
+
+## Project Overview
+
+```
+caatsm-dashboard/
+├── cmd/                # Main entry points
+├── config/             # Config structs and loader
+├── internal/           # Clean Architecture layers and helpers
+├── frontend/           # SvelteKit app
+├── docs/               # Architecture, config, security, troubleshooting
+├── migrations/         # Goose migrations
+├── scripts/            # Utility scripts
+├── deploy/             # Deployment manifests
+└── Makefile / Taskfile # Task runners
+```
+
+See `docs/ARCHITECTURE.md` for deep detail.
+
+## Running the Backend
+
+- `make dev` starts the API with Air hot reload.
+- Binary output lives in `./bin/`.
+- Run without hot reload:
+
+  ```
+  ./bin/caatsm -config config/config.local.toml
   ```
 
+## Running the Frontend
 
-- **golangci-lint** - Go linter (optional but recommended)
-  ```bash
-  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-  ```
+Recommended (Deno):
 
-- **task** - Task runner (optional, for Taskfile commands)
-  ```bash
-  # macOS
-  brew install go-task/tap/go-task
-  
-  # Linux
-  sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
-  ```
-
-- **goose** - Database migration tool (optional)
-  ```bash
-  go install github.com/pressly/goose/v3/cmd/goose@latest
-  ```
-
-#### Frontend Dependencies
-
-The frontend supports both **Deno 2.0+** (recommended) and **Node.js 20+**. 
-
-**Quick Setup with Deno (Recommended)**:
-```bash
-# Install Deno and setup frontend (one command)
-task frontend:setup
-# or
-make frontend-setup
-
-# Then start development
+```
+task frontend:setup   # one time
 task frontend:dev
-# or
-make frontend-dev
 ```
 
-**Manual Setup with Deno**:
-```bash
-# Install Deno
-task install:deno
-# or
-make install-deno
+Alternative (Node.js):
 
-# Cache frontend dependencies
-task frontend:install
-# or
-make frontend-install
-
-# Start development
-cd frontend
-deno task dev  # No installation needed!
 ```
-
-**With Node.js**:
-```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-> **Note**: Deno is recommended as it matches the original plan and provides zero-configuration development. Dependencies are automatically downloaded by Deno. Use `task frontend:setup` or `make frontend-setup` for a complete one-command setup.
+The dev server proxies API calls to `http://localhost:3002`.
 
-### Installation
+## Configuration
 
-```bash
-git clone https://github.com/windy/caatsm-dashboard.git
-cd caatsm-dashboard
+- Main file: `config/config.toml`
+- Local override: `config/config.local.toml`
+- Environment variables use `CAATSM_` prefix.
+- Loader order:
+  1. `.env.local`
+  2. `.env`
+  3. Config file
+  4. In-code defaults
+- Production validation checks for:
+  - TLS enabled
+  - Non-default secrets or API keys
+  - Auth enabled
+  - Proper database DSN
 
-# Install all dependencies (Go modules + frontend setup)
-make install
-# or
-task install
+See `docs/configuration.md` for templates and secret manager examples.
 
-# This will:
-# - Download Go dependencies (go mod download && go mod tidy)
-# - Install Deno if not available
-# - Cache frontend dependencies with Deno (or npm fallback)
-```
+## Data Flow Summary
 
-**Manual Installation** (if you prefer step-by-step):
-```bash
-# Go dependencies
-go mod download
-go mod tidy
+1. Messages enter NATS JetStream.
+2. Sync worker consumes, validates, and stores them in Postgres and Meilisearch.
+3. Application services read from Postgres, cache hot data in Valkey, and push stats.
+4. Delivery layer exposes REST and WebSocket endpoints.
+5. Frontend receives updates in real time.
 
-# Frontend setup (Deno recommended)
-make frontend-setup
-# or
-task frontend:setup
-```
+## Database Notes
 
-### Configuration
+- TimescaleDB extensions are optional.
+- Migrations use Goose annotations (`-- +goose Up` / `Down`).
+- Index recommendations are listed in docs.
 
-All configuration values live in `config/config.toml` and can be overridden with environment variables prefixed with `CAATSM_`. 
+## Testing
 
-For local development:
-- Use `config/config.local.toml` for TOML-based configuration (uses `localhost` addresses)
-- Use `.env.local` for environment variables (copy from `env.local.example`)
-- The loader automatically loads `.env.local` (if exists) before `.env`
-
-See `env.example` and `env.local.example` for starter sets.
-
-```toml
-[server]
-host = "0.0.0.0"
-port = 3002
-
-[database]
-dsn = "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
-
-[meilisearch]
-host = "http://localhost:7700"
-api_key = "masterKey"
-index = "telegrams"
-
-[nats]
-url = "nats://localhost:4222"
-stream = "telegrams"
-consumer = "dashboard-sync"
-
-[redis]
-addr = "localhost:6379"  # Valkey (Redis-compatible)
-```
-
-### Database Setup
-
-Run database migrations:
-
-```bash
-# Using Taskfile (recommended - supports goose and psql fallback)
-task migrate
-
-# Or using goose directly
-goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
-
-# Note: Migration files use goose annotations (-- +goose Up/Down)
-# Taskfile automatically extracts DSN from config file or environment variables
-```
-
-### Run Locally
-
-#### 1. Setup Local Configuration (Optional)
-
-For local development, you can use either:
-
-**Option A: TOML Configuration File**
-```bash
-# Use the local development config file
-./bin/caatsm -config config/config.local.toml
-```
-
-**Option B: Environment Variables**
-```bash
-# Copy the example file and customize
-cp env.local.example .env.local
-
-# Edit .env.local with your settings
-# If Meilisearch generates a new master key, update CAATSM_MEILISEARCH_API_KEY
-```
-
-The configuration loader will automatically:
-- Load `.env.local` (if exists) for local overrides
-- Load `.env` for shared defaults
-- Use `config/config.local.toml` if specified with `-config` flag
-
-#### 2. Start Development Dependencies
-
-```bash
-# Using Docker:
-docker compose -f docker-compose.dev.yml up -d
-
-# Or using Podman:
-podman compose -f docker-compose.dev.yml up -d
-
-# Or using Task:
-task dev:up
-```
-
-#### 3. Run the Backend
-
-```bash
-# Run with hot reload (uses default config or .env.local)
-make dev
-
-# Or run with specific config file
-./bin/caatsm -config config/config.local.toml
-
-# Or run directly
-make run
-```
-
-#### 4. Run the Frontend
-
-**Quick Start (Recommended)**:
-```bash
-# One-command setup and start (uses Deno, falls back to npm)
-task frontend:setup && task frontend:dev
-# or
-make frontend-setup && make frontend-dev
-```
-
-**With Deno (Recommended)**:
-```bash
-# Setup Deno and cache dependencies
-task frontend:setup
-# or
-make frontend-setup
-
-# Start development server
-task frontend:dev
-# or
-make frontend-dev
-# or manually:
-cd frontend
-deno task dev
-
-# The frontend will be available at http://localhost:5173
-# It will proxy API requests to the Go backend at http://localhost:3002
-```
-
-**With Node.js**:
-```bash
-cd frontend
-
-# Install dependencies (first time only)
-npm install
-
-# Start development server
-npm run dev
-
-# The frontend will be available at http://localhost:5173
-# It will proxy API requests to the Go backend at http://localhost:3002
-```
-
-> **Recommendation**: Use `task frontend:setup` or `make frontend-setup` for a complete one-command setup. It installs Deno if needed, caches dependencies, and falls back to npm if Deno is unavailable.
-
-**Note**: 
-- The development compose file (`docker-compose.dev.yml`) only includes dependencies and is compatible with both Docker and Podman.
-- The application runs locally for better development experience with hot reload.
-- If Meilisearch generates a new master key, update it in `.env.local` or `config/config.local.toml`.
-
-#### 5. Run Background Workers (Optional)
-
-For message ingestion and indexing:
-
-```bash
-# Run sync worker to consume messages from NATS
-task sync
-# or
-go run ./cmd/sync -config config/config.local.toml
-```
-
-### Docker Compose
-
-Start the entire stack:
-
-```bash
-docker compose up --build
-```
-
-This will start:
-- Application server (port 3002)
-- PostgreSQL (port 5432)
-- Meilisearch (port 7700)
-- NATS (port 4222)
-- Valkey (port 6379)
-- Prometheus (port 9090)
-- Grafana (port 3000)
-
-## Development
-
-### Project Structure
+### Backend
 
 ```
-caatsm/
-├── cmd/
-│   ├── server/             # Main service entry point
-│   ├── sync/               # Background sync worker
-│   ├── generate-test-data/ # Test data generator
-│   └── publish-stream/     # NATS message publisher for testing
-├── config/
-│   ├── config.go           # Configuration structs
-│   ├── loader.go           # Viper config loader
-│   └── config.toml         # Default configuration
-├── internal/
-│   ├── app/                # Application layer (services, ports, container)
-│   │   ├── services/       # Application services (dashboard, search, stats, export)
-│   │   └── ports/          # Port interfaces (Repository, Cache, SearchIndex, etc.)
-│   ├── domain/             # Domain layer (business entities, events, validation)
-│   ├── infrastructure/     # Infrastructure layer (direct port implementations)
-│   │   ├── persistence/    # PostgreSQL store (implements ports.Repository)
-│   │   ├── search/         # Meilisearch index (implements ports.SearchIndex)
-│   │   ├── cache/          # Valkey/Redis cache (implements ports.Cache)
-│   │   ├── streaming/      # NATS consumer (implements ports.StreamConsumer)
-│   │   ├── event/          # Event bus implementations
-│   │   ├── ws/             # WebSocket hub
-│   │   └── resilience/     # Circuit breakers
-│   ├── delivery/           # Delivery layer (HTTP/WebSocket handlers)
-│   │   ├── http/           # HTTP handlers
-│   │   └── ws/             # WebSocket handlers
-│   ├── sync/               # Message sync worker
-│   ├── metrics/            # Prometheus metrics
-│   ├── observability/      # Logging, correlation IDs, middleware
-│   ├── auth/               # Authentication middleware
-│   └── testing/            # Test utilities & mocks
-├── frontend/               # Deno + Svelte frontend
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── components/  # Svelte components
-│   │   │   ├── stores/      # Svelte stores
-│   │   │   ├── services/    # API and WebSocket clients
-│   │   │   └── utils/       # Utilities
-│   │   └── routes/          # SvelteKit routes
-│   ├── deno.json            # Deno configuration
-│   └── svelte.config.js     # SvelteKit configuration
-├── assets/                  # Static assets & UnoCSS sources
-├── public/                   # Generated static assets
-├── migrations/               # Database migrations
-├── scripts/                  # Utility scripts
-└── deploy/                   # Deployment configs
+make test             # run all tests
+make test-unit        # unit tests
+make test-integration # integration (requires Docker)
+make test-race        # go test with race detector
 ```
 
-### Available Commands
+Run specific packages:
 
-```bash
-make help            # Show all available commands
-make install         # Install all dependencies (Go + frontend)
-make build           # Build the application
-make test            # Run tests
-make lint            # Run linter
-make dev             # Run with hot reload (air)
-make docker-build    # Build Docker image
-make docker-up       # Start Docker Compose stack
-make docker-down     # Stop Docker Compose stack
-make install-deno    # Install Deno if not available
-make frontend-setup  # Full frontend setup (Deno + dependencies)
-make frontend-install # Cache frontend dependencies (Deno/npm)
-make frontend-dev    # Run frontend dev server (Deno/npm)
-make frontend-build  # Build frontend for production (Deno/npm)
-make frontend-test   # Run frontend E2E tests (Playwright)
-make frontend-test-unit # Run frontend unit tests (Vitest)
+```
+go test ./internal/domain -v
+go test ./internal/app/services -v
 ```
 
-### Taskfile
+### Frontend
 
-Alternatively, use Taskfile:
-
-```bash
-task install         # Install all dependencies (Go + frontend)
-task dev             # Start hot reload server
-task build           # Build server binary
-task test            # Run tests
-task lint            # Run linter
-task install:deno    # Install Deno if not available
-task frontend:setup  # Full frontend setup (Deno + dependencies)
-task frontend:install # Cache frontend dependencies (Deno/npm)
-task frontend:dev    # Run frontend dev server (Deno/npm)
-task frontend:build  # Build frontend for production (Deno/npm)
-task frontend:test   # Run frontend E2E tests (Playwright)
-task frontend:test:unit # Run frontend unit tests (Vitest)
-task dev:up          # Start development dependencies (Docker/Podman)
-task dev:down        # Stop development dependencies
-task dev:logs        # Show logs from development dependencies
-task dev:run         # Run application with local config file
-task sync            # Run sync worker to consume messages from NATS
-task migrate         # Run database migrations
-task generate-test-data  # Generate test telegram data for development
-task publish-stream      # Publish live messages to NATS for testing
-task docker:up      # Start full Docker Compose stack
-task docker:down    # Stop Docker Compose stack
+```
+make frontend-test-unit  # Vitest
+make frontend-test       # Playwright
 ```
 
-### Frontend Development
+Or direct:
 
-**Quick Setup**:
-```bash
-# One-command setup (installs Deno, caches dependencies)
-task frontend:setup
-# or
-make frontend-setup
+```
+deno task test
+deno task test:unit
 ```
 
-**With Deno (Recommended)**:
-```bash
-# Using Taskfile/Makefile (recommended - uses Deno, falls back to npm)
-task frontend:setup  # Full setup (install Deno + cache dependencies)
-task frontend:dev    # Start development server (Deno/npm)
-task frontend:build  # Build for production (Deno/npm)
-task frontend:test   # Run E2E tests (Playwright)
-task frontend:test:unit # Run unit tests (Vitest)
-# or
-make frontend-setup
-make frontend-dev
-make frontend-build
-make frontend-test
-make frontend-test-unit
+More guidance in `TESTING.md`.
 
-# Or manually in frontend directory
-cd frontend
-deno task dev       # Start development server
-deno task build     # Build for production
-deno task preview   # Preview production build
-deno task check     # Type check
-deno fmt            # Format code
-deno lint           # Lint code
-```
+## Useful Commands
 
-**With Node.js**:
-```bash
-cd frontend
+Using Makefile:
 
-# Start development server
-npm run dev
+- `make build`
+- `make lint`
+- `make docker-build`
+- `make docker-up`
+- `make docker-down`
+- `make clean`
+- `make help`
 
-# Build for production
-npm run build
+Using Taskfile:
 
-# Preview production build
-npm run preview
+- `task build`
+- `task dev`
+- `task lint`
+- `task migrate`
+- `task sync`
+- `task docker:up`
+- `task docker:down`
+- `task generate-test-data`
+- `task publish-stream` (slow/fast variants available)
 
-# Type check
-npm run check
+## REST API Outline
 
-# Format code
-npm run format
+- `GET /api/search`
+- `POST /api/search`
+- `GET /api/autocomplete`
+- `GET /api/stats/total`
+- `GET /api/stats/priority`
+- `GET /api/stats/type`
+- `GET /api/export` (CSV streaming)
+- `GET /api/health`
+- `GET /metrics`
 
-# Run E2E tests
-npm run test
-```
+Full schemas live in `api/openapi.yaml`.
 
-> **Recommendation**: Use **Deno** for development. Run `task frontend:setup` or `make frontend-setup` for a complete one-command setup. Deno requires no installation and provides a better developer experience with built-in TypeScript, formatter, and linter.
+## WebSocket Endpoint
 
-## API Endpoints
-
-### REST API Endpoints (JSON)
-
-- `GET /api/search` - Search telegrams (returns JSON)
-- `POST /api/search` - Search telegrams (returns JSON)
-- `GET /api/autocomplete?term=...&size=5` - Autocomplete suggestions (returns JSON)
-- `GET /api/stats/total` - Total message count (24h, returns JSON)
-- `GET /api/stats/priority` - Priority breakdown (returns JSON)
-- `GET /api/stats/type` - Message type breakdown (returns JSON)
-- `GET /api/export?format=csv&query=...` - Export search results (CSV/Excel/PDF)
-- `GET /api/health` - Health check
-- `GET /metrics` - Prometheus metrics
-
-### WebSocket Endpoint
-
-- `GET /ws` - WebSocket connection for real-time updates
-  - Message format: `{ "type": "message|stats-total|stats-priority|stats-type", "data": {...} }`
-  - Supports ping/pong heartbeat
-  - Automatic reconnection on client side
+- `GET /ws`
+- Message types:
+  - `message`
+  - `stats-total`
+  - `stats-priority`
+  - `stats-type`
+- Ping/pong heartbeat
+- Slow clients auto-disconnect when buffers fill
 
 ## Deployment
 
-### Production Deployment
+### Docker Compose
 
-1. **Environment Variables**: Set all required environment variables:
-
-```bash
-export CAATSM_DATABASE_DSN="postgres://user:pass@host:5432/caatsm?sslmode=require"
-export CAATSM_MEILISEARCH_HOST="https://meilisearch.example.com"
-export CAATSM_MEILISEARCH_API_KEY="your-api-key"
-export CAATSM_NATS_URL="nats://nats.example.com:4222"
-export CAATSM_REDIS_ADDR="valkey.example.com:6379"  # Valkey (Redis-compatible)
+```
+docker compose up --build
 ```
 
-2. **Database Migrations**: Run migrations before starting the application:
+Services exposed:
+- API: 3002
+- Postgres: 5432
+- Meilisearch: 7700
+- NATS: 4222
+- Valkey: 6379
+- Prometheus: 9090
+- Grafana: 3000
 
-```bash
-goose -dir migrations postgres "$CAATSM_DATABASE_DSN" up
-# or
-task migrate
+### Docker Image
+
 ```
-
-3. **Build Frontend**:
-
-```bash
-# Using Taskfile/Makefile (recommended, uses Deno if available)
-task frontend:build
-# or
-make frontend-build
-
-# Or manually with Deno
-cd frontend
-deno task build
-
-# Or manually with Node.js
-cd frontend
-npm install
-npm run build
-```
-
-4. **Build and Run Backend**:
-
-```bash
-make build
-# or
-task build
-
-./bin/caatsm -config /path/to/config.toml
-```
-
-The Go backend will serve the built Svelte frontend from `frontend/build`.
-
-### Docker Deployment
-
-```bash
 docker build -t caatsm-dashboard:latest .
 docker run -d \
   -p 3002:3002 \
@@ -601,78 +288,60 @@ docker run -d \
   caatsm-dashboard:latest
 ```
 
-### Kubernetes Deployment
+### Production Checklist
 
-See `deploy/` directory for Kubernetes manifests (coming soon).
+- Supply real secrets through environment variables or a secret manager.
+- Enable TLS.
+- Run migrations before startup.
+- Build frontend (`task frontend:build`) and backend (`make build`).
+- Serve static files from `frontend/build`.
+- Configure rate limiting and CORS.
 
-## Monitoring
+Kubernetes manifests are under `deploy/`.
 
-### Prometheus Metrics
+## Monitoring and Observability
 
-The application exposes Prometheus metrics at `/metrics`:
+- Metrics at `/metrics` (Prometheus scrape target):
+  - `telegrams_ingested_total`
+  - `search_latency_seconds`
+  - `http_requests_total`
+  - `websocket_connections`
 
-- `telegrams_ingested_total` - Total number of telegrams processed
-- `search_latency_seconds` - Search request latency
-- `http_requests_total` - HTTP request count
-- `http_request_duration_seconds` - HTTP request duration
-- `websocket_connections` - Active WebSocket connections (to be added)
+- OpenTelemetry tracing:
+  - Configure via `[tracing]` block in config.
+  - Export to OTLP endpoint (Jaeger, Zipkin, etc).
 
-### Grafana Dashboards
+- Structured logging uses correlation IDs.
 
-Import Grafana dashboards from `deploy/grafana/` (coming soon).
+## Security Notes
 
-## Testing
+- Enforce HTTPS in prod (TLS 1.3).
+- Do not ship with default API keys or passwords.
+- Use environment variables or secret managers for sensitive data.
+- Rate limit endpoints (default 10 req/sec; adjustable).
+- Validate inputs and restrict sortable fields to whitelisted values.
+- Streaming export uses chunking to prevent memory spikes.
 
-```bash
-# Run all tests
-make test
-# or
-task test
+For full guidance see `docs/security.md`.
 
-# Run tests with coverage
-go test -v -race -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out -o coverage.html
-```
+## Troubleshooting
 
-For detailed testing documentation, see [TESTING.md](TESTING.md) and [internal/testing/README.md](internal/testing/README.md).
+See `docs/troubleshooting.md` for checklists on:
 
-## Recent Improvements
-
-### Type Safety
-- Improved type safety in WebSocket handler with proper type assertions
-- Enhanced error handling to prevent panics from invalid type conversions
-- Better validation of event data structures
-
-### Test Coverage
-- Added comprehensive tests for WebSocket handler in transport layer
-- Added EventBroadcaster tests in transport/ws package
-- Created service mocks for StatsService and QueryService
-- Test coverage targeting ≥80% across all layers
-- Completed clean architecture migration (all legacy code removed)
-
-### Linting Configuration
-- Updated linting rules for better code quality
-- Consistent use of `any` type instead of `interface{}` in mocks
+- Database connectivity
+- WebSocket issues
+- Search index problems
+- Config validation failures
+- Performance bottlenecks
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linter
-5. Submit a pull request
+1. Fork the repo.
+2. Create a feature branch.
+3. Make changes following Clean Architecture rules.
+4. Run `make lint` and `make test`.
+5. Open a pull request.
 
 ## License
 
 MIT © 2025 Windy
-
-## Acknowledgments
-
-- [Echo](https://echo.labstack.com/) - High-performance HTTP framework
-- [Meilisearch](https://www.meilisearch.com/) - Fast, typo-tolerant search
-- [NATS](https://nats.io/) - Cloud-native messaging
-- [Svelte](https://svelte.dev/) - Modern frontend framework
-- [SvelteKit](https://kit.svelte.dev/) - Full-stack Svelte framework
-- [Vite](https://vitejs.dev/) - Next generation frontend tooling
-- [UnoCSS](https://unocss.com/) - Instant atomic CSS engine
-- [gorilla/websocket](https://github.com/gorilla/websocket) - WebSocket implementation for Go

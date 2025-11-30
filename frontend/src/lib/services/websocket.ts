@@ -33,7 +33,7 @@ const MAX_LOG_PREVIEW_LENGTH = 50; // Limit log preview to prevent PII exposure
 const PING_INTERVAL = 30000; // 30 seconds
 const PONG_TIMEOUT = 5000; // 5 seconds
 
-export type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error";
+export type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";
 
 export type WebSocketMessageHandler = (message: WebSocketMessage) => void;
 export type WebSocketStatusHandler = (status: WebSocketStatus) => void;
@@ -268,7 +268,7 @@ export class WebSocketClient {
     if (typeof msg.type !== "string") {
       return false;
     }
-    const validTypes = ["message", "stats-total", "stats-priority", "stats-type", "pong"];
+    const validTypes = ["message", "stats", "pong"];
     if (!validTypes.includes(msg.type)) {
       return false;
     }
@@ -277,23 +277,13 @@ export class WebSocketClient {
     switch (msg.type) {
       case "message":
         return typeof msg.data === "object" && msg.data !== null;
-      case "stats-total":
+      case "stats":
         return (
           typeof msg.data === "object" &&
           msg.data !== null &&
-          typeof (msg.data as any).total === "number"
-        );
-      case "stats-priority":
-        return (
-          typeof msg.data === "object" &&
-          msg.data !== null &&
-          typeof (msg.data as any).byPriority === "object"
-        );
-      case "stats-type":
-        return (
-          typeof msg.data === "object" &&
-          msg.data !== null &&
-          typeof (msg.data as any).byType === "object"
+          typeof (msg.data as Record<string, unknown>).total === "number" &&
+          typeof (msg.data as Record<string, unknown>).byPriority === "object" &&
+          typeof (msg.data as Record<string, unknown>).byType === "object"
         );
       case "pong":
         return true; // pong has no data requirement
@@ -367,7 +357,7 @@ export class WebSocketClient {
       maxAttempts: this.maxReconnectAttempts,
     });
 
-    this.setStatus("connecting");
+    this.setStatus("reconnecting");
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       logger.debug("Executing reconnection attempt", {
@@ -512,6 +502,14 @@ export class WebSocketClient {
    */
   getReconnectAttempts(): number {
     return this.reconnectAttempts;
+  }
+
+  /**
+   * Gets the maximum number of reconnection attempts.
+   * @returns Maximum number of reconnection attempts
+   */
+  getMaxReconnectAttempts(): number {
+    return this.maxReconnectAttempts;
   }
 
   /**

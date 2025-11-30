@@ -7,13 +7,13 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
 // StreamCSV streams telegrams as CSV directly to the response.
 // It reads from the telegram channel and writes CSV rows, flushing after each row.
 // If an error occurs (from errCh or context cancellation), it returns immediately.
-func StreamCSV(c echo.Context, stream <-chan *domain.Telegram, errCh <-chan error) error {
+func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) error {
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=telegrams.csv")
 	c.Response().WriteHeader(http.StatusOK)

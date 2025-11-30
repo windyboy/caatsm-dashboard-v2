@@ -1,24 +1,22 @@
-package services
+package app
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/windy/caatsm-dashboard/internal/app/ports"
-	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
 // StatsService handles statistics operations
 type StatsService struct {
-	repo   ports.Repository
-	cache  ports.Cache
+	repo   Repository
+	cache  Cache
 	logger *zap.Logger
 }
 
 // NewStatsService creates a new stats service
-func NewStatsService(repo ports.Repository, cache ports.Cache, logger *zap.Logger) *StatsService {
+func NewStatsService(repo Repository, cache Cache, logger *zap.Logger) *StatsService {
 	return &StatsService{
 		repo:   repo,
 		cache:  cache,
@@ -27,7 +25,7 @@ func NewStatsService(repo ports.Repository, cache ports.Cache, logger *zap.Logge
 }
 
 // GetStats retrieves traffic statistics for the given time window
-func (s *StatsService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
+func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*TrafficSummary, error) {
 	cacheKey := s.buildCacheKey(timeRange)
 
 	// Try cache first
@@ -41,7 +39,7 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange domain.TimeWindow
 				s.logger.Warn("failed to marshal cached stats", zap.String("key", cacheKey), zap.Error(err))
 				_ = s.cache.Delete(ctx, cacheKey)
 			} else {
-				var stats domain.TrafficSummary
+				var stats TrafficSummary
 				if err := json.Unmarshal(statsBytes, &stats); err != nil {
 					s.logger.Warn("failed to unmarshal cached stats", zap.String("key", cacheKey), zap.Error(err))
 					_ = s.cache.Delete(ctx, cacheKey)
@@ -81,7 +79,7 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange domain.TimeWindow
 }
 
 // GetRouteStats retrieves top routes statistics
-func (s *StatsService) GetRouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error) {
+func (s *StatsService) GetRouteStats(ctx context.Context, limit int) ([]RouteStat, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -102,7 +100,7 @@ func (s *StatsService) GetRouteStats(ctx context.Context, limit int) ([]domain.R
 				s.logger.Warn("failed to marshal cached route stats", zap.String("key", cacheKey), zap.Error(err))
 				_ = s.cache.Delete(ctx, cacheKey)
 			} else {
-				var stats []domain.RouteStat
+				var stats []RouteStat
 				if err := json.Unmarshal(payload, &stats); err != nil {
 					s.logger.Warn("failed to unmarshal cached route stats", zap.String("key", cacheKey), zap.Error(err))
 					_ = s.cache.Delete(ctx, cacheKey)
@@ -132,7 +130,7 @@ func (s *StatsService) GetRouteStats(ctx context.Context, limit int) ([]domain.R
 }
 
 // buildCacheKey creates a cache key for stats
-func (s *StatsService) buildCacheKey(timeRange domain.TimeWindow) string {
+func (s *StatsService) buildCacheKey(timeRange TimeWindow) string {
 	return fmt.Sprintf("stats:%d:%d",
 		timeRange.Start.Unix(),
 		timeRange.End.Unix(),
