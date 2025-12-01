@@ -17,6 +17,7 @@
   import { autocomplete } from "../services/api";
   import { createLogger } from "../utils/logger";
   import type { SearchParams } from "../services/api";
+  import { SEARCH_CONFIG } from "../constants";
 
   const logger = createLogger("SearchForm");
 
@@ -35,11 +36,17 @@
   let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
   let autocompleteTimeout = $state<number | null>(null);
+  let error = $state<string | null>(null);
+  let abortController = $state<AbortController | null>(null);
 
   onDestroy(() => {
     if (autocompleteTimeout !== null) {
       clearTimeout(autocompleteTimeout);
       autocompleteTimeout = null;
+    }
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
     }
   });
 
@@ -55,45 +62,86 @@
   }
 
   async function handleAutocomplete() {
+    // Cancel previous request
+    if (abortController) {
+      abortController.abort();
+    }
+
     if (autocompleteTimeout) {
       clearTimeout(autocompleteTimeout);
     }
 
-    if (query.length < 2) {
+    if (query.length < SEARCH_CONFIG.AUTOCOMPLETE_MIN_LENGTH) {
       suggestions = [];
       showSuggestions = false;
       return;
     }
 
     autocompleteTimeout = setTimeout(async () => {
+      abortController = new AbortController();
+      const currentQuery = query; // Capture current value
+
       try {
-        const result = await autocomplete(query, 5);
-        // Handle both old format (string[]) and new format (AutocompleteSuggestion[])
-        if (result.suggestions.length > 0 && typeof result.suggestions[0] === "string") {
-          // Old format: convert to new format
-          suggestions = (result.suggestions as string[]).map((s) => ({
-            value: s,
-            type: "text",
-            label: "",
-          }));
-        } else {
-          suggestions = result.suggestions as Array<{ value: string; type: string; label: string }>;
+        const result = await autocomplete(query, 5, abortController.signal);
+
+        // Only update if query hasn't changed and request wasn't aborted
+        if (currentQuery === query && !abortController.signal.aborted) {
+          // Handle both old format (string[]) and new format (AutocompleteSuggestion[])
+          if (result.suggestions.length > 0 && typeof result.suggestions[0] === "string") {
+            // Old format: convert to new format
+            suggestions = (result.suggestions as string[]).map((s) => ({
+              value: s,
+              type: "text",
+              label: "",
+            }));
+          } else {
+            suggestions = result.suggestions as Array<{ value: string; type: string; label: string }>;
+          }
+          showSuggestions = suggestions.length > 0;
         }
-        showSuggestions = suggestions.length > 0;
       } catch (error) {
-        logger.error("Autocomplete failed", error, {
-          query,
-          queryLength: query.length,
-        });
-        suggestions = [];
-        showSuggestions = false;
+        // Ignore AbortError - it's expected when request is cancelled
+        if (error instanceof Error && error.name !== "AbortError") {
+          logger.error("Autocomplete failed", error, {
+            query: currentQuery,
+            queryLength: currentQuery.length,
+          });
+        }
+        // Only clear suggestions if request wasn't aborted
+        if (!abortController.signal.aborted) {
+          suggestions = [];
+          showSuggestions = false;
+        }
       }
-    }, 500);
+    }, SEARCH_CONFIG.AUTOCOMPLETE_DEBOUNCE_MS);
   }
 
   function handleSearch() {
+    error = null;
+
     const startISO = toIsoString(start_time);
     const endISO = toIsoString(end_time);
+
+    // Validate time range if both dates are provided
+    if (startISO && endISO) {
+      const start = new Date(startISO);
+      const end = new Date(endISO);
+
+      // Check if start time is before end time
+      if (start >= end) {
+        error = "Start time must be before end time";
+        return;
+      }
+
+      // Check if time range exceeds maximum (90 days)
+      const diffMs = end.getTime() - start.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+      if (diffDays > SEARCH_CONFIG.MAX_TIME_RANGE_DAYS) {
+        error = `Time range cannot exceed ${SEARCH_CONFIG.MAX_TIME_RANGE_DAYS} days`;
+        return;
+      }
+    }
 
     onsearch?.({
       query,
@@ -108,6 +156,7 @@
     const value = typeof suggestion === "string" ? suggestion : suggestion.value;
     query = value;
     showSuggestions = false;
+    error = null;
     handleSearch();
   }
 
@@ -234,6 +283,12 @@
         />
       </div>
     </div>
+    {#if error}
+      <div class="error-message">
+        <div class="error-icon">⚠️</div>
+        <span class="error-text">{error}</span>
+      </div>
+    {/if}
     <div class="form-actions">
       <button
         type="button"
@@ -373,6 +428,21 @@
 
   .filter-input::placeholder {
     color: theme('colors.slate.400');
+  }
+
+  .error-message {
+    @apply flex items-center gap-3 p-4 rounded-lg border;
+    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.warning.50'));
+    border-color: theme('colors.danger.200 / 0.6');
+    color: theme('colors.danger.700');
+  }
+
+  .error-icon {
+    @apply flex-shrink-0 text-lg;
+  }
+
+  .error-text {
+    @apply text-sm font-semibold;
   }
 
   .form-actions {

@@ -103,17 +103,23 @@ func normalizeOrigin(origin string) string {
 	// Parse the origin URL
 	u, err := url.Parse(origin)
 	if err != nil {
-		// If parsing fails, return the original (will likely fail matching anyway)
-		return origin
+		// If parsing fails, return empty string to deny by default (fail-secure)
+		return ""
 	}
 
-	// If scheme or host is empty, the URL is invalid - return original
+	// If scheme or host is empty, the URL is invalid - deny by default
 	if u.Scheme == "" || u.Host == "" {
-		return origin
+		return ""
 	}
 
 	// Normalize scheme and host to lowercase
 	scheme := strings.ToLower(u.Scheme)
+	
+	// Only allow http and https schemes for WebSocket origins (fail-secure)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	
 	host := strings.ToLower(u.Host)
 
 	// Remove default ports

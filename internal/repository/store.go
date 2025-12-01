@@ -253,6 +253,9 @@ func (s *Store) buildSearchQuery(whereClause string, args []any, pagination doma
 	if sortBy == "" {
 		sortBy = "time"
 	}
+	// SQL Injection Safety: sortBy is validated against allowedSortColumns whitelist.
+	// Only schema-defined column names can reach the query builder.
+	// ORDER clause is safe to interpolate with fmt.Sprintf here.
 	allowedSortColumns := map[string]bool{
 		"time":          true,
 		"priority":      true,

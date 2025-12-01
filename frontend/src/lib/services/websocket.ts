@@ -1,7 +1,9 @@
 // WebSocket client for real-time updates
 
 import { createLogger } from "../utils/logger.ts";
+import { hashString } from "../utils/hash.ts";
 import type { WebSocketMessage } from "../utils/types.ts";
+import { WEBSOCKET_CONFIG } from "../constants.ts";
 
 function resolveWebSocketUrl(): string {
   if (import.meta.env.VITE_WS_URL) {
@@ -22,16 +24,6 @@ function resolveWebSocketUrl(): string {
 }
 
 const logger = createLogger("WebSocket");
-
-// Constants
-const INITIAL_RECONNECT_DELAY = 1000; // 1 second
-const MAX_RECONNECT_DELAY = 30000; // 30 seconds
-const MAX_RECONNECT_ATTEMPTS = 10;
-const MAX_MESSAGE_SIZE = 1048576; // 1MB
-const MAX_HANDLERS = 100;
-const MAX_LOG_PREVIEW_LENGTH = 50; // Limit log preview to prevent PII exposure
-const PING_INTERVAL = 30000; // 30 seconds
-const PONG_TIMEOUT = 5000; // 5 seconds
 
 export type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error" | "reconnecting";
 
@@ -65,9 +57,9 @@ export type WebSocketStatusHandler = (status: WebSocketStatus) => void;
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = MAX_RECONNECT_ATTEMPTS;
-  private reconnectDelay = INITIAL_RECONNECT_DELAY;
-  private readonly maxReconnectDelay = MAX_RECONNECT_DELAY;
+  private readonly maxReconnectAttempts = WEBSOCKET_CONFIG.MAX_RECONNECT_ATTEMPTS;
+  private reconnectDelay = WEBSOCKET_CONFIG.INITIAL_RECONNECT_DELAY_MS;
+  private readonly maxReconnectDelay = WEBSOCKET_CONFIG.MAX_RECONNECT_DELAY_MS;
   private handlers: Set<WebSocketMessageHandler> = new Set();
   private statusHandlers: Set<WebSocketStatusHandler> = new Set();
   private shouldReconnect = true;
@@ -143,7 +135,7 @@ export class WebSocketClient {
           readyState: this.ws?.readyState,
         });
         this.reconnectAttempts = 0;
-        this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+        this.reconnectDelay = WEBSOCKET_CONFIG.INITIAL_RECONNECT_DELAY_MS;
         this.setStatus("connected");
         this.startPing();
       };
@@ -153,13 +145,13 @@ export class WebSocketClient {
           // Check message size before parsing
           const dataLength =
             typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0;
-          if (dataLength > MAX_MESSAGE_SIZE) {
+          if (dataLength > WEBSOCKET_CONFIG.MAX_MESSAGE_SIZE) {
             logger.warn("Message exceeds size limit", {
               dataLength,
-              maxSize: MAX_MESSAGE_SIZE,
-              preview:
+              maxSize: WEBSOCKET_CONFIG.MAX_MESSAGE_SIZE,
+              contentHash:
                 typeof event.data === "string"
-                  ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                  ? hashString(event.data.substring(0, 100))
                   : undefined,
             });
             return;
@@ -176,9 +168,9 @@ export class WebSocketClient {
           if (!this.validateMessage(parsed)) {
             logger.warn("Invalid message structure", {
               dataLength,
-              preview:
+              contentHash:
                 typeof event.data === "string"
-                  ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                  ? hashString(event.data.substring(0, 100))
                   : undefined,
             });
             return;
@@ -203,9 +195,9 @@ export class WebSocketClient {
           logger.error("Failed to parse message", error, {
             dataLength:
               typeof event.data === "string" ? event.data.length : event.data?.byteLength || 0,
-            preview:
+            contentHash:
               typeof event.data === "string"
-                ? event.data.substring(0, MAX_LOG_PREVIEW_LENGTH)
+                ? hashString(event.data.substring(0, 100))
                 : undefined,
             url: wsUrl,
           });
@@ -277,14 +269,21 @@ export class WebSocketClient {
     switch (msg.type) {
       case "message":
         return typeof msg.data === "object" && msg.data !== null;
-      case "stats":
+      case "stats": {
+        if (typeof msg.data !== "object" || msg.data === null) {
+          return false;
+        }
+        const data = msg.data as Record<string, unknown>;
         return (
-          typeof msg.data === "object" &&
-          msg.data !== null &&
-          typeof (msg.data as Record<string, unknown>).total === "number" &&
-          typeof (msg.data as Record<string, unknown>).byPriority === "object" &&
-          typeof (msg.data as Record<string, unknown>).byType === "object"
+          typeof data.total === "number" &&
+          typeof data.byPriority === "object" &&
+          data.byPriority !== null &&
+          !Array.isArray(data.byPriority) &&
+          typeof data.byType === "object" &&
+          data.byType !== null &&
+          !Array.isArray(data.byType)
         );
+      }
       case "pong":
         return true; // pong has no data requirement
       default:
@@ -303,12 +302,12 @@ export class WebSocketClient {
             if (this.ws) {
               this.ws.close();
             }
-          }, PONG_TIMEOUT);
+          }, WEBSOCKET_CONFIG.PONG_TIMEOUT_MS);
         } catch (error) {
           logger.error("Failed to send ping", error);
         }
       }
-    }, PING_INTERVAL);
+    }, WEBSOCKET_CONFIG.PING_INTERVAL_MS);
   }
 
   private handlePong(): void {
@@ -456,10 +455,10 @@ export class WebSocketClient {
    * @returns Unsubscribe function
    */
   subscribe(handler: WebSocketMessageHandler): () => void {
-    if (this.handlers.size >= MAX_HANDLERS) {
+    if (this.handlers.size >= WEBSOCKET_CONFIG.MAX_HANDLERS) {
       logger.warn("Handler limit reached", {
         currentCount: this.handlers.size,
-        maxHandlers: MAX_HANDLERS,
+        maxHandlers: WEBSOCKET_CONFIG.MAX_HANDLERS,
       });
     }
     this.handlers.add(handler);

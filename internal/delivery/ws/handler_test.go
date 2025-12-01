@@ -73,6 +73,55 @@ func TestPrepareAllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestWebSocketOrigin_ParseFailures(t *testing.T) {
+	tests := []struct {
+		name          string
+		allowedOrigins []string
+		requestOrigin string
+		expected      bool
+	}{
+		{
+			name:          "javascript: protocol denied",
+			allowedOrigins: []string{"http://localhost:3000"},
+			requestOrigin: "javascript:alert(1)",
+			expected:      false,
+		},
+		{
+			name:          "malformed URL with brackets denied",
+			allowedOrigins: []string{"http://localhost:3000"},
+			requestOrigin: "http://[invalid",
+			expected:      false,
+		},
+		{
+			name:          "ftp protocol denied",
+			allowedOrigins: []string{"http://localhost:3000"},
+			requestOrigin: "ftp://example.com",
+			expected:      false,
+		},
+		{
+			name:          "invalid URL string denied",
+			allowedOrigins: []string{"http://localhost:3000"},
+			requestOrigin: "not a valid url",
+			expected:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checkOrigin := makeCheckOriginFunc(tt.allowedOrigins)
+			req := &http.Request{
+				Header: http.Header{},
+			}
+			if tt.requestOrigin != "" {
+				req.Header.Set("Origin", tt.requestOrigin)
+			}
+
+			result := checkOrigin(req)
+			assert.Equal(t, tt.expected, result, "origin %s should be %v", tt.requestOrigin, tt.expected)
+		})
+	}
+}
+
 func TestMakeCheckOriginFunc(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -218,9 +267,34 @@ func TestNormalizeOrigin(t *testing.T) {
 			expected: "https://api.example.com",
 		},
 		{
-			name:     "invalid URL returns original",
+			name:     "invalid URL returns empty string (fail-secure)",
 			input:    "not a valid url",
-			expected: "not a valid url",
+			expected: "",
+		},
+		{
+			name:     "javascript: protocol returns empty string (fail-secure)",
+			input:    "javascript:alert(1)",
+			expected: "",
+		},
+		{
+			name:     "malformed URL with brackets returns empty string",
+			input:    "http://[invalid",
+			expected: "",
+		},
+		{
+			name:     "URL without scheme returns empty string",
+			input:    "//example.com",
+			expected: "",
+		},
+		{
+			name:     "URL without host returns empty string",
+			input:    "http://",
+			expected: "",
+		},
+		{
+			name:     "ftp protocol returns empty string (not http/https)",
+			input:    "ftp://example.com",
+			expected: "",
 		},
 	}
 

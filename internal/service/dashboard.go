@@ -425,15 +425,9 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMe
 // priority, and type counts using the same cache keys/structure that
 // sendUpdatedStats expects. Respects TTL semantics via cache implementation.
 func (ds *DashboardService) initializeStatsCache(ctx context.Context, stats *domain.TrafficSummary) error {
-	// Delete existing keys to ensure clean state before initializing
-	if err := ds.cache.Delete(ctx, statsTotalKey); err != nil {
-		return fmt.Errorf("delete total key: %w", err)
-	}
-	if err := ds.cache.Delete(ctx, statsPriorityKey); err != nil {
-		return fmt.Errorf("delete priority key: %w", err)
-	}
-	if err := ds.cache.Delete(ctx, statsTypeKey); err != nil {
-		return fmt.Errorf("delete type key: %w", err)
+	// Delete existing keys atomically to ensure clean state before initializing
+	if err := ds.cache.DeleteMultiple(ctx, statsTotalKey, statsPriorityKey, statsTypeKey); err != nil {
+		return fmt.Errorf("delete stats keys: %w", err)
 	}
 
 	// Set total count (Incr creates key if it doesn't exist)

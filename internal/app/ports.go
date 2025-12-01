@@ -66,6 +66,7 @@ type Cache interface {
 	Get(ctx context.Context, key string) (interface{}, error)
 	Set(ctx context.Context, key string, value interface{}) error
 	Delete(ctx context.Context, key string) error
+	DeleteMultiple(ctx context.Context, keys ...string) error
 	Incr(ctx context.Context, key string, delta int64) (int64, error)
 	HIncrBy(ctx context.Context, key string, field string, delta int64) (int64, error)
 	GetInt64(ctx context.Context, key string) (int64, error)

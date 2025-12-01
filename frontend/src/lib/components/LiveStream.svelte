@@ -89,28 +89,10 @@
       currentReconnectAttempts = attempts;
     });
 
-    return () => {
-      statusUnsubscribe();
-      reconnectUnsubscribe();
-    };
-  });
-
-  // Cleanup WebSocket only on component destroy
-  onDestroy(() => {
-    websocket.cleanup();
-  });
-
-  // Subscribe to messages for auto-scroll (separate from WebSocket lifecycle)
-  $effect(() => {
-    // Guard against SSR - only run in browser after component is mounted
-    if (typeof window === "undefined" || !mounted) {
-      return;
-    }
-
-    // Scroll to top when new messages arrive (new messages appear at top)
+    // Subscribe to messages for auto-scroll (new messages appear at top)
     // Use requestAnimationFrame for smooth DOM updates
-    const unsubscribe = messages.subscribe((msgs: Telegram[]) => {
-      if (container && Array.isArray(msgs)) {
+    const messagesUnsubscribe = messages.subscribe((msgs: Telegram[]) => {
+      if (container && Array.isArray(msgs) && msgs.length > 0) {
         requestAnimationFrame(() => {
           if (container) {
             container.scrollTop = 0;
@@ -120,8 +102,15 @@
     });
 
     return () => {
-      unsubscribe();
+      statusUnsubscribe();
+      reconnectUnsubscribe();
+      messagesUnsubscribe();
     };
+  });
+
+  // Cleanup WebSocket only on component destroy
+  onDestroy(() => {
+    websocket.cleanup();
   });
 </script>
 
@@ -152,7 +141,13 @@
       {/if}
     </div>
   </div>
-  <div bind:this={container} class="messages-container">
+  <div
+    bind:this={container}
+    class="messages-container"
+    aria-live="polite"
+    aria-atomic="false"
+    aria-relevant="additions"
+  >
     {#if typedMessages.length === 0}
       <div class="empty-state">
         <div class="empty-state-icon"></div>
@@ -169,7 +164,7 @@
       </div>
     {:else}
       {#each typedMessages as message, index (getMessageKey(message, index))}
-        <div class="message-wrapper">
+        <div class="message-wrapper" role="article" aria-label="Telegram message {message.message_id || index}">
           <MessageItem telegram={message} />
         </div>
       {/each}

@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -228,39 +229,50 @@ func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string,
 
 // buildCacheKey creates a deterministic cache key for search filters
 func (s *SearchService) buildCacheKey(filters SearchFilters) string {
-	key := fmt.Sprintf("search:%s", filters.Query)
+	var sb strings.Builder
+	sb.WriteString("search:")
+	sb.WriteString(filters.Query)
 
 	// Add filter components
 	if len(filters.Types) > 0 {
-		key += fmt.Sprintf(":types:%v", filters.Types)
+		sb.WriteString(":types:")
+		sb.WriteString(fmt.Sprintf("%v", filters.Types))
 	}
 	if len(filters.Sources) > 0 {
-		key += fmt.Sprintf(":sources:%v", filters.Sources)
+		sb.WriteString(":sources:")
+		sb.WriteString(fmt.Sprintf("%v", filters.Sources))
 	}
 	if len(filters.Destinations) > 0 {
-		key += fmt.Sprintf(":dests:%v", filters.Destinations)
+		sb.WriteString(":dests:")
+		sb.WriteString(fmt.Sprintf("%v", filters.Destinations))
 	}
 	if len(filters.Priorities) > 0 {
-		key += fmt.Sprintf(":priorities:%v", filters.Priorities)
+		sb.WriteString(":priorities:")
+		sb.WriteString(fmt.Sprintf("%v", filters.Priorities))
 	}
 
 	// Add time range
 	if !filters.TimeRange.Start.IsZero() {
-		key += fmt.Sprintf(":start:%d", filters.TimeRange.Start.Unix())
+		sb.WriteString(":start:")
+		sb.WriteString(fmt.Sprintf("%d", filters.TimeRange.Start.Unix()))
 	}
 	if !filters.TimeRange.End.IsZero() {
-		key += fmt.Sprintf(":end:%d", filters.TimeRange.End.Unix())
+		sb.WriteString(":end:")
+		sb.WriteString(fmt.Sprintf("%d", filters.TimeRange.End.Unix()))
 	}
 
 	// Add pagination
-	key += fmt.Sprintf(":limit:%d:offset:%d:sort:%s:%s",
-		filters.Pagination.Limit,
-		filters.Pagination.Offset,
-		filters.Pagination.SortBy,
-		filters.Pagination.Order,
-	)
+	sb.WriteString(":limit:")
+	sb.WriteString(fmt.Sprintf("%d", filters.Pagination.Limit))
+	sb.WriteString(":offset:")
+	sb.WriteString(fmt.Sprintf("%d", filters.Pagination.Offset))
+	sb.WriteString(":sort:")
+	sb.WriteString(filters.Pagination.SortBy)
+	sb.WriteString(":")
+	sb.WriteString(filters.Pagination.Order)
 
-	// Create hash for consistent key length
-	hash := md5.Sum([]byte(key))
-	return fmt.Sprintf("search:%x", hash)
+	// Use FNV-1a for fast, non-cryptographic cache key hashing
+	h := fnv.New64a()
+	h.Write([]byte(sb.String()))
+	return fmt.Sprintf("search:%016x", h.Sum64())
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { createLogger } from "$lib/utils/logger";
   import Button from "./ui/Button.svelte";
 
@@ -25,6 +26,7 @@
 
   let error = $state<Error | null>(null);
   let errorId = $state<string | null>(null);
+  let errorHandler: ((event: ErrorEvent) => void) | null = null;
 
   export function handleError(
     err: Error | unknown,
@@ -45,12 +47,30 @@
     errorId = null;
   }
 
-  // Clean up with $effect
-  $effect(() => {
-    return () => {
-      error = null;
-      errorId = null;
+  onMount(() => {
+    // Catch unhandled errors in this component tree
+    errorHandler = (event: ErrorEvent) => {
+      // Only handle if we don't already have an error
+      if (!error) {
+        event.preventDefault();
+        handleError(event.error || new Error(event.message), {
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+        });
+      }
     };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("error", errorHandler);
+    }
+  });
+
+  onDestroy(() => {
+    if (errorHandler && typeof window !== "undefined") {
+      window.removeEventListener("error", errorHandler);
+      errorHandler = null;
+    }
   });
 </script>
 

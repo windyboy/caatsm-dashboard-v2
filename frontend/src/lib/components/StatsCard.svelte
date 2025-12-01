@@ -20,7 +20,7 @@
   const statsValue = $derived($stats as StatsState);
 </script>
 
-<div class="stats-card">
+<div class="stats-card" role="region" aria-label={title}>
   <div class="stats-header">
     <div class="stats-icon">
       {#if type === "total"}
@@ -58,11 +58,11 @@
   </div>
 
   {#if type === "total"}
-    <div class="stats-value">
+    <div class="stats-value" aria-live="polite">
       {statsValue.total.toLocaleString()}
     </div>
   {:else if type === "priority"}
-    <div class="stats-list">
+    <div class="stats-list" aria-live="polite">
       {#each Object.keys(statsValue.byPriority || {}) as priority}
         {@const count = statsValue.byPriority[Number(priority)] || 0}
         <div class="stats-list-item">
@@ -72,7 +72,7 @@
       {/each}
     </div>
   {:else if type === "type"}
-    <div class="stats-list">
+    <div class="stats-list" aria-live="polite">
       {#each Object.keys(statsValue.byType || {}) as typeName}
         {@const byType = statsValue.byType as Record<string, number>}
         {@const count = byType[typeName] || 0}

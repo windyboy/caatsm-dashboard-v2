@@ -6,6 +6,7 @@
   import { search, type SearchParams } from "$lib/services/api";
   import type { Telegram } from "$lib/utils/types";
   import { createLogger } from "$lib/utils/logger";
+  import { UI_CONFIG } from "$lib/constants";
 
   const logger = createLogger("SearchPage");
 
@@ -14,6 +15,8 @@
   let total = $state(0);
   let loading = $state(false);
   let error = $state<string | null>(null);
+  let isSlowRequest = $state(false);
+  let loadingTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Mount with $effect
   $effect(() => {
@@ -23,6 +26,13 @@
   async function handleSearch(params: SearchParams) {
     loading = true;
     error = null;
+    isSlowRequest = false;
+
+    // Show "slow request" warning after timeout
+    loadingTimeout = setTimeout(() => {
+      isSlowRequest = true;
+    }, UI_CONFIG.SLOW_REQUEST_TIMEOUT_MS);
+
     try {
       const result = await search(params);
       // Ensure telegrams is always an array, never null
@@ -40,7 +50,12 @@
         params: JSON.stringify(params),
       });
     } finally {
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+      }
       loading = false;
+      isSlowRequest = false;
     }
   }
 
@@ -124,7 +139,13 @@
 
         {#if loading}
           <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">
-            <LoadingSpinner size="lg" variant="primary" message="Searching telegrams..." />
+            <LoadingSpinner
+              size="lg"
+              variant="primary"
+              message={isSlowRequest
+                ? "Still searching... Large result set may take longer."
+                : "Searching telegrams..."}
+            />
           </div>
         {:else if error}
           <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow">

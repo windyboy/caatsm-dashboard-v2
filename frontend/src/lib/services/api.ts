@@ -2,6 +2,7 @@
 
 import { createLogger } from "../utils/logger.ts";
 import type { SearchResult } from "../utils/types";
+import { API_CONFIG } from "../constants.ts";
 
 const logger = createLogger("API");
 
@@ -104,41 +105,102 @@ function buildSearchParamsFromParams(params: SearchParams): URLSearchParams {
   return searchParams;
 }
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options?: RequestInit & { signal?: AbortSignal; retries?: number }
+): Promise<T> {
   const url = buildUrl(endpoint);
   const method = options?.method || "GET";
+  const maxRetries = options?.retries ?? API_CONFIG.MAX_RETRIES;
+  let lastError: Error | null = null;
 
-  logger.debug("API request", {
-    url,
-    method,
-  });
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      logger.debug("API request", { url, method, attempt });
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+      const response = await fetch(url, {
+        ...options,
+        signal: options?.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+        },
+      });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }));
-    logger.error("API response error", new Error(error.error || response.statusText), {
-      url,
-      method,
-      status: response.status,
-      statusText: response.statusText,
-    });
-    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: response.statusText }));
+        const errorMessage = error.error || `HTTP ${response.status}: ${response.statusText}`;
+        lastError = new Error(errorMessage);
+
+        // Don't retry client errors (4xx except 429)
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          logger.error("API client error (non-retryable)", lastError, {
+            url,
+            method,
+            status: response.status,
+          });
+          throw lastError;
+        }
+
+        // Retry server errors and rate limits
+        if (attempt < maxRetries) {
+          const delay = Math.min(
+            1000 * Math.pow(2, attempt),
+            API_CONFIG.RETRY_MAX_DELAY_MS
+          ); // Exponential backoff, max 5s
+          logger.warn("API error, retrying", {
+            url,
+            method,
+            status: response.status,
+            attempt,
+            delayMs: delay,
+          });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        logger.error("API response error (max retries)", lastError, {
+          url,
+          method,
+          status: response.status,
+          attempts: maxRetries + 1,
+        });
+        throw lastError;
+      }
+
+      logger.info("API response success", { url, method, status: response.status, attempt });
+      return response.json();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry TypeError (CORS, network, etc.) beyond max attempts
+      if (attempt >= maxRetries) {
+        logger.error("API request failed (max retries)", lastError, {
+          url,
+          method,
+          attempts: maxRetries + 1,
+        });
+        throw lastError;
+      }
+
+      // Don't retry if request was aborted
+      if (lastError.name === "AbortError") {
+        throw lastError;
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, attempt), API_CONFIG.RETRY_MAX_DELAY_MS);
+      logger.warn("API request error, retrying", {
+        url,
+        method,
+        error: lastError.message,
+        attempt,
+        delayMs: delay,
+      });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 
-  logger.info("API response success", {
-    url,
-    method,
-    status: response.status,
-  });
-
-  return response.json();
+  throw lastError || new Error("Request failed");
 }
 
 export async function search(params: SearchParams): Promise<SearchResult> {
@@ -147,9 +209,13 @@ export async function search(params: SearchParams): Promise<SearchResult> {
   return request<SearchResult>(`/api/search?${searchParams.toString()}`);
 }
 
-export async function autocomplete(term: string, size: number = 5): Promise<AutocompleteResult> {
+export async function autocomplete(
+  term: string,
+  size: number = 5,
+  signal?: AbortSignal
+): Promise<AutocompleteResult> {
   const params = new URLSearchParams({ term, size: size.toString() });
-  return request<AutocompleteResult>(`/api/autocomplete?${params.toString()}`);
+  return request<AutocompleteResult>(`/api/autocomplete?${params.toString()}`, { signal });
 }
 
 export async function getStatsTotal(): Promise<StatsTotal> {

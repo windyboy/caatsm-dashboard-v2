@@ -7,12 +7,15 @@
 
 <script lang="ts">
   import type { Telegram } from "../utils/types";
+  import { sanitize } from "../utils/sanitize";
 
   interface Props {
     telegram: Telegram;
   }
 
   let { telegram }: Props = $props();
+
+  const safeContent = $derived(sanitize(telegram.content || ""));
 
   function getTypeColorClass(type: string | undefined | null): string {
     // Handle undefined/null/empty type
@@ -72,7 +75,7 @@
 
   <!-- Message Content -->
   <p class="message-content">
-    {telegram.content || ""}
+    {safeContent}
   </p>
 
   <!-- Tags -->

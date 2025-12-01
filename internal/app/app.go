@@ -65,6 +65,10 @@ type Container struct {
 }
 
 // New builds a Container with all dependencies.
+// NOTE: This uses two-phase initialization to avoid circular imports:
+// 1. New() creates an empty container with nil infrastructure clients
+// 2. server.New() creates infrastructure and calls SetInfrastructureClients()
+// The container is not usable until SetInfrastructureClients() is called.
 func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Container, error) {
 	container := &Container{
 		Config: cfg,
@@ -74,8 +78,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	// Database pool will be set by server layer
 	var pool *pgxpool.Pool
 
-	// TODO: Infrastructure creation moved to server layer to avoid circular imports
-	// For now, set to nil to compile
+	// NOTE: Infrastructure creation moved to server layer to avoid circular imports.
+	// Infrastructure clients are set to nil here and will be initialized by server.New()
+	// via SetInfrastructureClients() to avoid import cycles.
 	container.Repo = nil
 	container.Cache = nil
 	container.Search = nil
@@ -90,6 +95,15 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	container.pool = pool
 	container.meiliSvc = nil
 	container.redisCli = nil
+
+	// Validate that infrastructure is nil (expected state)
+	if container.Repo != nil || container.Cache != nil || container.Search != nil {
+		logger.Warn("Container initialized with non-nil infrastructure - this is unexpected",
+			zap.Bool("repo_valid", container.Repo != nil),
+			zap.Bool("cache_valid", container.Cache != nil),
+			zap.Bool("search_valid", container.Search != nil),
+		)
+	}
 
 	logger.Info("Container initialized successfully",
 		zap.Bool("repo_valid", container.Repo != nil),
@@ -122,37 +136,55 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 
 // HealthCheckInternal is the internal implementation that can be called directly.
 func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
-	// Simplified health check implementation
 	result := HealthCheckResult{
 		Status: "ok",
 	}
 
-	pgCtx, pgCancel := context.WithTimeout(ctx, 2*time.Second)
-	defer pgCancel()
-	if err := c.pool.Ping(pgCtx); err != nil {
+	// PostgreSQL health check with nil guard
+	if c.pool == nil {
 		result.PostgreSQL = ComponentHealth{
 			Status:  "error",
-			Message: err.Error(),
+			Message: "database pool not initialized",
 		}
 		result.Status = "degraded"
 	} else {
-		result.PostgreSQL = ComponentHealth{Status: "ok"}
+		pgCtx, pgCancel := context.WithTimeout(ctx, 2*time.Second)
+		defer pgCancel()
+		if err := c.pool.Ping(pgCtx); err != nil {
+			result.PostgreSQL = ComponentHealth{
+				Status:  "error",
+				Message: err.Error(),
+			}
+			result.Status = "degraded"
+		} else {
+			result.PostgreSQL = ComponentHealth{Status: "ok"}
+		}
 	}
 
 	// Meilisearch health check
 	if c.meiliSvc == nil {
 		result.Meilisearch = ComponentHealth{Status: "not_configured"}
 	} else {
-		// Perform actual health check
+		// TODO: Perform actual health check via API call
+		// For now, just verify client is non-nil
 		result.Meilisearch = ComponentHealth{Status: "ok"}
 	}
 
-	// Redis health check
+	// Redis health check with nil guard and actual ping
 	if c.redisCli == nil {
 		result.Redis = ComponentHealth{Status: "not_configured"}
 	} else {
-		// Perform actual health check
-		result.Redis = ComponentHealth{Status: "ok"}
+		redisCtx, redisCancel := context.WithTimeout(ctx, 2*time.Second)
+		defer redisCancel()
+		if err := c.redisCli.Ping(redisCtx).Err(); err != nil {
+			result.Redis = ComponentHealth{
+				Status:  "error",
+				Message: err.Error(),
+			}
+			result.Status = "degraded"
+		} else {
+			result.Redis = ComponentHealth{Status: "ok"}
+		}
 	}
 
 	return result
@@ -161,6 +193,19 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 // RedisClient returns the Redis client for external use.
 func (c *Container) RedisClient() redis.UniversalClient {
 	return c.redisCli
+}
+
+// IsReady returns true if the container has been fully initialized with infrastructure clients.
+func (c *Container) IsReady() bool {
+	return c.Repo != nil && c.Cache != nil && c.Search != nil && c.DashboardService != nil
+}
+
+// MustBeReady panics if the container is not ready for use.
+// Call this at the start of methods that require infrastructure.
+func (c *Container) MustBeReady() {
+	if !c.IsReady() {
+		panic("Container not initialized: infrastructure clients must be set via SetInfrastructureClients()")
+	}
 }
 
 // SetInfrastructureClients sets the infrastructure client references for health checks.

@@ -746,6 +746,9 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 		},
 		{
 			name: "production without tracing enabled",
+			// NOTE: Tracing validation is currently disabled because tracing instrumentation
+			// is not yet implemented. See config.go Validate() method comments.
+			// Once tracing is implemented, this test should be updated to expect an error.
 			config: AppConfig{
 				Environment: "production",
 				Server: ServerConfig{
@@ -778,8 +781,7 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 					Password:    "secure",
 				},
 			},
-			wantErr: true,
-			errMsg:  "production: tracing must be enabled",
+			wantErr: false, // Tracing validation is currently disabled
 		},
 	}
 

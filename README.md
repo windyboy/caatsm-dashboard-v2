@@ -19,12 +19,15 @@ CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviatio
 The code follows a pragmatic layered architecture:
 
 1. **Delivery** (`internal/delivery/`): HTTP and WebSocket handlers plus validation.
-2. **Application** (`internal/app/`): Services, domain entities (Telegram, SearchFilters, TimeWindow), ports, and the dependency container. This layer owns business rules such as validation, pagination guards, and stats aggregation. Unlike traditional Clean Architecture, domain entities are integrated directly into the application layer rather than a separate `internal/domain/` package.
-3. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and the WebSocket hub that satisfy the application ports.
+2. **Domain** (`internal/domain/`): Core domain entities (Telegram, SearchFilters, TimeWindow), business logic, and validation rules.
+3. **Application** (`internal/app/`): Ports (interfaces), dependency container, and domain entity re-exports for backward compatibility.
+4. **Service** (`internal/service/`): Application services that orchestrate business logic using domain entities.
+5. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and the WebSocket hub that satisfy the application ports.
+6. **Repository** (`internal/repository/`): PostgreSQL repository implementation that implements the Repository port interface.
 
-Dependencies always flow inward. Infrastructure implements the interfaces from `internal/app/ports.go` directly, and there are no repository wrapper packages.
+Dependencies always flow inward. Infrastructure and repository implementations directly implement the interfaces from `internal/app/ports.go`.
 
-Domain-specific validation and DTOs live alongside services in `internal/app/`, keeping business logic close to the ports that expose it.
+Domain entities and business logic live in `internal/domain/`, application services in `internal/service/`, and infrastructure implementations in `internal/infrastructure/` and `internal/repository/`.
 
 Extra support packages:
 

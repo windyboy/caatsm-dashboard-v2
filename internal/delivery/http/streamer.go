@@ -10,8 +10,13 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/app"
 )
 
+const (
+	// csvFlushInterval is the number of rows to write before flushing to reduce syscalls
+	csvFlushInterval = 100
+)
+
 // StreamCSV streams telegrams as CSV directly to the response.
-// It reads from the telegram channel and writes CSV rows, flushing after each row.
+// It reads from the telegram channel and writes CSV rows, flushing every csvFlushInterval rows.
 // If an error occurs (from errCh or context cancellation), it returns immediately.
 func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) error {
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
@@ -42,6 +47,7 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 	// Stream rows
 	streamClosed := false
 	errChClosed := false
+	rowCount := 0
 
 	for {
 		select {
@@ -54,6 +60,12 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 				// Error channel closed
 				errChClosed = true
 				if streamClosed {
+					// Final flush before returning
+					writer.Flush()
+					if err := writer.Error(); err != nil {
+						return fmt.Errorf("CSV writer error: %w", err)
+					}
+					c.Response().Flush()
 					return nil
 				}
 				continue
@@ -67,6 +79,12 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 				// Stream closed, all telegrams sent
 				streamClosed = true
 				if errChClosed {
+					// Final flush before returning
+					writer.Flush()
+					if err := writer.Error(); err != nil {
+						return fmt.Errorf("CSV writer error: %w", err)
+					}
+					c.Response().Flush()
 					return nil
 				}
 				// Continue to check error channel
@@ -88,16 +106,25 @@ func StreamCSV(c echo.Context, stream <-chan *app.Telegram, errCh <-chan error) 
 				return fmt.Errorf("write CSV row: %w", err)
 			}
 
-			// Flush after each row to ensure frontend has progress feedback
+			rowCount++
+			// Flush every csvFlushInterval rows to reduce syscalls while maintaining progress feedback
+			if rowCount%csvFlushInterval == 0 {
+				writer.Flush()
+				if err := writer.Error(); err != nil {
+					return fmt.Errorf("CSV writer error: %w", err)
+				}
+				c.Response().Flush()
+			}
+		}
+
+		// If both channels are closed, we're done
+		if streamClosed && errChClosed {
+			// Final flush before returning
 			writer.Flush()
 			if err := writer.Error(); err != nil {
 				return fmt.Errorf("CSV writer error: %w", err)
 			}
 			c.Response().Flush()
-		}
-
-		// If both channels are closed, we're done
-		if streamClosed && errChClosed {
 			return nil
 		}
 	}

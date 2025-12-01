@@ -113,6 +113,14 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 	return s.client.Del(ctx, key).Err()
 }
 
+// DeleteMultiple removes multiple keys from the cache atomically.
+func (s *Store) DeleteMultiple(ctx context.Context, keys ...string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return s.client.Del(ctx, keys...).Err()
+}
+
 // Incr increments the integer value stored at key by delta. Creates key if not exists.
 func (s *Store) Incr(ctx context.Context, key string, delta int64) (int64, error) {
 	result, err := s.client.IncrBy(ctx, key, delta).Result()
