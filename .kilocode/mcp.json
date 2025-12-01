@@ -1,1 +1,28 @@
-{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp","--api-key","${CONTEXT7_API_KEY}"]},"svelte-mcp-local":{"name":"Svelte MCP Local","command":"npx","args":["-y","@sveltejs/mcp"],"type":"stdio"}}}
+{
+    "mcpServers": {
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp",
+                "--api-key",
+                "${CONTEXT7_API_KEY}"
+            ]
+        },
+        "svelte-mcp-local": {
+            "name": "Svelte MCP Local",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@sveltejs/mcp"
+            ],
+            "type": "stdio"
+        },
+        "playwright": {
+            "command": "npx",
+            "args": [
+                "@playwright/mcp@latest"
+            ]
+        }
+    }
+}
