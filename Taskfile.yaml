@@ -199,6 +199,11 @@ tasks:
     cmds:
       - CLI_ARGS="-interval 5s" task publish-stream
 
+  sync:
+    desc: "Run the sync worker to process NATS messages"
+    cmds:
+      - go run ./cmd/sync -config ${CAATSM_CONFIG:-config/config.local.toml}
+
   docker:build:
     desc: "Build Docker image"
     cmds:

@@ -1,4 +1,4 @@
-.PHONY: help build test test-unit test-integration test-race lint dev dev-run \
+.PHONY: help build test test-unit test-integration test-race lint dev dev-run sync \
         install install-deno frontend-install frontend-setup \
         frontend-dev frontend-build frontend-test frontend-test-unit \
         dev-up dev-down dev-logs dev-config migrate clean clean-all \
@@ -43,6 +43,9 @@ dev: ## Run backend with hot reload (air if available, else go run)
 
 dev-run: ## Run backend with local config
 	@go run ./cmd/server -config $${CAATSM_CONFIG:-config/config.local.toml}
+
+sync: ## Run sync worker to process NATS messages
+	@go run ./cmd/sync -config $${CAATSM_CONFIG:-config/config.local.toml}
 
 # Installation
 install: ## Install all dependencies (Go modules, Deno, frontend)

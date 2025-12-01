@@ -16,6 +16,20 @@ services:
       - nats
       - redis
 
+  sync:
+    build: .
+    command: ["./caatsm", "-config", "/app/config/config.toml", "sync"]
+    env_file:
+      - env.example
+    volumes:
+      - ./config/config.toml:/app/config/config.toml:ro
+    depends_on:
+      - postgres
+      - meilisearch
+      - nats
+      - redis
+    restart: unless-stopped
+
   postgres:
     image: timescale/timescaledb:2.16.0-pg15
     environment:
