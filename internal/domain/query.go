@@ -1,4 +1,4 @@
-package app
+package domain
 
 // SearchFilter captures filters for searching telegrams.
 // This is a domain-level query object used by the application layer.

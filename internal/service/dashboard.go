@@ -1,4 +1,4 @@
-package app
+package service
 
 import (
 	"context"
@@ -7,30 +7,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/windy/caatsm-dashboard/internal/app"
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
-// DashboardRequest represents a request for dashboard data
-type DashboardRequest struct {
-	SearchFilters SearchFilters
-	TimeRange     TimeWindow
-	UserID        string
-}
-
-// DashboardResponse contains all dashboard data
-type DashboardResponse struct {
-	Search    *SearchResult   `json:"search,omitempty"`
-	Stats     *TrafficSummary `json:"stats"`
-	Realtime  *RealtimeInfo   `json:"realtime"`
-	Timestamp time.Time       `json:"timestamp"`
-}
-
-// RealtimeInfo contains real-time dashboard information
-type RealtimeInfo struct {
-	ActiveConnections int     `json:"active_connections"`
-	MessagesPerSecond float64 `json:"messages_per_second"`
-	Uptime            string  `json:"uptime"`
-}
+// Type aliases for app types
+type (
+	DashboardRequest  = app.DashboardRequest
+	DashboardResponse = app.DashboardResponse
+	RealtimeInfo      = app.RealtimeInfo
+)
 
 // DashboardService provides unified dashboard functionality
 type DashboardService struct {
@@ -102,8 +89,8 @@ func (ds *DashboardService) GetDashboardData(ctx context.Context, req *Dashboard
 }
 
 // getDashboardDataHelper fetches dashboard data sequentially
-func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *DashboardRequest) (*SearchResult, *TrafficSummary, *RealtimeInfo, error) {
-	var searchResult *SearchResult
+func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *DashboardRequest) (*domain.SearchResult, *domain.TrafficSummary, *RealtimeInfo, error) {
+	var searchResult *domain.SearchResult
 	if req.SearchFilters.Query != "" || len(req.SearchFilters.Types) > 0 {
 		result, err := ds.searchSvc.Search(ctx, req.SearchFilters)
 		if err != nil {
@@ -122,22 +109,22 @@ func (ds *DashboardService) getDashboardDataHelper(ctx context.Context, req *Das
 }
 
 // Search performs a search operation
-func (ds *DashboardService) Search(ctx context.Context, filters SearchFilters) (*SearchResult, error) {
+func (ds *DashboardService) Search(ctx context.Context, filters domain.SearchFilters) (*domain.SearchResult, error) {
 	return ds.searchSvc.Search(ctx, filters)
 }
 
 // GetStats retrieves traffic statistics
-func (ds *DashboardService) GetStats(ctx context.Context, timeRange TimeWindow) (*TrafficSummary, error) {
+func (ds *DashboardService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
 	return ds.statsSvc.GetStats(ctx, timeRange)
 }
 
 // Export exports data in the specified format
-func (ds *DashboardService) Export(ctx context.Context, filters SearchFilters, format ExportFormat) ([]byte, error) {
+func (ds *DashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
 	return ds.exportSvc.Export(ctx, filters, format)
 }
 
 // ExportStream returns channels for streaming export (for large datasets)
-func (ds *DashboardService) ExportStream(ctx context.Context, filters SearchFilters) (<-chan *Telegram, <-chan error, error) {
+func (ds *DashboardService) ExportStream(ctx context.Context, filters domain.SearchFilters) (<-chan *domain.Telegram, <-chan error, error) {
 	return ds.exportSvc.ExportStream(ctx, filters)
 }
 
@@ -152,8 +139,21 @@ func (ds *DashboardService) Autocomplete(ctx context.Context, query string, size
 }
 
 // AutocompleteWithTypes provides search suggestions with type information
-func (ds *DashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]AutocompleteSuggestion, error) {
-	return ds.searchSvc.AutocompleteWithTypes(ctx, query, size)
+func (ds *DashboardService) AutocompleteWithTypes(ctx context.Context, query string, size int) ([]app.AutocompleteSuggestion, error) {
+	suggestions, err := ds.searchSvc.AutocompleteWithTypes(ctx, query, size)
+	if err != nil {
+		return nil, err
+	}
+	// Convert service.AutocompleteSuggestion to app.AutocompleteSuggestion
+	result := make([]app.AutocompleteSuggestion, len(suggestions))
+	for i, s := range suggestions {
+		result[i] = app.AutocompleteSuggestion{
+			Value: s.Value,
+			Type:  s.Type,
+			Label: s.Label,
+		}
+	}
+	return result, nil
 }
 
 const (
@@ -167,13 +167,13 @@ const (
 // StreamInitialData implements ports.DashboardPort.
 // It sends initial stats (total/priority/type) and recent 50 messages (batch).
 // Messages sent to ch in order: stats-total, stats-priority, stats-type, then messages (oldest first).
-func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- WSMessage) error {
+func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- app.WSMessage) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	// Create time window for last 90 days
-	window := TimeWindow{
+	window := domain.TimeWindow{
 		Start: time.Now().Add(-Days90 * 24 * time.Hour),
 		End:   time.Now(),
 	}
@@ -227,8 +227,8 @@ func (ds *DashboardService) StreamInitialData(ctx context.Context, ch chan<- WSM
 	}
 
 	// Get recent messages (order by time DESC, then reverse to oldest first)
-	filters := SearchFilters{
-		Pagination: Pagination{
+	filters := domain.SearchFilters{
+		Pagination: domain.Pagination{
 			Limit:  RecentLimit,
 			SortBy: "time",
 			Order:  "desc",
@@ -302,7 +302,7 @@ func (ds *DashboardService) HandleEvent(ctx context.Context, event []byte, ch ch
 }
 
 // updateStatsCache atomically increments the stats counters in cache
-func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *Telegram) error {
+func (ds *DashboardService) updateStatsCache(ctx context.Context, telegram *domain.Telegram) error {
 	// Increment total messages
 	if _, err := ds.cache.Incr(ctx, statsTotalKey, 1); err != nil {
 		return fmt.Errorf("incr total: %w", err)
@@ -424,7 +424,7 @@ func (ds *DashboardService) sendUpdatedStats(ctx context.Context, ch chan<- WSMe
 // It deletes existing keys first to ensure clean state, then sets the total,
 // priority, and type counts using the same cache keys/structure that
 // sendUpdatedStats expects. Respects TTL semantics via cache implementation.
-func (ds *DashboardService) initializeStatsCache(ctx context.Context, stats *TrafficSummary) error {
+func (ds *DashboardService) initializeStatsCache(ctx context.Context, stats *domain.TrafficSummary) error {
 	// Delete existing keys to ensure clean state before initializing
 	if err := ds.cache.Delete(ctx, statsTotalKey); err != nil {
 		return fmt.Errorf("delete total key: %w", err)

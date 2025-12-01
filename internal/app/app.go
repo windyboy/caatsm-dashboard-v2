@@ -56,7 +56,7 @@ type Container struct {
 	EventBus EventBus
 
 	// Application services
-	DashboardService *DashboardService
+	DashboardService interface{}
 
 	// Client references for health checks (simplified)
 	pool     *pgxpool.Pool
@@ -83,21 +83,8 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	container.EventBus = nil
 
 	// Initialize application services with nil dependencies (will fail at runtime)
-	searchService := NewSearchService(nil, nil, nil, nil, logger)
-	statsService := NewStatsService(nil, nil, logger)
-	exportService := NewExportService(searchService, nil, logger)
-	realtime := NewRealtimeManager()
-
-	container.DashboardService = NewDashboardService(
-		searchService,
-		statsService,
-		exportService,
-		realtime,
-		nil,
-		nil,
-		5*time.Minute, // statsTTL
-		logger,
-	)
+	// Services will be initialized by the server layer to avoid import cycles
+	container.DashboardService = nil
 
 	// Client references will be set by server layer
 	container.pool = pool

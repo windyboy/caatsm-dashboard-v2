@@ -615,7 +615,7 @@ func TestAppConfig_Validate_ProductionDefaults(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "production: server host cannot be localhost or 0.0.0.0",
+			errMsg:  "production: server host cannot be 0.0.0.0 unless server.allow_bind_all is set to true",
 		},
 		{
 			name: "production with default Redis password",

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	testhelpers "github.com/windy/caatsm-dashboard/internal/testing"
 	"go.uber.org/zap/zaptest"

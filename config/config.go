@@ -179,10 +179,9 @@ func (c *AppConfig) Validate() error {
 			errs = append(errs, errors.New("production: logger level cannot be 'debug'"))
 		}
 
-		// Tracing should be enabled in production
-		if !c.Tracing.Enabled {
-			errs = append(errs, errors.New("production: tracing must be enabled"))
-		}
+		// Note: Tracing validation removed - tracing instrumentation is not yet implemented.
+		// See docs/ARCHITECTURE.md and docs/security.md for details.
+		// Once tracing is implemented, re-enable this validation.
 	}
 
 	if len(errs) == 0 {

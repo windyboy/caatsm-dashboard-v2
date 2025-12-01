@@ -18,10 +18,11 @@ import (
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
+	"github.com/windy/caatsm-dashboard/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -94,7 +95,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		return nil, fmt.Errorf("create meilisearch client: %w", err)
 	}
 
-	store := persistence.New(pool)
+	store := repository.New(pool)
 	meiliIndex := search.NewMeilisearchIndex(meiliSvc, cfg.Meilisearch.Index)
 
 	// Ensure Meilisearch index is set up
@@ -128,6 +129,42 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 
 	// Set client references for health checks
 	container.SetInfrastructureClients(pool, meiliSvc, redisCli)
+
+	// Initialize application services
+	realtimeManager := service.NewRealtimeManager()
+
+	searchSvc := service.NewSearchService(
+		store,
+		cacheStore,
+		meiliIndex,
+		eventPublisher,
+		logger,
+	)
+
+	statsSvc := service.NewStatsService(
+		store,
+		cacheStore,
+		logger,
+	)
+
+	exportSvc := service.NewExportService(
+		searchSvc,
+		store,
+		logger,
+	)
+
+	dashboardSvc := service.NewDashboardService(
+		searchSvc,
+		statsSvc,
+		exportSvc,
+		realtimeManager,
+		store,
+		cacheStore,
+		5*time.Minute, // statsTTL
+		logger,
+	)
+
+	container.DashboardService = dashboardSvc
 
 	// Only create metrics exporter if metrics are enabled
 	var metricsExporter *observability.MetricsExporter
@@ -267,7 +304,9 @@ func (s *Server) registerRoutes() {
 	}
 
 	// Use new delivery layer handlers (simplified architecture)
-	deliveryhttp.RegisterRoutes(s.e, s.container.DashboardService, s.logger)
+	// Type assertion: DashboardService from container should implement the handler interface
+	dashboardSvc := s.container.DashboardService.(deliveryhttp.DashboardService)
+	deliveryhttp.RegisterRoutes(s.e, dashboardSvc, s.logger)
 	s.logger.Info("registered HTTP handlers in delivery layer")
 
 	// Register WebSocket handler using transport layer with configured allowed origins
@@ -277,7 +316,7 @@ func (s *Server) registerRoutes() {
 
 	// Create adapters for stats and query services
 	statsAdapter := &statsServiceAdapter{
-		statsService: s.container.DashboardService,
+		statsService: dashboardSvc,
 	}
 	queryAdapter := &queryServiceAdapter{
 		repo: s.container.Repo,
@@ -337,7 +376,9 @@ func (s *Server) registerRoutes() {
 
 // statsServiceAdapter adapts DashboardService to the interface expected by WebSocket handler
 type statsServiceAdapter struct {
-	statsService *app.DashboardService
+	statsService interface {
+		GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
+	}
 }
 
 func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interface{}) (interface{}, error) {
@@ -358,7 +399,9 @@ func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interfa
 
 // queryServiceAdapter adapts Repository to the interface expected by WebSocket handler
 type queryServiceAdapter struct {
-	repo app.Repository
+	repo interface {
+		Search(ctx context.Context, filter app.SearchFilters) (*app.SearchResult, error)
+	}
 }
 
 func (a *queryServiceAdapter) Recent(ctx context.Context, limit int) ([]*app.Telegram, error) {

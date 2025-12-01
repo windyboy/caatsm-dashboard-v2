@@ -10,7 +10,7 @@ import (
 
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"go.uber.org/zap"
 )
 
@@ -95,7 +95,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	store := persistence.New(pool)
+	store := repository.New(pool)
 
 	// Clear existing data if requested
 	if *clear {

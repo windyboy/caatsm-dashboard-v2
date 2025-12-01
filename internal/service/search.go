@@ -1,4 +1,4 @@
-package app
+package service
 
 import (
 	"context"
@@ -120,13 +120,6 @@ func (s *SearchService) Search(ctx context.Context, filters SearchFilters) (*Sea
 	)
 
 	return result, nil
-}
-
-// AutocompleteSuggestion represents a single autocomplete suggestion with its type
-type AutocompleteSuggestion struct {
-	Value string `json:"value"`
-	Type  string `json:"type"`
-	Label string `json:"label"`
 }
 
 // Autocomplete provides search suggestions with type labels for better readability

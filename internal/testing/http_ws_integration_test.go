@@ -19,7 +19,7 @@ import (
 	"github.com/windy/caatsm-dashboard/internal/app"
 	deliveryhttp "github.com/windy/caatsm-dashboard/internal/delivery/http"
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/persistence"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap/zaptest"
 )
