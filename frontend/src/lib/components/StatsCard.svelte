@@ -63,7 +63,7 @@
     </div>
   {:else if type === "priority"}
     <div class="stats-list" aria-live="polite">
-      {#each Object.keys(statsValue.byPriority || {}) as priority}
+      {#each Object.keys(statsValue.byPriority || {}) as priority (priority)}
         {@const count = statsValue.byPriority[Number(priority)] || 0}
         <div class="stats-list-item">
           <span>Priority {priority}</span>
@@ -73,7 +73,7 @@
     </div>
   {:else if type === "type"}
     <div class="stats-list" aria-live="polite">
-      {#each Object.keys(statsValue.byType || {}) as typeName}
+      {#each Object.keys(statsValue.byType || {}) as typeName (typeName)}
         {@const byType = statsValue.byType as Record<string, number>}
         {@const count = byType[typeName] || 0}
         <div class="stats-list-item">
@@ -87,7 +87,13 @@
 
 <style>
   .stats-card {
-    @apply rounded-lg p-5 transition-all duration-300 hover:shadow-xl hover:scale-105;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    transition:
+      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(1);
     background: var(--stats-card-bg);
     box-shadow: var(--stats-card-shadow);
     border: var(--stats-card-border);
@@ -96,41 +102,77 @@
   .stats-card:hover {
     background: var(--stats-card-hover-bg);
     box-shadow: var(--stats-card-hover-shadow);
+    transform: scale(1.05);
   }
 
   .stats-header {
-    @apply flex items-center gap-3 mb-3;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
   }
 
   .stats-icon {
-    @apply p-2 rounded-lg border;
-    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.accent.100'));
-    border-color: theme('colors.brand.200 / 0.5');
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(191, 219, 254, 0.5);
+    background: linear-gradient(to right, #dbeafe, #f3e8ff);
   }
 
   .stats-title {
-    @apply text-xs uppercase tracking-widest font-bold;
-    background: linear-gradient(to right, theme('colors.brand.600'), theme('colors.accent.600'));
+    font-size: 0.75rem;
+    line-height: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    background: linear-gradient(to right, #2563eb, #9333ea);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .stats-value {
-    @apply text-2xl font-bold;
-    background: linear-gradient(to right, theme('colors.brand.600'), theme('colors.accent.600'), theme('colors.success.600'));
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    background: linear-gradient(to right, #2563eb, #9333ea, #16a34a);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .stats-list {
-    @apply space-y-2 text-sm max-h-[150px] overflow-y-auto scrollbar-thin;
-    color: theme('colors.slate.700');
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #334155;
+    max-height: 150px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+  }
+
+  .stats-list > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .stats-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .stats-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .stats-list::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 9999px;
   }
 
   .stats-list-item {
-    @apply flex items-center justify-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   /* Type-specific list height */

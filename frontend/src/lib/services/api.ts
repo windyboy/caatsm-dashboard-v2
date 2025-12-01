@@ -1,8 +1,8 @@
 // REST API client for Go backend
 
-import { createLogger } from "../utils/logger.ts";
+import { createLogger } from "../utils/logger";
 import type { SearchResult } from "../utils/types";
-import { API_CONFIG } from "../constants.ts";
+import { API_CONFIG } from "../constants";
 
 const logger = createLogger("API");
 

@@ -117,8 +117,18 @@
 <div class="live-stream">
   <div class="live-stream-header">
     <div class="live-stream-header-content">
-      <div class="status-indicator {statusColor} animate-pulse" title={statusText} aria-hidden="true"></div>
-      <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <div
+        class="status-indicator {statusColor} animate-pulse"
+        title={statusText}
+        aria-hidden="true"
+      ></div>
+      <svg
+        class="w-5 h-5 text-slate-600"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
         <path
           stroke-linecap="round"
           stroke-linejoin="round"
@@ -126,9 +136,7 @@
           d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-6.938-6.49a8.5 8.5 0 0113.876 0M12 12v4"
         ></path>
       </svg>
-      <h2 class="live-stream-title">
-        Live Stream
-      </h2>
+      <h2 class="live-stream-title">Live Stream</h2>
     </div>
     <div class="status-info">
       <span class="status-badge {statusColor}">
@@ -164,7 +172,11 @@
       </div>
     {:else}
       {#each typedMessages as message, index (getMessageKey(message, index))}
-        <div class="message-wrapper" role="article" aria-label="Telegram message {message.message_id || index}">
+        <div
+          class="message-wrapper"
+          role="article"
+          aria-label="Telegram message {message.message_id || index}"
+        >
           <MessageItem telegram={message} />
         </div>
       {/each}
@@ -174,60 +186,87 @@
 
 <style>
   .live-stream {
-    @apply rounded-lg border-0 p-4 sm:p-8;
+    border-radius: 0.5rem;
+    border: var(--card-glow-border);
+    padding: 1rem;
     background: var(--card-glow-bg);
     backdrop-filter: var(--card-glow-backdrop);
     box-shadow: var(--card-glow-shadow);
-    border: var(--card-glow-border);
     transition: var(--card-glow-transition);
   }
 
   .live-stream-header {
-    @apply flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b;
-    border-color: theme('colors.brand.200 / 0.4');
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(var(--brand-200), 0.4);
   }
 
   .live-stream-header-content {
-    @apply flex items-center gap-3;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .status-indicator {
-    @apply w-2 h-2 rounded-full shadow-lg;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    box-shadow:
+      0 10px 15px -3px rgba(15, 23, 42, 0.15),
+      0 4px 6px -4px rgba(15, 23, 42, 0.1);
   }
 
   .live-stream-title {
-    @apply text-xl font-bold tracking-tight;
-    color: theme('colors.slate.800');
-    background: linear-gradient(to right, theme('colors.brand.800'), theme('colors.accent.800'));
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: rgb(30 41 59);
+    background: linear-gradient(to right, rgb(var(--brand-800)), rgb(var(--accent-800)));
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .status-info {
-    @apply flex items-center gap-2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .status-badge {
-    @apply text-xs px-3 py-1 rounded-md font-medium border shadow-md;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    box-shadow:
+      0 4px 6px -1px rgba(15, 23, 42, 0.1),
+      0 2px 4px -2px rgba(15, 23, 42, 0.1);
   }
 
   .status-badge.bg-green-500 {
-    color: theme('colors.success.700');
-    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
-    border-color: theme('colors.success.200 / 0.6');
+    color: #15803d;
+    background: linear-gradient(to right, #f0fdf4, #dcfce7);
+    border-color: #bbf7d0;
   }
 
   .status-badge.bg-yellow-500 {
-    color: theme('colors.warning.700');
-    background: linear-gradient(to right, theme('colors.warning.50'), theme('colors.warning.50'));
-    border-color: theme('colors.warning.200 / 0.6');
+    color: #a16207;
+    background: linear-gradient(to right, #fefce8, #fefce8);
+    border-color: rgba(254, 240, 138, 0.6);
   }
 
   .status-badge.bg-red-500 {
-    color: theme('colors.danger.700');
-    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.danger.50'));
-    border-color: theme('colors.danger.200 / 0.6');
+    color: #b91c1c;
+    background: linear-gradient(to right, #fef2f2, #fef2f2);
+    border-color: rgba(254, 202, 202, 0.6);
   }
 
   .status-badge.bg-gray-600 {
@@ -237,42 +276,89 @@
   }
 
   .reconnect-attempts {
-    @apply text-xs;
-    color: theme('colors.gray.500');
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: #6b7280;
   }
 
   .messages-container {
-    @apply overflow-y-auto scrollbar-thin rounded-lg p-3 sm:p-5 space-y-3 scroll-smooth border-0 shadow-inner;
-    background: linear-gradient(to bottom right, theme('colors.slate.50 / 0.4'), theme('colors.brand.50 / 0.3'));
+    overflow-y: auto;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    border: 0;
+    scroll-behavior: smooth;
+    background: linear-gradient(
+      to bottom right,
+      rgba(248, 250, 252, 0.4),
+      rgba(var(--brand-50), 0.3)
+    );
+    box-shadow: inset 0 2px 4px 0 rgba(15, 23, 42, 0.08);
     height: 600px;
     max-height: 600px;
     min-height: 600px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+  }
+
+  .messages-container > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .messages-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .messages-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .messages-container::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 9999px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 0;
+  }
+
+  .empty-state-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1rem;
+    border-radius: 9999px;
+    background: linear-gradient(to right, rgb(var(--brand-200)), rgb(var(--accent-200)));
+  }
+
+  .empty-state-text {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 500;
+    color: #64748b;
+  }
+
+  .empty-state-subtitle {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    margin-top: 0.25rem;
+    color: #94a3b8;
   }
 
   @media (min-width: 640px) {
+    .live-stream {
+      padding: 2rem;
+    }
+
+    .live-stream-header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+    }
+
     .messages-container {
+      padding: 1.25rem;
       height: 800px;
       max-height: 800px;
       min-height: 800px;
     }
-  }
-
-  .empty-state {
-    @apply text-center py-12;
-  }
-
-  .empty-state-icon {
-    @apply w-16 h-16 mx-auto mb-4 rounded-full;
-    background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
-  }
-
-  .empty-state-text {
-    @apply text-sm font-medium;
-    color: theme('colors.slate.500');
-  }
-
-  .empty-state-subtitle {
-    @apply text-xs mt-1;
-    color: theme('colors.slate.400');
   }
 </style>

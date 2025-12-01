@@ -35,7 +35,7 @@
   let end_time = $state("");
   let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
-  let autocompleteTimeout = $state<number | null>(null);
+  let autocompleteTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
   let error = $state<string | null>(null);
   let abortController = $state<AbortController | null>(null);
 
@@ -95,7 +95,11 @@
               label: "",
             }));
           } else {
-            suggestions = result.suggestions as Array<{ value: string; type: string; label: string }>;
+            suggestions = result.suggestions as Array<{
+              value: string;
+              type: string;
+              label: string;
+            }>;
           }
           showSuggestions = suggestions.length > 0;
         }
@@ -187,9 +191,7 @@
           ></path>
         </svg>
       </div>
-      <h2 class="search-title">
-        Search Telegrams
-      </h2>
+      <h2 class="search-title">Search Telegrams</h2>
     </div>
   </div>
   <form
@@ -305,16 +307,16 @@
       >
         Reset
       </button>
-      <button type="submit" class="btn-search">
-        Search
-      </button>
+      <button type="submit" class="btn-search"> Search </button>
     </div>
   </form>
 </div>
 
 <style>
   .search-form {
-    @apply rounded-lg border-0 p-8;
+    border-radius: 0.5rem;
+    border: 0;
+    padding: 2rem;
     background: var(--card-glow-bg);
     backdrop-filter: var(--card-glow-backdrop);
     box-shadow: var(--card-glow-shadow);
@@ -323,155 +325,276 @@
   }
 
   .search-header {
-    @apply mb-6 pb-4 border-b;
-    border-color: theme('colors.brand.200 / 0.4');
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(191, 219, 254, 0.4);
   }
 
   .search-header-content {
-    @apply flex items-center gap-3;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .search-icon {
-    @apply p-2 rounded-lg border;
-    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.accent.100'));
-    border-color: theme('colors.brand.200 / 0.5');
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(191, 219, 254, 0.5);
+    background: linear-gradient(to right, #dbeafe, #f3e8ff);
   }
 
   .search-title {
-    @apply text-xl font-bold tracking-tight;
-    color: theme('colors.slate.800');
-    background: linear-gradient(to right, theme('colors.brand.600'), theme('colors.accent.600'));
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #1e293b;
+    background: linear-gradient(to right, #2563eb, #9333ea);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .search-form-fields {
-    @apply space-y-6;
-  }
-
-  .search-field {
-    /* No specific styles needed */
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   }
 
   .search-label {
-    @apply block text-sm font-semibold mb-2.5;
-    color: theme('colors.slate.700');
+    display: block;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+    color: #334155;
   }
 
   .search-input-container {
-    @apply relative;
+    position: relative;
   }
 
   .search-input {
-    @apply w-full rounded-lg px-5 py-3 text-slate-900 border-0 placeholder:text-slate-400 transition-all duration-300 shadow-sm hover:shadow-md;
-    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100 / 0.5'));
+    width: 100%;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #0f172a;
+    border: 0;
+    background: linear-gradient(to right, #f8fafc, rgba(241, 245, 249, 0.5));
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
+  }
+
+  .search-input:hover {
+    box-shadow:
+      0 4px 6px -1px rgba(15, 23, 42, 0.1),
+      0 2px 4px -2px rgba(15, 23, 42, 0.1);
   }
 
   .search-input:focus {
-    @apply bg-white/95 outline-none shadow-lg;
+    background: rgba(255, 255, 255, 0.95);
+    outline: none;
     box-shadow: var(--input-focus-shadow);
   }
 
+  .search-input::placeholder {
+    color: #94a3b8;
+  }
+
   .suggestions-dropdown {
-    @apply absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border max-h-48 overflow-y-auto;
-    border-color: theme('colors.slate.200');
+    position: absolute;
+    z-index: 10;
+    width: 100%;
+    margin-top: 0.25rem;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow:
+      0 10px 15px -3px rgba(15, 23, 42, 0.1),
+      0 4px 6px -4px rgba(15, 23, 42, 0.1);
+    border: 1px solid #e2e8f0;
+    max-height: 12rem;
+    overflow-y: auto;
   }
 
   .suggestion-item {
-    @apply w-full text-left px-4 py-2 text-sm flex items-center gap-2;
-    color: theme('colors.slate.700');
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #334155;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
   }
 
   .suggestion-item:hover {
-    background-color: theme('colors.slate.50');
+    background-color: #f8fafc;
   }
 
   .suggestion-label {
-    @apply text-xs font-semibold uppercase tracking-wide min-w-[4rem];
-    color: theme('colors.slate.500');
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    min-width: 4rem;
+    color: #64748b;
   }
 
   .suggestion-value {
-    @apply flex-1 font-medium;
+    flex: 1;
+    font-weight: 500;
   }
 
   .filters-grid {
-    @apply grid gap-5 md:grid-cols-2;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .filters-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .filters-header {
-    @apply flex items-center gap-2 mb-2;
-  }
-
-  .filter-field {
-    /* No specific styles needed */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .filter-label {
-    @apply block text-xs uppercase tracking-widest mb-2.5 font-bold;
-    color: theme('colors.slate.600');
+    display: block;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.625rem;
+    font-weight: 700;
+    color: #475569;
   }
 
   .filter-select,
   .filter-input {
-    @apply w-full rounded-lg px-4 py-3 text-sm border-0 transition-all duration-300 shadow-sm hover:shadow-md;
-    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100 / 0.5'));
-    color: theme('colors.slate.900');
+    width: 100%;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border: 0;
+    background: linear-gradient(to right, #f8fafc, rgba(241, 245, 249, 0.5));
+    color: #0f172a;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
+  }
+
+  .filter-select:hover,
+  .filter-input:hover {
+    box-shadow:
+      0 4px 6px -1px rgba(15, 23, 42, 0.1),
+      0 2px 4px -2px rgba(15, 23, 42, 0.1);
   }
 
   .filter-select:focus,
   .filter-input:focus {
-    @apply bg-white/95 outline-none shadow-lg;
+    background: rgba(255, 255, 255, 0.95);
+    outline: none;
     box-shadow: var(--input-focus-shadow);
   }
 
   .filter-input::placeholder {
-    color: theme('colors.slate.400');
+    color: #94a3b8;
   }
 
   .error-message {
-    @apply flex items-center gap-3 p-4 rounded-lg border;
-    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.warning.50'));
-    border-color: theme('colors.danger.200 / 0.6');
-    color: theme('colors.danger.700');
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(254, 202, 202, 0.6);
+    background: linear-gradient(to right, #fef2f2, #fff7ed);
+    color: #b91c1c;
   }
 
   .error-icon {
-    @apply flex-shrink-0 text-lg;
+    flex-shrink: 0;
+    font-size: 1.125rem;
   }
 
   .error-text {
-    @apply text-sm font-semibold;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
   }
 
   .form-actions {
-    @apply flex justify-end gap-3 pt-4 border-t;
-    border-color: theme('colors.slate.200 / 0.6');
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(226, 232, 240, 0.6);
   }
 
   .btn-reset {
-    @apply rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-300 shadow-sm hover:shadow-md border-0;
-    background: linear-gradient(to right, theme('colors.slate.100 / 0.8'), theme('colors.slate.200 / 0.6'));
-    color: theme('colors.slate.700');
+    border-radius: 0.5rem;
+    padding: 0.625rem 1.5rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    border: 0;
+    color: #334155;
+    background: linear-gradient(to right, rgba(241, 245, 249, 0.8), rgba(226, 232, 240, 0.6));
+    box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
+    transition: all 0.3s ease;
+    cursor: pointer;
   }
 
   .btn-reset:hover {
-    background: linear-gradient(to right, theme('colors.slate.200 / 0.9'), theme('colors.slate.300 / 0.7'));
+    background: linear-gradient(to right, rgba(226, 232, 240, 0.9), rgba(203, 213, 225, 0.7));
+    box-shadow:
+      0 4px 6px -1px rgba(15, 23, 42, 0.1),
+      0 2px 4px -2px rgba(15, 23, 42, 0.1);
     transform: var(--btn-hover-lift);
   }
 
   .btn-search {
-    @apply rounded-lg px-6 py-2.5 text-sm font-semibold text-white focus:outline-none transition-all duration-300 shadow-lg hover:shadow-xl border-0;
-    background: linear-gradient(to right, theme('colors.brand.500'), theme('colors.accent.500'));
+    border-radius: 0.5rem;
+    padding: 0.625rem 1.5rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: #ffffff;
+    border: 0;
+    background: linear-gradient(to right, #3b82f6, #a855f7);
+    box-shadow:
+      0 10px 15px -3px rgba(15, 23, 42, 0.2),
+      0 4px 6px -4px rgba(15, 23, 42, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    outline: none;
   }
 
   .btn-search:hover {
-    background: linear-gradient(to right, theme('colors.brand.600'), theme('colors.accent.600'));
+    background: linear-gradient(to right, #2563eb, #9333ea);
+    box-shadow:
+      0 12px 18px -3px rgba(15, 23, 42, 0.25),
+      0 4px 6px -4px rgba(15, 23, 42, 0.15);
     transform: var(--btn-hover-lift);
   }
 
   .btn-search:focus {
-    box-shadow: 0 0 0 2px theme('colors.brand.500 / 0.4'), var(--shadow-xl);
+    outline: none;
+    box-shadow:
+      0 0 0 2px rgba(59, 130, 246, 0.4),
+      var(--shadow-xl);
   }
 </style>

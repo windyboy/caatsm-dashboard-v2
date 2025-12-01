@@ -3,11 +3,11 @@
 // In SvelteKit, module-level stores are safe for SSR as each request gets a fresh module context.
 
 import { derived, writable } from "svelte/store";
-import { type WebSocketStatus, wsClient } from "../services/websocket.ts";
-import type { WebSocketMessage } from "../utils/types.ts";
-import { messages } from "./messages.ts";
-import { stats } from "./stats.ts";
-import { createLogger } from "../utils/logger.ts";
+import { type WebSocketStatus, wsClient } from "../services/websocket";
+import type { WebSocketMessage } from "../utils/types";
+import { messages } from "./messages";
+import { stats } from "./stats";
+import { createLogger } from "../utils/logger";
 
 const logger = createLogger("WebSocketStore");
 

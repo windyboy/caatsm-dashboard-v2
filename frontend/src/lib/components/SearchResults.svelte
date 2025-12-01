@@ -53,7 +53,7 @@
     <div class="space-y-5">
       <p class="text-base font-semibold text-slate-700 mb-5">
         Found <span
-          class="bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent font-bold"
+          class="bg-linear-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent font-bold"
           >{total.toLocaleString()}</span
         > results
       </p>
@@ -68,7 +68,7 @@
   {:else}
     <div class="flex flex-col items-center justify-center gap-2 text-slate-400 py-12">
       <div
-        class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-slate-200 to-slate-300"
+        class="w-16 h-16 mx-auto mb-4 rounded-full bg-linear-to-r from-slate-200 to-slate-300"
       ></div>
       <p class="text-sm font-medium text-slate-500">No results found</p>
       <p class="text-xs text-slate-400">Try adjusting your search criteria</p>

@@ -8,6 +8,8 @@
   import { createLogger } from "$lib/utils/logger";
   import { UI_CONFIG } from "$lib/constants";
 
+  import { onMount } from "svelte";
+
   const logger = createLogger("SearchPage");
 
   let mounted = $state(false);
@@ -18,8 +20,8 @@
   let isSlowRequest = $state(false);
   let loadingTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // Mount with $effect
-  $effect(() => {
+  // Mount with onMount
+  onMount(() => {
     mounted = true;
   });
 
@@ -78,7 +80,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
             <div
-              class="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 via-accent-500 to-success-500 shadow-lg border border-brand-400/30 flex items-center justify-center"
+              class="w-10 h-10 rounded-lg bg-linear-to-br from-brand-500 via-accent-500 to-success-500 shadow-lg border border-brand-400/30 flex items-center justify-center"
             >
               <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -90,7 +92,7 @@
               </svg>
             </div>
             <h1
-              class="text-2xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
+              class="text-2xl font-bold text-slate-900 tracking-tight bg-linear-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
             >
               CAATSM Dashboard
             </h1>

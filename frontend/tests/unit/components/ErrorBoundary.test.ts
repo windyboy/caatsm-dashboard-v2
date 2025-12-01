@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/svelte";
 import { tick } from "svelte";
 import ErrorBoundary from "../../../src/lib/components/ErrorBoundary.svelte";
@@ -12,6 +12,9 @@ vi.mock("../../../src/lib/utils/logger", () => ({
   }),
 }));
 
+const renderBoundary = (content = "Child content") =>
+  render(ErrorBoundary as any, { slots: { default: content } } as any);
+
 describe("ErrorBoundary", () => {
   afterEach(() => {
     cleanup();
@@ -19,13 +22,7 @@ describe("ErrorBoundary", () => {
   });
 
   it("renders children when no error occurs", async () => {
-    const TestChild = () => "Child content";
-
-    render(ErrorBoundary, {
-      props: {
-        children: () => TestChild(),
-      },
-    });
+    renderBoundary();
 
     await tick();
     const errorBoundary = document.querySelector(".error-boundary");
@@ -33,11 +30,7 @@ describe("ErrorBoundary", () => {
   });
 
   it("displays fallback message when error occurs", async () => {
-    const { component } = render(ErrorBoundary, {
-      props: {
-        children: () => "Child content",
-      },
-    });
+    const { component } = renderBoundary();
 
     const testError = new Error("Test error");
     (component as any).handleError(testError);
@@ -49,11 +42,7 @@ describe("ErrorBoundary", () => {
   });
 
   it("retries and clears error when retry button is clicked", async () => {
-    const { component } = render(ErrorBoundary, {
-      props: {
-        children: () => "Child content",
-      },
-    });
+    const { component } = renderBoundary();
 
     (component as any).handleError(new Error("Test error"));
     await tick();

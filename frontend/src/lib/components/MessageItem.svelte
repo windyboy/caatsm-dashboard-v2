@@ -105,7 +105,10 @@
 
 <style>
   .message-item {
-    @apply rounded-lg p-5 transition-all duration-300 hover:shadow-lg hover:scale-[1.02];
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(1);
     background: var(--message-card-bg);
     box-shadow: var(--message-card-shadow);
     border: var(--message-card-border);
@@ -114,121 +117,159 @@
   .message-item:hover {
     background: var(--message-card-hover-bg);
     box-shadow: var(--message-card-hover-shadow);
+    transform: scale(1.02);
   }
 
   .message-id {
-    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold shadow-sm border;
-    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.accent.100'));
-    color: theme('colors.brand.800');
-    border-color: theme('colors.brand.200 / 0.5');
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 700;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid transparent;
+    background: linear-gradient(to right, #dbeafe, #f3e8ff);
+    color: #1e40af;
+    border-color: rgba(191, 219, 254, 0.5);
     transition: all 0.3s;
   }
 
   .group:hover .message-id {
-    background: linear-gradient(to right, theme('colors.brand.200'), theme('colors.accent.200'));
+    background: linear-gradient(to right, #bfdbfe, #e9d5ff);
   }
 
   .flight-number {
-    @apply text-xs font-semibold transition-colors;
-    color: theme('colors.slate.600');
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #475569;
   }
 
   .group:hover .flight-number {
-    color: theme('colors.slate.800');
+    color: #1e293b;
   }
 
   .timestamp {
-    @apply text-xs whitespace-nowrap ml-3 font-mono font-medium shadow-sm px-2.5 py-1 rounded-md border transition-colors;
-    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100'));
-    color: theme('colors.slate.600');
-    border-color: theme('colors.slate.200 / 0.5');
+    font-size: 0.75rem;
+    line-height: 1rem;
+    white-space: nowrap;
+    margin-left: 0.75rem;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+      monospace;
+    font-weight: 500;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    border: 1px solid transparent;
+    transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(to right, #f8fafc, #f1f5f9);
+    color: #475569;
+    border-color: rgba(226, 232, 240, 0.5);
   }
 
   .group:hover .timestamp {
-    color: theme('colors.brand.700');
+    color: #1d4ed8;
   }
 
   .message-content {
-    @apply text-sm mb-3 break-words leading-relaxed;
-    color: theme('colors.slate.800');
+    font-size: 0.875rem;
+    line-height: 1.625;
+    margin-bottom: 0.75rem;
+    overflow-wrap: break-word;
+    color: #1e293b;
   }
 
   .message-tags {
-    @apply flex flex-wrap gap-2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .tag {
-    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium shadow-sm border-0 transition-all duration-300;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .priority-tag {
-    background: linear-gradient(to right, theme('colors.accent.50'), theme('colors.accent.100'));
-    color: theme('colors.accent.700');
-    border-color: theme('colors.accent.200 / 0.5');
+    background: linear-gradient(to right, #faf5ff, #f3e8ff);
+    color: #7c3aed;
+    border-color: rgba(233, 213, 255, 0.5);
   }
 
   .group:hover .priority-tag {
-    background: linear-gradient(to right, theme('colors.accent.100'), theme('colors.accent.200'));
+    background: linear-gradient(to right, #f3e8ff, #e9d5ff);
   }
 
   .route-tag {
-    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.success.100'));
-    color: theme('colors.success.700');
-    border-color: theme('colors.success.200 / 0.5');
+    background: linear-gradient(to right, #f0fdf4, #dcfce7);
+    color: #15803d;
+    border-color: rgba(187, 247, 208, 0.5);
   }
 
   .group:hover .route-tag {
-    background: linear-gradient(to right, theme('colors.success.100'), theme('colors.success.200'));
+    background: linear-gradient(to right, #dcfce7, #bbf7d0);
   }
 
   /* Type tag colors - keeping the dynamic logic */
   .bg-gradient-to-r.from-brand-50.to-brand-100 {
-    background: linear-gradient(to right, theme('colors.brand.50'), theme('colors.brand.100'));
-    color: theme('colors.brand.700');
-    border-color: theme('colors.brand.200 / 0.5');
+    background: linear-gradient(to right, #eff6ff, #dbeafe);
+    color: #1d4ed8;
+    border-color: rgba(191, 219, 254, 0.5);
   }
 
   .group:hover .bg-gradient-to-r.from-brand-50.to-brand-100 {
-    background: linear-gradient(to right, theme('colors.brand.100'), theme('colors.brand.200'));
+    background: linear-gradient(to right, #dbeafe, #bfdbfe);
   }
 
   .bg-gradient-to-r.from-danger-50.to-warning-50 {
-    background: linear-gradient(to right, theme('colors.danger.50'), theme('colors.warning.50'));
-    color: theme('colors.danger.700');
-    border-color: theme('colors.danger.200 / 0.5');
+    background: linear-gradient(to right, #fef2f2, #fff7ed);
+    color: #b91c1c;
+    border-color: rgba(254, 202, 202, 0.5);
   }
 
   .group:hover .bg-gradient-to-r.from-danger-50.to-warning-50 {
-    background: linear-gradient(to right, theme('colors.danger.100'), theme('colors.warning.100'));
+    background: linear-gradient(to right, #fee2e2, #ffedd5);
   }
 
   .bg-gradient-to-r.from-success-50.to-brand-50 {
-    background: linear-gradient(to right, theme('colors.success.50'), theme('colors.brand.50'));
-    color: theme('colors.success.700');
-    border-color: theme('colors.success.200 / 0.5');
+    background: linear-gradient(to right, #f0fdf4, #eff6ff);
+    color: #15803d;
+    border-color: rgba(187, 247, 208, 0.5);
   }
 
   .group:hover .bg-gradient-to-r.from-success-50.to-brand-50 {
-    background: linear-gradient(to right, theme('colors.success.100'), theme('colors.brand.100'));
+    background: linear-gradient(to right, #dcfce7, #dbeafe);
   }
 
   .bg-gradient-to-r.from-accent-50.to-brand-50 {
-    background: linear-gradient(to right, theme('colors.accent.50'), theme('colors.brand.50'));
-    color: theme('colors.accent.700');
-    border-color: theme('colors.accent.200 / 0.5');
+    background: linear-gradient(to right, #faf5ff, #eff6ff);
+    color: #7c3aed;
+    border-color: rgba(233, 213, 255, 0.5);
   }
 
   .group:hover .bg-gradient-to-r.from-accent-50.to-brand-50 {
-    background: linear-gradient(to right, theme('colors.accent.100'), theme('colors.brand.100'));
+    background: linear-gradient(to right, #f3e8ff, #dbeafe);
   }
 
   .bg-gradient-to-r.from-slate-50.to-slate-100 {
-    background: linear-gradient(to right, theme('colors.slate.50'), theme('colors.slate.100'));
-    color: theme('colors.slate.700');
-    border-color: theme('colors.slate.200 / 0.5');
+    background: linear-gradient(to right, #f8fafc, #f1f5f9);
+    color: #334155;
+    border-color: rgba(226, 232, 240, 0.5);
   }
 
   .group:hover .bg-gradient-to-r.from-slate-50.to-slate-100 {
-    background: linear-gradient(to right, theme('colors.slate.100'), theme('colors.slate.200'));
+    background: linear-gradient(to right, #f1f5f9, #e2e8f0);
   }
 </style>

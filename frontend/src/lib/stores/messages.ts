@@ -1,8 +1,8 @@
 // Svelte store for managing message list
 
 import { writable } from "svelte/store";
-import type { Telegram } from "../utils/types.ts";
-import { UI_CONFIG } from "../constants.ts";
+import type { Telegram } from "../utils/types";
+import { UI_CONFIG } from "../constants";
 
 function createMessagesStore() {
   const { subscribe, update } = writable<Telegram[]>([]);

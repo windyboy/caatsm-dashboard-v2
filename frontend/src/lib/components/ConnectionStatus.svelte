@@ -2,10 +2,10 @@
   import { websocket } from '../stores/websocket';
   import { onMount } from 'svelte';
 
-  let status: string = 'disconnected';
-  let error: string | null = null;
-  let reconnectAttempts: number = 0;
-  let isVisible = false;
+  let status = $state<string>('disconnected');
+  let error = $state<string | null>(null);
+  let reconnectAttempts = $state<number>(0);
+  let isVisible = $state(false);
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Subscribe to stores

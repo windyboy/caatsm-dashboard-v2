@@ -1,9 +1,9 @@
 // WebSocket client for real-time updates
 
-import { createLogger } from "../utils/logger.ts";
-import { hashString } from "../utils/hash.ts";
-import type { WebSocketMessage } from "../utils/types.ts";
-import { WEBSOCKET_CONFIG } from "../constants.ts";
+import { createLogger } from "../utils/logger";
+import { hashString } from "../utils/hash";
+import type { WebSocketMessage } from "../utils/types";
+import { WEBSOCKET_CONFIG } from "../constants";
 
 function resolveWebSocketUrl(): string {
   if (import.meta.env.VITE_WS_URL) {

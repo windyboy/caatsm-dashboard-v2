@@ -10,8 +10,30 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "$lib": ["src/lib"],
+      "$lib/*": ["src/lib/*"],
+      "$routes": ["src/routes"],
+      "$routes/*": ["src/routes/*"]
+    },
+    "plugins": [
+      {
+        "name": "@sveltejs/ts-plugin",
+        "configFile": "./svelte.config.js"
+      }
+    ],
+    "types": ["svelte"],
     "target": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["./vite-env.d.ts", "./vite.config.ts", "./tests/**/*.ts"]
+  "include": [
+    "./src/**/*.svelte",
+    "./src/**/*.ts",
+    "./src/**/*.d.ts",
+    "./svelte.config.js",
+    "./vite.config.ts",
+    "./vite-env.d.ts",
+    "./tests/**/*.ts"
+  ]
 }
