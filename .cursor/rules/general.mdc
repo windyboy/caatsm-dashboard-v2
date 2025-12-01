@@ -1,55 +1,33 @@
----
-description: "Shared rules for config, testing, and documentation."
-globs:
-  - "cmd/**"
-  - "internal/**"
-  - "frontend/**"
-  - "config/**"
-  - "migrations/**"
-  - "docs/**"
-  - "*.go"
-  - "Makefile"
-  - "Taskfile.yaml"
-alwaysApply: true
-tags:
-  - shared
-  - config
-  - testing
-  - docs
----
 
-# Shared Practices
+# WHY
+Visualizes parsed aviation telegram data in real time. Provides dashboards, monitoring, and search. Does not parse or interpret telegram protocols—receives pre-parsed data via NATS.
 
-- Keep configuration explicit: document required env/TOML keys near usage, fail fast when missing, never commit secrets.
-- Align local and production config shapes; prefer safe defaults.
-- Tests stay fast and deterministic; add/update unit tests when behavior changes; run integration tests only when touching infra boundaries.
-- Prefer small, table-style cases for services/stores where useful.
-- Update existing docs/config examples when API or config shapes change; keep notes brief.
+# WHAT
+Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + DaisyUI. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
 
-## Code Review Guidelines
-- Review changes for security implications and performance impact
-- Ensure new code follows established patterns and architecture principles
-- Check for proper error handling and input validation
-- Verify tests are included for new functionality
-- Confirm documentation is updated for API/behavior changes
+# HOW
+Propose plan before significant changes. Keep changes small, aligned with Clean Architecture. No parsing logic. Preserve real-time behavior. Ask when unclear.
 
-## Git Workflow
-- Use descriptive commit messages following conventional format
-- Keep commits focused and atomic; avoid large, multi-purpose commits
-- Use feature branches for new development; merge via pull requests
-- Run tests and linting before pushing changes
-- Squash commits when merging to maintain clean history
+# Progressive Disclosure
+When working on specific areas, reference:
+- Backend: `.cursor/rules/backend.mdc` → `docs/ARCHITECTURE.md` for patterns
+- Frontend: `.cursor/rules/frontend.mdc` → `frontend/README.md` for details
+- Commands: `AGENTS.md` → `docs/DEVELOPMENT.md` for workflows
+- Architecture: `docs/ARCHITECTURE.md` for layer responsibilities and data flow
 
-## Dependency Management
-- Regularly update dependencies for security patches and bug fixes
-- Evaluate new dependencies critically; prefer small, focused libraries
-- Use lockfiles (go.sum, package-lock.json) to ensure reproducible builds
-- Audit dependencies for vulnerabilities using automated tools
-- Remove unused dependencies to keep the project lean
+# Principles
+Minimal config, deterministic tooling. Use linters for code style. This file is hand-crafted and concise.
 
-## Monitoring & Alerting
-- Implement health checks for all services and external dependencies
-- Set up alerts for critical failures (database connectivity, message processing)
-- Monitor performance metrics (response times, error rates, resource usage)
-- Use structured logging with correlation IDs for request tracing
-- Establish runbooks for common incident response scenarios
+Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + DaisyUI. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
+
+# HOW
+Propose plan before significant changes. Keep changes small, aligned with Clean Architecture. No parsing logic. Preserve real-time behavior. Ask when unclear.
+
+# Progressive Disclosure
+- Backend patterns: `.cursor/rules/backend.mdc`
+- Frontend patterns: `.cursor/rules/frontend.mdc`
+- Commands and tools: `AGENTS.md`
+- Architecture details: `docs/ARCHITECTURE.md`
+
+# Principles
+Minimal config, deterministic tooling. Use linters for code style. This file is hand-crafted and concise.

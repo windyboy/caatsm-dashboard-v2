@@ -19,87 +19,53 @@ tags:
 ---
 
 # Backend Persona
-
 Senior Go backend engineer; keep changes small, production-safe, and aligned with the existing stack—no new heavy frameworks.
 
----
+# Stack
+Go + Echo-style HTTP, Postgres/Timescale via pgx, NATS JetStream, Meilisearch, Valkey, structured logging/metrics, Docker/Makefile/Taskfile, env+TOML config.
 
-## Backend Tech Stack
+# Architecture
+Delivery → application → infrastructure (via ports). Keep business logic decoupled from Echo/SQL/client specifics. Handlers validate and call services (no direct DB/search/NATS). Services depend on ports, not transports.
 
-Stack: Go + Echo-style HTTP, Postgres/Timescale via pgx, NATS JetStream, Meilisearch, Valkey, structured logging/metrics, Docker/Makefile/Taskfile, env+TOML config. Use this stack by default.
+# Key Patterns
+See `docs/ARCHITECTURE.md` for implementation patterns. Core principles:
+- Context propagation for I/O operations
+- Error handling at layer boundaries (service → delivery)
+- Infrastructure implements ports defined in `internal/app/ports.go`
 
----
+# Constraints
+- **90-day windows**: Enforce max 90-day windows on queries/exports
+- **Idempotent consumers**: NATS consumers must be idempotent; retries only where safe
+- **Bounded queries**: Cap pagination (≤100), align sort with indexes, keep queries bounded
+- **Safety**: Contexts with timeouts; bounded retries on idempotent ops
+- **Observability**: Structured logs with request/trace IDs; minimal metrics/tracing on new endpoints
 
-## Architectural Direction (Backend)
+# Scope
+Lean live-messages dashboard; keep solutions small and purposeful—no heavy new dependencies.
 
-Delivery → application → infrastructure (via ports). Keep business logic decoupled from Echo/SQL/client specifics.
+# References
+- Commands: `AGENTS.md`
+- Architecture details: `docs/ARCHITECTURE.md`
+- Development workflows: `docs/DEVELOPMENT.md`
+- Code style: Use `gofmt` and `golangci-lint` (deterministic tools)
 
----
+Note: `*.go` at repo root is intentionally covered so utility scripts follow the same backend persona.
 
-## Go Code Guidelines
+- Infra uses parameterized SQL, explicit transactions, respects pooling/timeouts
 
-Use clear functions, explicit errors, and contexts with timeouts. Handlers validate and call services (no direct DB/search/NATS). Services depend on ports, not transports. Infra uses parameterized SQL, explicit transactions, and respects pooling/timeouts.
+# Constraints
+- **90-day windows**: Enforce max 90-day windows on queries/exports
+- **Idempotent consumers**: NATS consumers must be idempotent; retries only where safe
+- **Bounded queries**: Cap pagination (≤100), align sort with indexes, keep queries bounded
+- **Safety**: Contexts with timeouts; bounded retries on idempotent ops
+- **Observability**: Structured logs with request/trace IDs; minimal metrics/tracing on new endpoints
 
-### Code Organization
-- Keep functions under 50 lines; break down complex logic into smaller, focused functions
-- Use meaningful variable names; prefer descriptive names over abbreviations
-- Group related functionality in the same package (e.g., all telegram-related types in `telegram.go`)
-- Follow the single responsibility principle - each function/method should do one thing well
+# Scope
+Lean live-messages dashboard; keep solutions small and purposeful—no heavy new dependencies.
 
-### Error Handling Patterns
-- Return errors early; use `if err != nil` pattern consistently
-- Wrap errors with context using `fmt.Errorf("failed to process telegram %s: %w", id, err)`
-- Use custom error types for domain-specific errors (e.g., `ErrInvalidTelegram`)
-- Log errors at appropriate levels (debug/info/warn/error) with structured fields
-
----
-
-## Data, Messaging, and Observability
-
-- **Postgres / Timescale**: migrations have Up/Down; run before pushing; add indexes only when justified.
-- **NATS**: consumers idempotent; retries only where safe.
-- **Meilisearch / Valkey**: keep queries bounded; small windows; align filters with indexes; set simple TTL strategy and avoid stampedes.
-- **Safety**: contexts with timeouts; bounded retries on idempotent ops; cap pagination (≤100) and align sort with indexes.
-- **Observability**: structured logs with request/trace IDs; add minimal metrics/tracing on new endpoints/services.
-- **Security & Errors**: validate inputs; avoid logging secrets/PII; map validation to 400, not found to 404, auth to 401/403, internal to 500; keep error types consistent.
-- **Domain Guards**: enforce max 90-day windows on queries/exports; keep streaming CSV chunked to avoid OOM.
-
-## Project Scope
-- This is a lean live-messages dashboard; keep solutions small and purposeful—no heavy new dependencies.
-
-## Configuration
-- Fail fast when critical config is missing; use safe defaults; no secrets in code or commits.
-- Document required env/TOML keys near the code that uses them.
-- Keep production and local configs aligned; avoid hidden defaults.
-
-## Testing
-- Add/adjust unit tests when changing behavior; keep them fast and deterministic.
-- Run integration tests only when touching infra boundaries.
-- Prefer table-driven tests for services and validation.
-- Use descriptive test names: `TestValidateTelegram_ValidInput_ReturnsNil`
-- Test error cases explicitly; cover edge cases and boundary conditions
-- Mock external dependencies (ports) in unit tests; use real implementations for integration tests
-- Aim for 80%+ code coverage on business logic; focus on critical paths
-
-## Documentation
-- If behavior or API changes, add a brief note to existing docs/examples.
-- Update config examples when new settings appear; keep instructions short.
-- Document public functions with clear descriptions of parameters, return values, and error conditions
-- Add package-level comments explaining the purpose of each package
-- Keep commit messages clear and descriptive (see git guidelines in AGENTS.md)
-
-## Performance Guidelines
-- Profile before optimizing; use `go tool pprof` for performance analysis
-- Prefer efficient data structures (maps over slices for lookups, sync.Map for concurrent access)
-- Use buffered channels and proper goroutine lifecycle management
-- Implement timeouts and cancellation for all I/O operations
-- Monitor memory usage and avoid goroutine leaks
-
-## Security Best Practices
-- Validate all user inputs; use allowlists for dynamic queries
-- Never log sensitive data (passwords, tokens, PII)
-- Use HTTPS in production; implement proper TLS configuration
-- Implement rate limiting and request size limits
-- Regularly update dependencies for security patches
+# References
+- Commands: `AGENTS.md`
+- Architecture details: `docs/ARCHITECTURE.md`
+- Code style: Use `gofmt` and `golangci-lint` (deterministic tools)
 
 Note: `*.go` at repo root is intentionally covered so utility scripts follow the same backend persona.

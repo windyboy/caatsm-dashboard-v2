@@ -1,93 +1,42 @@
 ---
-description: "Frontend rules for SvelteKit + TypeScript (Deno/Node) dashboard."
+description: "Frontend rules for SvelteKit + TypeScript + UnoCSS + DaisyUI."
 globs:
   - "frontend/**"
-  - "frontend/**/*.svelte"
-  - "frontend/**/*.ts"
-  - "frontend/**/*.js"
 alwaysApply: false
 tags:
   - frontend
   - sveltekit
   - typescript
-  - deno
+  - unocss
+  - daisyui
 ---
 
 # Frontend Persona
+Senior SvelteKit engineer; simple, predictable UI with real-time capabilities. Keep changes small, production-safe, and aligned with existing patterns.
 
-Senior SvelteKit + TypeScript engineer; keep the UI simple, predictable, and aligned with the Go API—no re-platforming.
+# Stack
+SvelteKit 2.x + Svelte 5 (with runes), TypeScript (strict mode), UnoCSS + DaisyUI, Deno 2.0+ (runtime), Vitest (unit), Playwright (E2E).
 
----
+# Structure
+`frontend/src/lib/components/` (UI), `stores/` (reactive state), `services/` (REST + WebSocket clients), `routes/` (SvelteKit pages).
 
-## Frontend Tech Stack
+# Key Patterns
+- Use Svelte 5 runes for reactive state (`$state`, `$derived`, `$effect`)
+- Prefer composition over inheritance; keep components focused
+- Handle all states explicitly: loading, error, empty, success
+- WebSocket client handles connection, reconnection, and message routing
+- Mirror backend constraints in UI (e.g., 90-day query windows)
 
-Stack: SvelteKit + TypeScript, Deno/Node tools, UnoCSS, talking to the Go API via HTTP/SSE/WS.
+# Constraints
+- **Real-time first**: Never block WebSocket handlers or real-time streams
+- **State handling**: Handle all UI states explicitly; show connection status indicators
+- **Error handling**: Display user-friendly errors; log with context
+- **Backend alignment**: Mirror backend constraints (90-day windows, bounded queries)
 
----
+# Scope
+Lean real-time dashboard UI; keep solutions small and purposeful—no heavy new dependencies.
 
-## SvelteKit Guidelines
-
-Respect existing routes/layouts and data contracts. Use small components, simple stores, and avoid new heavy dependencies.
-
-### Component Organization
-- Keep components under 200 lines; extract complex logic into custom hooks or utilities
-- Use descriptive component names (PascalCase): `LiveStream.svelte`, `SearchFilters.svelte`
-- Group related components in the same directory with an `index.ts` for clean imports
-- Prefer composition over inheritance; use slots for flexible component APIs
-
-### State Management
-- Use Svelte stores for shared state; prefer reactive statements for local component state
-- Keep stores simple and focused; avoid complex state machines unless necessary
-- Use TypeScript interfaces for store state to ensure type safety
-- Handle loading/error states explicitly in stores
-
-## Data & API Alignment
-
-- Mirror backend constraints (filters, pagination, time windows) and surface validation errors clearly.
-- Update shared TS types when payloads change; centralize endpoint paths (no magic strings).
-- Always handle loading/empty/error states explicitly.
-- Map API errors consistently: show validation details, handle auth failures clearly, and keep generic failures unobtrusive.
-
-## Project Scope
-- Dashboard is lean and real-time focused; prefer simple, lightweight choices and avoid new heavy dependencies.
-
-## Configuration
-- Fail fast when required config/env is missing; use safe defaults; no secrets in code.
-- Note required keys near the code that depends on them; keep local/prod shapes consistent.
-
-## Testing
-- Add/adjust unit tests for changed logic; keep them fast and deterministic.
-- Mark any integration/E2E coverage explicitly and only extend it when the flow changes.
-- Favor small tests for stores/load functions; table-style cases when helpful.
-- Test user interactions and state changes; use `screen` queries for accessibility
-- Mock API calls in component tests; test real API integration in E2E tests
-- Aim for 70%+ coverage on components and stores; focus on user-facing functionality
-
-## Documentation
-- If UI/API behavior changes, add brief notes to existing docs/config examples rather than new lengthy docs.
-- Update config/API examples when shapes change; keep notes short.
-- Document component props and events with JSDoc comments
-- Add README files for complex component directories explaining usage patterns
-- Keep TypeScript interfaces well-documented for API contract clarity
-
-## Styling & UX
-- Use existing UnoCSS utilities; semantic HTML and accessible patterns; clear, consistent copy.
-- Follow mobile-first responsive design principles
-- Ensure WCAG 2.1 AA compliance for accessibility
-- Use consistent color schemes and spacing from the design system
-- Test UI components across different screen sizes and devices
-
-## Performance Guidelines
-- Lazy load components and routes to reduce initial bundle size
-- Optimize images and use appropriate formats (WebP with fallbacks)
-- Minimize re-renders with proper reactive statements and store usage
-- Use Svelte's built-in performance features (compile-time optimizations)
-- Monitor bundle size and loading performance with build tools
-
-## Security Best Practices
-- Sanitize user inputs before displaying; use Svelte's built-in XSS protection
-- Validate form data on both client and server sides
-- Implement proper CSRF protection for state-changing operations
-- Avoid storing sensitive data in localStorage/sessionStorage
-- Use HTTPS and secure cookie settings in production
----
+# References
+- Commands: `AGENTS.md`
+- Frontend details: `frontend/README.md`
+- Code style: Use Prettier and TypeScript compiler (deterministic tools)
