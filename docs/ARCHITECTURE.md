@@ -7,7 +7,7 @@ This document describes how the CAATSM Dashboard backend is organized today. It 
 ## 1. Overview
 
 - **Goal:** Collect aviation telegrams, validate them, persist them, index them for search, and serve them to operators in real time.
-- **Stack:** Go backend (Echo, pgx), PostgreSQL/TimescaleDB, Meilisearch, Valkey/Redis, NATS JetStream, SvelteKit frontend.
+- **Stack:** Go backend (Echo, pgx), PostgreSQL/TimescaleDB, Meilisearch, Valkey 9 (or Redis 7+), NATS 2.12.2 JetStream, SvelteKit 2.x frontend with Svelte 5.
 - **Architecture Style:** Clean Architecture with three concentric layers. Domain entities and validation live inside the Application layer rather than a standalone `internal/domain` package.
 
 ```
@@ -29,7 +29,7 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 
 ### Application (`internal/app/`)
 
-- Houses domain entities (`Telegram`, `SearchFilters`, `TimeWindow`, events) plus validation logic (90-day window cap, whitelist of sortable fields, enum validation).
+- Houses domain entities (`Telegram`, `SearchFilters`, `TimeWindow`, events) plus validation logic (90-day window cap, whitelist of sortable fields, enum validation). These entities live directly in `internal/app/` rather than a separate `internal/domain/` package.
 - Provides services: `DashboardService`, `SearchService`, `StatsService`, `ExportService`, `RealtimeService`.
 - Defines port interfaces in `ports.go` for repository/search/cache/event/websocket abstractions.
 - Exposes a dependency container (`Container`) that wires config, logger, ports, and services. Health checks are implemented as `Container.HealthCheck()` in `internal/app/app.go`.
@@ -40,8 +40,8 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 - Concrete implementations of Application ports:
   - `persistence/` – PostgreSQL repository via pgx and TimescaleDB.
   - `search/` – Meilisearch client for full-text and autocomplete.
-  - `cache/` – Valkey/Redis cache for stats and query responses.
-  - `streaming/` – NATS JetStream consumer for ingestion.
+  - `cache/` – Valkey 9 (or Redis 7+) cache for stats and query responses.
+  - `streaming/` – NATS 2.12.2 JetStream consumer for ingestion.
   - `event/` – Pub/Sub bridge for domain events.
   - `ws/` – WebSocket hub with backpressure and per-IP limits.
 - Handles connection lifecycle, retries, and adapter-specific metrics.

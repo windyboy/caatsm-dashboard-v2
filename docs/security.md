@@ -53,7 +53,7 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
 - Enforce TLS 1.2+ (1.3 preferred) for all inbound and outbound traffic.
 - In production, set `CAATSM_SERVER_TLS_ENABLED=true` and provide certificate/key paths.
 - For upstream services:
-  - Use `rediss://` or TLS-enabled Redis/Valkey.
+  - Use `rediss://` or TLS-enabled Valkey 9 (or Redis 7+).
   - Use HTTPS for Meilisearch and NATS TLS endpoints.
   - Verify certificates where possible.
 - Limit inbound firewall rules to trusted networks and load balancers.
@@ -78,7 +78,7 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
 
 ### WebSocket Controls
 
-- Set `websocket` configuration to restrict allowed origins.
+- Set `websocket.allowed_origins` configuration to restrict allowed origins (comma-separated list).
 - Enforce per-IP and global connection limits (defaults: 5 per IP, 10,000 total).
 - Idle or slow consumers are disconnected to prevent resource exhaustion.
 
@@ -102,8 +102,8 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
 - Use TLS for:
   - PostgreSQL (`sslmode=require`)
   - Meilisearch (HTTPS)
-  - Redis/Valkey (`tls=true`)
-  - NATS (`tls://` or secure websocket endpoints)
+  - Valkey 9/Redis 7+ (`tls=true` or `rediss://`)
+  - NATS 2.12.2 (`tls://` or secure websocket endpoints)
 
 ---
 

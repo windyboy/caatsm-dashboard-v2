@@ -1,6 +1,6 @@
 # CAATSM Dashboard Frontend
 
-The frontend is a SvelteKit app that runs on top of Deno 2 (recommended) or Node.js 20. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
+The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ (recommended) or Node.js 20+. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
 
 ---
 
@@ -86,18 +86,19 @@ frontend/
 ## Dependency Versions
 
 The frontend uses the following key dependencies:
+- **Svelte 5** - Latest Svelte with runes and improved reactivity
 - **@sveltejs/kit**: `^2.49.0` - Latest stable SvelteKit 2.x
 - **@sveltejs/vite-plugin-svelte**: `^4.0.4` - Latest vite-plugin-svelte 4.x (compatible with vite 5.x)
 - **vite**: `^5.4.21` - Latest vite 5.x
 
-**Version Strategy**: We stay on vite 5.x and vite-plugin-svelte 4.x for stability. SvelteKit 2.49.0 supports vite 6/7 and vite-plugin-svelte 5/6, but upgrading to these major versions requires testing for breaking changes. The `deno.json` also pins to major versions 4 and 5 for consistency.
+**Version Strategy**: We stay on vite 5.x and vite-plugin-svelte 4.x for stability. SvelteKit 2.49.0 supports vite 6/7 and vite-plugin-svelte 5/6, but upgrading to these major versions requires testing for breaking changes. The `deno.json` also pins to major versions 4 and 5 for consistency. The frontend uses Svelte 5 with runes for reactive state management.
 
 ---
 
 ## Troubleshooting
 
 - **Dev server cannot reach backend**: ensure the backend listens on port 3002.
-- **WebSocket fails**: confirm `VITE_WS_URL` matches backend host and that CORS/origin rules allow requests.
+- **WebSocket fails**: confirm `VITE_WS_URL` matches backend host and that `websocket.allowed_origins` in backend config includes the frontend origin.
 - **Type errors on fresh clone**: run `deno cache --reload` or `npm install` before starting dev.
 - **Live data missing**: run the sync worker and publish sample messages (`task publish-stream:fast`).
 

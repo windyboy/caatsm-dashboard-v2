@@ -2,12 +2,14 @@
 
 ## Architecture
 
-The project follows **Clean Architecture** with three main layers (Domain logic integrated into Application layer):
+The project follows **Clean Architecture** with four main layers:
+- **Domain Layer** (`internal/domain/`) - Domain entities, business logic, and validation (Telegram, SearchFilters, TimeWindow, etc.)
+- **Application Layer** (`internal/app/`) - Ports, container pattern, and service interfaces
+- **Service Layer** (`internal/service/`) - Application services and business logic orchestration
+- **Infrastructure Layer** (`internal/infrastructure/`) - Direct port implementations (PostgreSQL, Meilisearch, Valkey, NATS, WebSocket hub)
 - **Delivery Layer** (`internal/delivery/`) - HTTP/WebSocket handlers with streaming export
-- **Application Layer** (`internal/app/`) - Services, ports, container pattern, **and domain entities** (Telegram, SearchFilters, TimeWindow, etc.)
-- **Infrastructure Layer** (`internal/infrastructure/`) - **Direct port implementations** (PostgreSQL, Meilisearch, Valkey, NATS, WebSocket hub)
 
-**Note**: Unlike traditional Clean Architecture, this project integrates domain entities and business logic directly into the `internal/app/` package rather than maintaining a separate `internal/domain/` layer. This simplifies the structure while maintaining clear separation of concerns.
+**Note**: This project maintains a clear separation between domain entities (in `internal/domain/`), application services (in `internal/service/`), and infrastructure implementations. Domain entities are re-exported through `internal/app/ports.go` for backward compatibility.
 
 **Additional Packages**:
 - **Observability** (`internal/observability/`) - Cross-cutting concerns: logging, metrics, tracing
@@ -19,10 +21,10 @@ The project follows **Clean Architecture** with three main layers (Domain logic 
 **Key Architecture Principles**:
 - Dependencies flow inward: outer layers depend on inner layers, never the reverse
 - **Infrastructure directly implements `app/ports` interfaces** - no wrapper layers
-- **No `internal/repository/` package** - removed wrapper pattern (Dec 2025)
-- **No separate `internal/domain/` package** - domain entities live in `internal/app/` (Telegram, SearchFilters, TimeWindow, etc.)
 - Container only exposes port interfaces, ensuring proper dependency inversion
-- Domain logic (validation, business rules) is co-located with entities in `internal/app/`
+- Domain logic (validation, business rules) is co-located with entities in `internal/domain/`
+- Application services in `internal/service/` orchestrate business logic using domain entities
+- Infrastructure implementations are wired in the server layer to avoid circular imports
 
 **Production Features**:
 - Time range validation: Max 90 days to prevent unbounded queries
@@ -159,8 +161,8 @@ go test ./internal/app -v -run TestDashboardService
 **General:**
 - No comments unless explaining complex business logic
 - Use dependency injection pattern
-- Follow clean architecture: delivery → application → infrastructure
-- Domain entities and business logic live in `internal/app/` (not a separate domain package)
+- Follow clean architecture: delivery → service → application → infrastructure
+- Domain entities and business logic live in `internal/domain/` (not a separate domain package)
 - Application layer depends only on port interfaces (✅ enforced)
 - Infrastructure **directly implements** application ports (✅ enforced, no wrapper layers)
 - All legacy handlers/services/models/repository wrappers have been removed (✅ complete)
@@ -179,27 +181,35 @@ caatsm-dashboard/
 │   ├── delivery/          # HTTP/WebSocket handlers (delivery layer)
 │   │   ├── http/          # HTTP handlers, routes, middleware
 │   │   └── ws/            # WebSocket handlers and broadcasters
-│   ├── app/               # Application layer (services, ports, entities, domain logic)
+│   ├── app/               # Application layer (ports, container, domain re-exports)
 │   │   ├── app.go         # Container and dependency wiring
 │   │   ├── ports.go       # Port interfaces (Repository, Cache, SearchIndex, etc.)
+│   │   ├── cache.go       # Cache-related types
+│   │   ├── event.go       # Event-related types
+│   │   └── ports_backup/  # Legacy backup (not used)
+│   ├── domain/            # Domain layer (entities, business logic, validation)
 │   │   ├── telegram.go    # Telegram entity and validation
 │   │   ├── query.go       # Query types and filters
 │   │   ├── filters.go     # Search filter logic
+│   │   ├── events.go      # Domain events
+│   │   ├── errors.go      # Error types
+│   │   └── validation_test.go
+│   ├── service/           # Service layer (application services)
 │   │   ├── dashboard.go   # DashboardService
 │   │   ├── search.go      # SearchService
 │   │   ├── stats.go       # StatsService
 │   │   ├── export.go      # ExportService
 │   │   ├── realtime.go    # RealtimeService
-│   │   ├── events.go      # Domain events
-│   │   ├── errors.go      # Error types
-│   │   └── ports_backup/  # Legacy backup (not used)
+│   │   └── types.go       # Service types
 │   ├── infrastructure/    # Direct port implementations
-│   │   ├── persistence/   # PostgreSQL (implements ports.Repository)
-│   │   ├── search/        # Meilisearch (implements ports.SearchIndex)
 │   │   ├── cache/         # Valkey/Redis (implements ports.Cache)
+│   │   ├── search/        # Meilisearch (implements ports.SearchIndex)
 │   │   ├── streaming/     # NATS consumer (implements ports.StreamConsumer)
 │   │   ├── event/         # Event bus
 │   │   └── ws/            # WebSocket hub
+│   ├── repository/        # PostgreSQL repository (implements ports.Repository)
+│   │   ├── models.go      # Database models
+│   │   └── store.go       # Repository implementation
 │   ├── observability/     # Logging, metrics, tracing
 │   ├── server/            # Server setup and configuration
 │   ├── sync/              # Synchronization worker
@@ -269,17 +279,17 @@ caatsm-dashboard/
 ## Common Workflows
 
 **Adding a New Feature:**
-1. Define domain entities/types in `internal/app/` (e.g., `telegram.go`, `query.go`)
+1. Define domain entities/types in `internal/domain/` (e.g., `telegram.go`, `query.go`)
 2. Define port interface in `internal/app/ports.go` (if needed)
-3. Add service methods in `internal/app/` (e.g., `dashboard.go`, `search.go`)
+3. Add service methods in `internal/service/` (e.g., `dashboard.go`, `search.go`)
 4. Implement infrastructure in `internal/infrastructure/` (directly implements ports)
 5. Add HTTP/WS handlers in `internal/delivery/`
-6. Wire dependencies in `internal/app/app.go` Container
+6. Wire dependencies in `internal/server/` (server layer handles wiring to avoid circular imports)
 7. Write tests at each layer
 8. Run `make lint` and `make test`
 
-**Note**: 
-- Domain entities (Telegram, SearchFilters, TimeWindow) and business logic live in `internal/app/`, not a separate domain package
+**Note**:
+- Domain entities (Telegram, SearchFilters, TimeWindow) and business logic live in `internal/domain/`, not a separate domain package
 - Infrastructure implementations should directly implement port interfaces from `app/ports.go`. No wrapper layers or intermediate abstractions.
 
 **Database Changes:**
@@ -307,13 +317,13 @@ Key environment variables (set in `.env.local` or config file):
 **Backend:**
 - Go 1.25.4+
 - PostgreSQL 14+
-- Redis/Valkey 7+
-- NATS 2.10+
+- Valkey 9+ (or Redis 7+)
+- NATS 2.12.2+
 - Meilisearch 1.5+
 
 **Frontend:**
-- Deno 1.40+ (preferred) or Node.js 20+
-- SvelteKit 2.x
+- Deno 2.0+ (preferred) or Node.js 20+
+- SvelteKit 2.x with Svelte 5
 - UnoCSS for styling
 
 **Tools:**

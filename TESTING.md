@@ -5,8 +5,8 @@ This guide explains how to verify the CAATSM Dashboard from end to end using cle
 ## 1. Before You Start
 
 1. Install the toolchain:
-   - Go 1.25 or newer
-   - Deno 2 (preferred) or Node.js 20
+   - Go 1.25.4 or newer
+   - Deno 2.0+ (preferred) or Node.js 20+
    - Docker and Docker Compose (for integration tests)
 2. Copy the local environment file: `cp env.local.example .env.local`
 3. Bring up local services (PostgreSQL, Meilisearch, Valkey, NATS) before you run tests.
@@ -41,16 +41,17 @@ Scope: domain logic, services, helper packages.
 
 ```/dev/null/backend-unit.sh#L1-2
 make test-unit
-go test ./internal/domain ./internal/app/services -v
+go test ./internal/app -v
 ```
 
 Key things to watch:
 - Failing tests usually indicate validation rules (90-day window, sort whitelist) or event sequencing issues.
 - If a new test relies on time, fix the clock dependency by using the existing time provider utilities in `internal/testing`.
+- Note: Domain entities and validation logic live in `internal/app/`, not a separate `internal/domain/` package.
 
 ### 3.2 Integration Tests (full stack with containers)
 
-Scope: Postgres, Meilisearch, Valkey, NATS, streaming export.
+Scope: Postgres, Meilisearch, Valkey 9 (or Redis 7+), NATS 2.12.2, streaming export.
 
 ```/dev/null/backend-integration.sh#L1-4
 make dev-up
@@ -81,7 +82,7 @@ Any race warning must be resolved before merging.
 
 ### 4.1 Unit Tests with Vitest
 
-Scope: Svelte stores, WebSocket client, helper utilities.
+Scope: Svelte 5 stores, WebSocket client, helper utilities.
 
 ```/dev/null/frontend-unit.sh#L1-3
 make frontend-test-unit

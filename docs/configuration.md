@@ -64,8 +64,9 @@ Configuration sources are merged in the following order (lowest to highest prece
 | --- | --- |
 | `CAATSM_DATABASE_DSN` | PostgreSQL DSN with credentials and TLS flags |
 | `CAATSM_MEILISEARCH_HOST` / `API_KEY` | Meilisearch endpoint and key |
-| `CAATSM_REDIS_ADDR` / `PASSWORD` | Valkey/Redis connection info |
-| `CAATSM_NATS_URL` | NATS JetStream endpoint |
+| `CAATSM_REDIS_ADDR` / `PASSWORD` | Valkey 9 (or Redis 7+) connection info |
+| `CAATSM_NATS_URL` | NATS 2.12.2 JetStream endpoint |
+| `CAATSM_WEBSOCKET_ALLOWED_ORIGINS` | Comma-separated list of allowed WebSocket origins |
 | `CAATSM_SERVER_TLS_ENABLED` | Enable HTTPS (must be `true` in production) |
 | `CAATSM_SERVER_ALLOW_BIND_ALL` | Allow binding to `0.0.0.0` in production (required for containerized/multi-interface environments) |
 | `CAATSM_AUTH_ENABLE_BASIC` and credentials | Basic auth for admin endpoints |
@@ -93,7 +94,7 @@ The loader in `config/loader.go` performs these steps:
 - At least one auth mechanism (basic auth or JWT) must be active in production.
 - Server host cannot be `localhost` or `127.0.0.1` in production.
 - Server host cannot be `0.0.0.0` in production unless `server.allow_bind_all` is set to `true` (required for containerized/multi-interface environments).
-- Redis, Meilisearch, and NATS URLs must use TLS in production.
+- Valkey/Redis, Meilisearch, and NATS URLs must use TLS in production.
 - `tracing.enabled` must be true in production; the flag is enforced even though exporter wiring is pending.
 
 If any rule fails, the loader returns an error and the binary exits during startup. That prevents accidental insecure deployments.
@@ -178,7 +179,7 @@ Never log the secrets; only surface which keys failed validation.
 | `production: server host cannot be 0.0.0.0 unless server.allow_bind_all is set to true` | Using `0.0.0.0` without explicit permission | Set `CAATSM_SERVER_ALLOW_BIND_ALL=true` for containerized/multi-interface environments |
 | `production: authentication required` | Auth disabled in production | Enable basic auth or JWT config |
 | `meilisearch.api_key cannot be default` | Still using `masterKey` | Rotate the key and update `CAATSM_MEILISEARCH_API_KEY` |
-| `redis: TLS required in production` | Redis connection not secured | Switch to `rediss://` style address or enable TLS flags |
+| `redis: TLS required in production` | Valkey/Redis connection not secured | Switch to `rediss://` style address or enable TLS flags |
 
 ---
 
@@ -197,7 +198,7 @@ Before shipping a new environment, confirm the following:
 
 ### NATS 2.12.2 Upgrade Verification (Staging → Production)
 
-When upgrading to NATS 2.12.2 (`nats:2.12.2-alpine`), perform these checks in staging before promoting to production:
+The project uses NATS 2.12.2 (`nats:2.12.2-alpine`). When upgrading from an older version, perform these checks in staging before promoting to production:
 
 **Pre-upgrade (Staging):**
 - [ ] Snapshot/backup JetStream metadata before upgrading (use `nats stream backup` or volume snapshots).

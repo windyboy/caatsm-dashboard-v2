@@ -19,7 +19,7 @@ CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviatio
 The code follows a pragmatic layered architecture:
 
 1. **Delivery** (`internal/delivery/`): HTTP and WebSocket handlers plus validation.
-2. **Application** (`internal/app/`): Services, domain models, ports, and the dependency container. This layer owns business rules such as validation, pagination guards, and stats aggregation.
+2. **Application** (`internal/app/`): Services, domain entities (Telegram, SearchFilters, TimeWindow), ports, and the dependency container. This layer owns business rules such as validation, pagination guards, and stats aggregation. Unlike traditional Clean Architecture, domain entities are integrated directly into the application layer rather than a separate `internal/domain/` package.
 3. **Infrastructure** (`internal/infrastructure/`): Concrete adapters for Postgres, Meilisearch, Valkey, NATS, events, and the WebSocket hub that satisfy the application ports.
 
 Dependencies always flow inward. Infrastructure implements the interfaces from `internal/app/ports.go` directly, and there are no repository wrapper packages.
@@ -35,13 +35,13 @@ Extra support packages:
 
 ## Requirements
 
-- Go 1.25+
+- Go 1.25.4+
 - Deno 2.0+ (recommended) or Node.js 20+
 - Docker + Docker Compose (optional but recommended)
 - PostgreSQL 15+
 - Meilisearch 1.5+
-- Valkey/Redis 7+
-- NATS 2.10+
+- Valkey 9+ (or Redis 7+)
+- NATS 2.12.2+
 
 ## Quick Start
 
@@ -273,10 +273,8 @@ Full schemas live in `api/openapi.yaml`.
 
 - `GET /ws`
 - Message types:
-  - `message`
-  - `stats-total`
-  - `stats-priority`
-  - `stats-type`
+  - `message` - Individual telegram messages
+  - `stats` - Unified stats update containing total, byPriority, and byType
 - Ping/pong heartbeat
 - Slow clients auto-disconnect when buffers fill
 

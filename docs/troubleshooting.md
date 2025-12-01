@@ -92,19 +92,22 @@ curl -f -H "Authorization: Bearer $CAATSM_MEILISEARCH_API_KEY" \
 
 ---
 
-## 5. Redis/Valkey Cache and Event Bus
+## 5. Valkey/Redis Cache and Event Bus
 
 **Symptoms**
 
 - Stats lag behind live data.
-- Health endpoint reports Redis degraded.
-- WebSocket disconnect messages mention “slow client” or “publish error”.
+- Health endpoint reports Redis/Valkey degraded.
+- WebSocket disconnect messages mention "slow client" or "publish error".
 
 **Troubleshooting**
 
 ```bash
+# For Valkey 9
+valkey-cli -u "$CAATSM_REDIS_ADDR" ping
+# For Redis 7+
 redis-cli -u "$CAATSM_REDIS_ADDR" ping
-redis-cli monitor
+valkey-cli monitor  # or redis-cli monitor
 task dev:logs
 ```
 
@@ -112,7 +115,7 @@ task dev:logs
 
 - Confirm credentials and TLS settings.
 - Slow clients: increase `websocket.client_buffer_size` or review frontend consumption logic.
-- Restart the cache container if it is unresponsive: `docker compose -f docker-compose.dev.yml restart redis`.
+- Restart the cache container if it is unresponsive: `docker compose -f docker-compose.dev.yml restart redis` (container name may be `valkey` or `redis` depending on setup).
 
 ---
 
@@ -137,6 +140,7 @@ task publish-stream:fast
 
 - Ensure the sync worker is running: `make dev` (backend) plus `task sync`.
 - Recreate the stream if IDs changed: `nats stream create --config deploy/nats/telegrams.json`.
+- Note: Project uses NATS 2.12.2; verify compatibility if upgrading from older versions.
 
 ---
 
@@ -160,7 +164,7 @@ curl http://localhost:3002/metrics | grep backpressure
 
 **Resolutions**
 
-- Adjust allowed origins in config if the frontend runs on a different host.
+- Adjust `websocket.allowed_origins` in config (comma-separated list) if the frontend runs on a different host.
 - If buffers overflow, either consume messages faster on the client or increase buffer size in configuration.
 - Restart the backend to clear stuck sessions.
 
