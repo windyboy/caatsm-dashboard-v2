@@ -8,7 +8,7 @@ This document describes how the CAATSM Dashboard backend is organized today. It 
 
 - **Goal:** Collect aviation telegrams, validate them, persist them, index them for search, and serve them to operators in real time.
 - **Stack:** Go backend (Echo, pgx), PostgreSQL/TimescaleDB, Meilisearch, Valkey 9 (or Redis 7+), NATS 2.12.2 JetStream, SvelteKit 2.x frontend with Svelte 5.
-- **Architecture Style:** Clean Architecture with three concentric layers. Domain entities and validation live inside the Application layer rather than a standalone `internal/domain` package.
+- **Architecture Style:** Clean Architecture with four concentric layers. Domain entities and validation live in a dedicated `internal/domain` package.
 
 ```
 Delivery ──► Application ──► Infrastructure
@@ -27,12 +27,21 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 - Response formatting, error to JSON translation, CSV streaming.
 - No direct imports from infrastructure packages.
 
+### Domain (`internal/domain/`)
+
+- Core domain entities (`Telegram`, `SearchFilters`, `TimeWindow`, events) plus validation logic (90-day window cap, whitelist of sortable fields, enum validation).
+- Business rules and invariants that must be enforced across the application.
+- Pure functions and types with no external dependencies.
+
 ### Application (`internal/app/`)
 
-- Houses domain entities (`Telegram`, `SearchFilters`, `TimeWindow`, events) plus validation logic (90-day window cap, whitelist of sortable fields, enum validation). These entities live directly in `internal/app/` rather than a separate `internal/domain/` package.
-- Provides services: `DashboardService`, `SearchService`, `StatsService`, `ExportService`, `RealtimeService`.
 - Defines port interfaces in `ports.go` for repository/search/cache/event/websocket abstractions.
 - Exposes a dependency container (`Container`) that wires config, logger, ports, and services. Health checks are implemented as `Container.HealthCheck()` in `internal/app/app.go`.
+
+### Service (`internal/service/`)
+
+- Application services: `DashboardService`, `SearchService`, `StatsService`, `ExportService`, `RealtimeService`.
+- Orchestrates business logic using domain entities and infrastructure ports.
 - Emits domain events consumed by infrastructure adapters.
 
 ### Infrastructure (`internal/infrastructure/`)
@@ -54,7 +63,7 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 
 1. NATS JetStream receives raw telegram messages.
 2. `cmd/sync` worker pulls messages via the streaming adapter.
-3. Application services validate and normalize telegrams (enforcing domain rules).
+3. Service layer validates and normalizes telegrams (enforcing domain rules).
 4. Repository stores telegrams in PostgreSQL/TimescaleDB.
 5. Search adapter updates Meilisearch indices.
 6. Event adapter publishes a `TelegramProcessed` domain event.
@@ -64,8 +73,8 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 
 1. Client issues REST requests or subscribes over WebSocket.
 2. Delivery layer authenticates, rate-limits, and normalizes parameters.
-3. Application services coordinate cache lookups, repository queries, and search index calls.
-4. Validation ensures requests remain within the 90-day window and use supported sort keys.
+3. Service layer coordinates cache lookups, repository queries, and search index calls.
+4. Domain validation ensures requests remain within the 90-day window and use supported sort keys.
 5. Responses are returned as JSON or streamed CSV; realtime updates broadcast via WebSocket.
 
 ---
@@ -76,7 +85,7 @@ Dependencies only point inward: the Delivery layer depends on Application servic
 | ------------------ | ---------------------------------------------- | --------------------------------------------- |
 | `DashboardService` | Aggregated metrics for dashboard widgets       | `Repository`, `Cache`                         |
 | `SearchService`    | Telegram search, autocomplete, CSV prep        | `Repository`, `SearchIndex`, `Cache`          |
-| `StatsService`     | Priority/type aggregations, cached snapshots   | `Repository`, `Cache`                         |
+| `StatsService`    | Priority/type aggregations, cached snapshots   | `Repository`, `Cache`                         |
 | `ExportService`    | Streaming CSV export (chunked to avoid OOM)    | `Repository`                                  |
 | `RealtimeService`  | Broadcasts domain events to WebSocket clients  | `EventPublisher`, `WebSocketHubPort`          |
 
@@ -126,13 +135,14 @@ All ports live in `internal/app/ports.go`. Add new ports there whenever you need
 
 ### Adding a Feature
 
-1. Start in `internal/app/`: update or introduce entities, validation, events, and service methods.
-2. Define new port interfaces in `ports.go` if an external dependency is required.
-3. Implement adapters under `internal/infrastructure/<category>/` that satisfy the ports.
-4. Wire adapters into the container (see `internal/app/app.go` and `internal/server/server.go`).
-5. Update Delivery handlers (`internal/delivery/http` or `internal/delivery/ws`) to expose the new functionality.
-6. Add unit/integration tests across the layers.
-7. Document configuration changes in `env.example`, `docs/configuration.md`, and the README.
+1. Start in `internal/domain/`: update or introduce entities, validation, events, and business rules.
+2. Add service methods in `internal/service/` to orchestrate the business logic.
+3. Define new port interfaces in `internal/app/ports.go` if an external dependency is required.
+4. Implement adapters under `internal/infrastructure/<category>/` that satisfy the ports.
+5. Wire adapters into the container (see `internal/app/app.go` and `internal/server/server.go`).
+6. Update Delivery handlers (`internal/delivery/http` or `internal/delivery/ws`) to expose the new functionality.
+7. Add unit/integration tests across the layers.
+8. Document configuration changes in `env.example`, `docs/configuration.md`, and the README.
 
 ### Extending Infrastructure
 
@@ -144,7 +154,9 @@ All ports live in `internal/app/ports.go`. Add new ports there whenever you need
 ## 10. Summary
 
 - The Delivery layer handles transport concerns only.
-- The Application layer owns business logic, domain entities, validation, and orchestrates ports.
+- The Domain layer owns business logic, entities, and validation rules.
+- The Service layer orchestrates business logic using domain entities and infrastructure ports.
+- The Application layer defines ports and dependency injection.
 - The Infrastructure layer implements ports for persistence, search, cache, streaming, events, and WebSockets.
 - Observability currently covers logging and metrics; tracing is planned but not yet active.
 - Respect the dependency direction (outer layers depend on inner layers) to keep the codebase testable and maintainable.

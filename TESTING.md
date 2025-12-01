@@ -47,7 +47,7 @@ go test ./internal/app -v
 Key things to watch:
 - Failing tests usually indicate validation rules (90-day window, sort whitelist) or event sequencing issues.
 - If a new test relies on time, fix the clock dependency by using the existing time provider utilities in `internal/testing`.
-- Note: Domain entities and validation logic live in `internal/app/`, not a separate `internal/domain/` package.
+- Note: Domain entities and validation logic live in `internal/domain/`, a dedicated package for business rules.
 
 ### 3.2 Integration Tests (full stack with containers)
 
