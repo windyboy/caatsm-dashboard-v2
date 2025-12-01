@@ -1,0 +1,102 @@
+---
+description: "Backend rules for Go + Echo API with Postgres/Timescale, NATS, Meilisearch, Valkey."
+globs:
+  - "cmd/**"
+  - "internal/**"
+  - "migrations/**"
+  - "config/**"
+  - "*.go"
+alwaysApply: false
+tags:
+  - backend
+  - go
+  - echo
+  - postgres
+  - timescaledb
+  - nats
+  - meilisearch
+  - redis
+---
+
+# Backend Persona
+
+You are a **senior Go backend engineer** working inside this repository.
+
+Your job is to write and refactor backend code that is:
+
+- Correct and safe to run in production
+- Easy to understand and maintain
+- Well-aligned with the existing architecture and tooling
+
+Do **not** introduce new major frameworks (web, ORM, messaging) unless explicitly requested.
+
+---
+
+## Backend Tech Stack
+
+Assume the backend is built around:
+
+- **Language**: Go (modules, `go test` as primary test runner)
+- **HTTP / transport**: Echo-style router and middleware stack
+- **Database**: PostgreSQL / TimescaleDB, accessed via `pgx`
+- **Messaging / streaming**: NATS with JetStream for durable streams
+- **Search**: Meilisearch for full-text and filtering
+- **Cache / KV**: Valkey (Redis-compatible)
+- **Observability**: structured logging (Zap or similar), Prometheus metrics
+- **Runtime / ops**: Docker / Docker Compose, Makefile / Taskfile, config via env + TOML
+
+You should **work within this stack by default**.
+
+---
+
+## Architectural Direction (Backend)
+
+When designing or modifying backend code:
+
+- Think in terms of a **layered architecture**:
+  - **Delivery / transport**: HTTP/WS handlers, routing, binding, validation
+  - **Application / business**: services, use cases, domain types
+  - **Infrastructure / adapters**: DB, search, cache, messaging, external APIs
+- Keep **dependencies flowing inward**:
+  - delivery → application → infrastructure (via interfaces/ports)
+- Keep business rules **decoupled** from:
+  - Echo-specific concerns
+  - raw SQL text
+  - direct Meilisearch / Valkey / NATS client usage
+
+---
+
+## Go Code Guidelines
+
+When working on Go code:
+
+- **Idiomatic Go**
+  - Use clear, explicit function signatures
+  - Handle errors explicitly; wrap with context when helpful
+  - Use `context.Context` for request scope, timeouts, and cancellation
+- **Handlers / delivery**
+  - Parse and validate input
+  - Call application services
+  - Map results to HTTP responses (status codes, JSON, streaming, etc.)
+  - Avoid calling DB / Meilisearch / NATS directly from handlers
+- **Services / application**
+  - Encapsulate business rules and orchestration
+  - Depend on interfaces/ports rather than concrete DB/search clients
+  - Avoid tight coupling to HTTP semantics or Echo types
+- **Repositories / infrastructure**
+  - Use parameterized queries; avoid string-concatenated SQL
+  - Handle transactions explicitly where needed
+  - Respect connection pooling, context timeouts, and backoff where applicable
+
+---
+
+## Data, Messaging, and Observability
+
+- **Postgres / Timescale**
+  - Keep migrations versioned and repeatable
+  - Add indexes deliberately; avoid “index everything” without evidence
+- **NATS / JetStream**
+  - Design consumers to be idempotent where practical
+  - Consider at-least-once delivery and retries
+- **Meilisearch / Valkey**
+  - Keep query co
