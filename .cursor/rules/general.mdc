@@ -1,0 +1,55 @@
+---
+description: "Shared rules for config, testing, and documentation."
+globs:
+  - "cmd/**"
+  - "internal/**"
+  - "frontend/**"
+  - "config/**"
+  - "migrations/**"
+  - "docs/**"
+  - "*.go"
+  - "Makefile"
+  - "Taskfile.yaml"
+alwaysApply: true
+tags:
+  - shared
+  - config
+  - testing
+  - docs
+---
+
+# Shared Practices
+
+- Keep configuration explicit: document required env/TOML keys near usage, fail fast when missing, never commit secrets.
+- Align local and production config shapes; prefer safe defaults.
+- Tests stay fast and deterministic; add/update unit tests when behavior changes; run integration tests only when touching infra boundaries.
+- Prefer small, table-style cases for services/stores where useful.
+- Update existing docs/config examples when API or config shapes change; keep notes brief.
+
+## Code Review Guidelines
+- Review changes for security implications and performance impact
+- Ensure new code follows established patterns and architecture principles
+- Check for proper error handling and input validation
+- Verify tests are included for new functionality
+- Confirm documentation is updated for API/behavior changes
+
+## Git Workflow
+- Use descriptive commit messages following conventional format
+- Keep commits focused and atomic; avoid large, multi-purpose commits
+- Use feature branches for new development; merge via pull requests
+- Run tests and linting before pushing changes
+- Squash commits when merging to maintain clean history
+
+## Dependency Management
+- Regularly update dependencies for security patches and bug fixes
+- Evaluate new dependencies critically; prefer small, focused libraries
+- Use lockfiles (go.sum, package-lock.json) to ensure reproducible builds
+- Audit dependencies for vulnerabilities using automated tools
+- Remove unused dependencies to keep the project lean
+
+## Monitoring & Alerting
+- Implement health checks for all services and external dependencies
+- Set up alerts for critical failures (database connectivity, message processing)
+- Monitor performance metrics (response times, error rates, resource usage)
+- Use structured logging with correlation IDs for request tracing
+- Establish runbooks for common incident response scenarios

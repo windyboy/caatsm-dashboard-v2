@@ -51,5 +51,23 @@
 
 - 导出类型、接口和函数：必须提供简短 GoDoc 注释，说明用途和关键行为。
 - 对于复杂逻辑（尤其是查询、时间窗口、流式处理）：
-  - 注释说明“为什么要这样做”（业务原因、边界条件），而不是机械重复“做了什么”。
+  - 注释说明"为什么要这样做"（业务原因、边界条件），而不是机械重复"做了什么"。
 - 临时调试代码使用完后应删除，不要残留到最终提交。
+
+## 6. Error Handling
+
+- Wrap errors with `%w` verb: `fmt.Errorf("operation failed: %w", err)`
+- Domain errors return as-is, do not wrap
+- Infrastructure errors must be wrapped with operation context
+- Application services wrap infrastructure errors with business context
+
+Examples:
+```go
+// Domain error - return directly
+return ErrInvalidInput{Field: "id", Reason: "cannot be empty"}
+
+// Infrastructure error - wrap with operation context
+if err := db.Query(ctx, query); err != nil {
+    return fmt.Errorf("database query failed: %w", err)
+}
+```

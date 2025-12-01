@@ -36,3 +36,30 @@
 - 跨层共享数据时，优先使用：
   - Application 层中的 Domain 类型（如 `app.Telegram`）；
   - 或为跨层交互专门设计的 DTO 类型。
+
+## 5. Common Violations
+
+❌ **Wrong**: Handler directly depends on Infrastructure
+```go
+// Handler
+store := persistence.New(pool)  // Skips Application layer
+result := store.Search(ctx, filters)
+```
+
+✅ **Correct**: Handler → Application Service → Repository
+```go
+// Handler
+result, err := service.Search(ctx, filters)  // Through Application
+```
+
+❌ **Wrong**: Application layer imports Infrastructure
+```go
+import "database/sql"  // Violates dependency rules
+```
+
+✅ **Correct**: Application layer depends only on Port interfaces
+```go
+type Container struct {
+    Repo Repository  // Interface, not concrete implementation
+}
+```

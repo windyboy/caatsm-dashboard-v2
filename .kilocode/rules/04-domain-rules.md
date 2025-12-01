@@ -32,7 +32,11 @@ Domain 逻辑文件（如 `telegram.go`, `filters.go`, `query.go`）中：
   - 不访问网络
 - 日志：
   - 可以记录基础错误信息，但不要依赖 HTTP 状态码等上层概念。
-- 如需当前时间，优先通过上层注入（例如传入 `now time.Time`），而不是在深层函数中到处直接调用 `time.Now()`。
+- Time handling:
+  - Accept `time.Time` as parameter instead of calling `time.Now()` directly
+  - Example: `func (e *Entity) Validate(now time.Time) error`
+  - Use zero value check for backward compatibility: `if now.IsZero() { now = time.Now() }`
+  - Enables deterministic testing with fixed time values
 
 **注意**：虽然 Domain 逻辑在 `internal/app/` 包中，但 Domain 相关的文件（如 `telegram.go`, `filters.go`）应保持纯业务逻辑，只依赖 Go 标准库。Application 服务文件（如 `dashboard.go`, `search.go`）可以依赖端口接口和基础设施。
 

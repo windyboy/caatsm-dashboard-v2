@@ -53,3 +53,31 @@
 - 测试用例命名应表达具体场景，例如：
   - `TestTimeRange_Validate_MaxWindowExceeded`
   - `TestDashboardService_StreamMessages_SlowClientCancelled`
+
+## 7. Table-Driven Tests
+
+Use table-driven tests for multiple scenarios:
+
+```go
+func TestEntity_Validate(t *testing.T) {
+    tests := []struct {
+        name    string
+        entity  Entity
+        wantErr bool
+    }{
+        {"valid", Entity{ID: "1", Name: "test"}, false},
+        {"empty id", Entity{ID: "", Name: "test"}, true},
+        {"invalid", Entity{ID: "1", Name: ""}, true},
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := tt.entity.Validate()
+            if tt.wantErr {
+                require.Error(t, err)
+            } else {
+                require.NoError(t, err)
+            }
+        })
+    }
+}
+```

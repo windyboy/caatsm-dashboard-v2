@@ -51,3 +51,10 @@
 - 新增模块优先按照业务模块划分，而不是按技术：
   - 例如：`dashboard`、`search`、`sync`、`stats`、`export`。
 - Domain 逻辑文件（如 `telegram.go`, `filters.go`）应保持纯业务逻辑，只依赖 Go 标准库。
+
+## 5. Service Boundaries
+
+- Split services when:
+  - Public methods exceed 10 → split by functionality
+  - Service handles multiple distinct domains → split by domain
+- Service naming: Use `*Service` suffix (e.g., `UserService`, `OrderService`)

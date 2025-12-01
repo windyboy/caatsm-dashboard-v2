@@ -2,15 +2,31 @@
 
 > 本项目包含实时 WebSocket 以及大体量 CSV 流式导出，这些都是一等公民。AI 在实现相关功能时必须格外注意资源和边界。
 
-## 1. 统一抽象思想
+## 1. Streaming Pattern
 
-Streaming 相关代码应尽量围绕几个统一概念设计：
+Use Go channels for streaming operations:
 
-- 数据源（`StreamSource`）：封装从 DB / Search / 其他接口按批读取数据。
-- 数据块（`StreamChunk`）：单次推送或写出的一批数据行。
-- 写出器（`StreamWriter`）：封装向 WebSocket / HTTP Response 写入数据块的逻辑。
+- Repository methods return channels: `Stream(ctx, filters) (<-chan Entity, <-chan error)`
+- Producer closes channels to signal completion
+- Consumer must concurrently consume both channels
+- Use `select` to handle channels and context cancellation
 
-所有新实现应优先复用或对齐这些抽象，而不是每个 handler 自己写一套循环。
+Example:
+```go
+items, errors := repo.Stream(ctx, filters)
+for {
+    select {
+    case item, ok := <-items:
+        if !ok { return }
+        // process item
+    case err, ok := <-errors:
+        if !ok { return }
+        if err != nil { return err }
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+}
+```
 
 ## 2. Delivery 层职责
 

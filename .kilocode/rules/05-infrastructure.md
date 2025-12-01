@@ -52,3 +52,9 @@
 - Application 层负责：
   - 定义某个 use case 是否需要事务；
   - 决定在一个 use case 中需要执行哪些仓储操作，由 infra 提供相应 API。
+
+## 5. Context Requirements
+
+- All external calls must accept `context.Context` as first parameter
+- Use context for cancellation, timeout, and deadline control
+- Example: `func (r *Repository) Save(ctx context.Context, entity Entity) error`
