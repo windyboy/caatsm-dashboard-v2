@@ -155,6 +155,9 @@
     aria-live="polite"
     aria-atomic="false"
     aria-relevant="additions"
+    tabindex="0"
+    role="region"
+    aria-label="Live telegram messages"
   >
     {#if typedMessages.length === 0}
       <div class="empty-state">

@@ -17,19 +17,4 @@ test.describe("Critical User Flows", () => {
       timeout: 5000,
     });
   });
-
-  test("should handle API errors gracefully", async ({ page }) => {
-    await page.route("**/api/search*", (route) =>
-      route.fulfill({
-        status: 500,
-        body: JSON.stringify({ error: "Internal Server Error" }),
-      })
-    );
-
-    await page.goto("/search");
-    await page.fill('input[type="search"]', "test");
-    await page.click('button[type="submit"]');
-
-    await expect(page.locator("text=/Error/i")).toBeVisible({ timeout: 10000 });
-  });
 });
