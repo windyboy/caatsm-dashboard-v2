@@ -349,10 +349,12 @@ func handleError(c echo.Context, err error) error {
 		case stdErrors.Is(err, app.ErrUnauthorized):
 			apiErr = app.ErrUnauthorized
 		default:
-			// Check for custom domain errors
-			if invalidTelegram, ok := err.(app.ErrInvalidTelegram); ok {
+			// Check for custom domain errors (use errors.As to handle wrapped errors)
+			var invalidTelegram app.ErrInvalidTelegram
+			var invalidFilter app.ErrInvalidFilter
+			if stdErrors.As(err, &invalidTelegram) {
 				apiErr = invalidTelegram.ToAPIError()
-			} else if invalidFilter, ok := err.(app.ErrInvalidFilter); ok {
+			} else if stdErrors.As(err, &invalidFilter) {
 				apiErr = invalidFilter.ToAPIError()
 			} else {
 				// Default to internal error for unknown errors

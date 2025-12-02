@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	redisclient "github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
@@ -21,7 +22,7 @@ func NewRedisContainer(ctx context.Context) (*RedisContainer, error) {
 	redisContainer, err := rediscontainer.Run(ctx, "valkey/valkey:9-alpine",
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Ready to accept connections").
-				WithStartupTimeout(30),
+				WithStartupTimeout(60*time.Second),
 		),
 	)
 	if err != nil {

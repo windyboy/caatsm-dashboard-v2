@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -23,7 +24,7 @@ func NewMeiliContainer(ctx context.Context) (*MeiliContainer, error) {
 		Env: map[string]string{
 			"MEILI_MASTER_KEY": "testmasterkey",
 		},
-		WaitingFor: wait.ForHTTP("/health").WithPort("7700/tcp").WithStartupTimeout(30),
+		WaitingFor: wait.ForHTTP("/health").WithPort("7700/tcp").WithStartupTimeout(60*time.Second),
 	}
 
 	meiliContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
