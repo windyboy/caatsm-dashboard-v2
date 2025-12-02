@@ -4,39 +4,43 @@ tasks:
   default:
     desc: "Build the application"
     cmds:
-      - task: build
+      - task: backend:build
 
-  build:
+  # Backend - Build
+  backend:build:
     desc: "Build the API server binary"
     cmds:
       - go build -buildvcs=false -o bin/caatsm ./cmd/server
 
-  test:
+  # Backend - Testing
+  backend:test:
     desc: "Run all Go tests with coverage"
     cmds:
       - go test -cover ./...
 
-  test:unit:
-    desc: "Run unit tests (short)"
+  backend:test:unit:
+    desc: "Run unit tests only (short)"
     cmds:
       - go test -short ./...
 
-  test:integration:
+  backend:test:integration:
     desc: "Run integration tests only"
     cmds:
       - go test -tags=integration ./...
 
-  test:race:
+  backend:test:race:
     desc: "Run tests with race detector"
     cmds:
       - go test -race ./...
 
-  lint:
+  # Backend - Code Quality
+  backend:lint:
     desc: "Run golangci-lint"
     cmds:
       - golangci-lint run ./...
 
-  dev:
+  # Backend - Development
+  backend:dev:
     desc: "Run backend with hot reload (air if available, else go run)"
     cmds:
       - |
@@ -47,10 +51,37 @@ tasks:
           go run ./cmd/server -config ${CAATSM_CONFIG:-config/config.local.toml}
         fi
 
-  dev:run:
-    desc: "Run backend with local config"
+  backend:dev:run:
+    desc: "Run backend server directly (no hot reload)"
     cmds:
       - go run ./cmd/server -config ${CAATSM_CONFIG:-config/config.local.toml}
+
+  # Backend - Database
+  backend:migrate:
+    desc: "Run database migrations with goose"
+    cmds:
+      - goose -dir migrations postgres "${CAATSM_DATABASE_DSN:-postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable}" up
+
+  # Backend - Utilities
+  backend:generate-test-data:
+    desc: "Generate sample telegram data (50 records)"
+    cmds:
+      - go run ./cmd/generate-test-data -count 50
+
+  backend:publish-stream:
+    desc: "Publish live messages to NATS"
+    cmds:
+      - go run ./cmd/publish-stream -config ${CAATSM_CONFIG:-config/config.local.toml} ${CLI_ARGS:-}
+
+  backend:publish-stream:fast:
+    desc: "Publish messages quickly (1/sec, 50 total)"
+    cmds:
+      - CLI_ARGS="-interval 1s -total 50" task backend:publish-stream
+
+  backend:publish-stream:slow:
+    desc: "Publish messages slowly (5 sec interval)"
+    cmds:
+      - CLI_ARGS="-interval 5s" task backend:publish-stream
 
   # Installation
   install:
@@ -75,17 +106,18 @@ tasks:
         fi
 
   frontend:install:
-    desc: "Cache frontend dependencies with Deno (or npm fallback)"
+    desc: "Install frontend dependencies (npm + Deno cache)"
     dir: frontend
     cmds:
       - |
+        echo "Installing frontend dependencies..."
+        npm install --no-save
         if command -v deno >/dev/null 2>&1; then
-          echo "Caching frontend dependencies with Deno..."
-          deno cache vite.config.ts svelte.config.js vitest.config.ts playwright.config.ts src/**/*.ts src/**/*.svelte || true
-          echo "Frontend dependencies cached."
+          echo "Caching TypeScript files with Deno..."
+          deno cache vite.config.ts svelte.config.js vitest.config.ts playwright.config.ts src/**/*.ts 2>/dev/null || true
+          echo "Dependencies installed and cached."
         else
-          echo "Deno not found, using npm..."
-          npm install
+          echo "Dependencies installed (Deno not available for caching)."
         fi
 
   frontend:setup:
@@ -173,36 +205,7 @@ tasks:
           echo ".env.local already exists"
         fi
 
-  migrate:
-    desc: "Run database migrations with goose"
-    cmds:
-      - goose -dir migrations postgres "${CAATSM_DATABASE_DSN:-postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable}" up
 
-  # Utilities
-  generate-test-data:
-    desc: "Generate sample telegram data (50 records)"
-    cmds:
-      - go run ./cmd/generate-test-data -count 50
-
-  publish-stream:
-    desc: "Publish live messages to NATS"
-    cmds:
-      - go run ./cmd/publish-stream -config ${CAATSM_CONFIG:-config/config.local.toml} ${CLI_ARGS:-}
-
-  publish-stream:fast:
-    desc: "Publish messages quickly (1/sec, 50 total)"
-    cmds:
-      - CLI_ARGS="-interval 1s -total 50" task publish-stream
-
-  publish-stream:slow:
-    desc: "Publish messages slowly (5 sec interval)"
-    cmds:
-      - CLI_ARGS="-interval 5s" task publish-stream
-
-  sync:
-    desc: "Run the sync worker to process NATS messages"
-    cmds:
-      - go run ./cmd/sync -config ${CAATSM_CONFIG:-config/config.local.toml}
 
   docker:build:
     desc: "Build Docker image"

@@ -30,6 +30,7 @@ type Client struct {
 }
 
 // NewClient creates a new client connection.
+// Note: hub parameter is kept for backward compatibility but may be removed in future.
 func NewClient(conn *websocket.Conn, hub *Hub, logger *zap.Logger) *Client {
 	bufferSize := defaultClientBufferSize
 	if hub.Config.ClientBufferSize > 0 {

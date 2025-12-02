@@ -103,8 +103,8 @@ func (b *EventBroadcaster) StartRedisListener() {
 	}
 	b.logger.Info("redis connection verified")
 
-	b.logger.Info("subscribing to Redis channel", zap.String("channel", "stats:update"))
-	pubsub := b.redisCli.Subscribe(b.ctx, "stats:update")
+	b.logger.Info("subscribing to Redis channel", zap.String("channel", "msg:broadcast"))
+	pubsub := b.redisCli.Subscribe(b.ctx, "msg:broadcast")
 	defer func() {
 		if err := pubsub.Close(); err != nil {
 			b.logger.Warn("error closing pubsub", zap.Error(err))
@@ -115,7 +115,7 @@ func (b *EventBroadcaster) StartRedisListener() {
 
 	// Subscription is confirmed when Subscribe() returns successfully
 	// pubsub.Channel() will automatically handle subscription confirmation
-	b.logger.Info("redis listener subscribed and ready", zap.String("channel", "stats:update"))
+	b.logger.Info("redis listener subscribed and ready", zap.String("channel", "msg:broadcast"))
 
 	ch := pubsub.Channel()
 
@@ -132,7 +132,7 @@ func (b *EventBroadcaster) StartRedisListener() {
 			}
 			if msg != nil {
 				// Process messages from the subscribed channel
-				if msg.Channel == "stats:update" && msg.Payload != "" {
+				if msg.Channel == "msg:broadcast" && msg.Payload != "" {
 					// Verify it's valid JSON before broadcasting
 					var eventData map[string]any
 					if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
@@ -142,6 +142,8 @@ func (b *EventBroadcaster) StartRedisListener() {
 							zap.String("event_type", eventType),
 							zap.Int("payload_size", len(msg.Payload)))
 
+						// Broadcast via hub (if available) or directly
+						// Note: EventBroadcaster is legacy, new code should use RealtimeService
 						b.Broadcast([]byte(msg.Payload))
 						b.mu.RLock()
 						clientCount := len(b.clients)
@@ -159,7 +161,7 @@ func (b *EventBroadcaster) StartRedisListener() {
 					b.logger.Debug("ignored message",
 						zap.String("channel", msg.Channel),
 						zap.Bool("has_payload", msg.Payload != ""),
-						zap.String("expected_channel", "stats:update"))
+						zap.String("expected_channel", "msg:broadcast"))
 				}
 			}
 		}
@@ -182,7 +184,7 @@ func (b *EventBroadcaster) PublishStatsUpdate(ctx context.Context) error {
 		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	return b.redisCli.Publish(ctx, "stats:update", data).Err()
+	return b.redisCli.Publish(ctx, "msg:broadcast", data).Err()
 }
 
 // Close shuts down the broadcaster and waits for goroutines to finish.

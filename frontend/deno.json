@@ -19,7 +19,9 @@
     "@vitest/ui": "npm:@vitest/ui@1",
     "@testing-library/svelte": "npm:@testing-library/svelte@5",
     "@testing-library/jest-dom": "npm:@testing-library/jest-dom@6",
-    "jsdom": "npm:jsdom@23"
+    "jsdom": "npm:jsdom@23",
+    "isomorphic-dompurify": "npm:isomorphic-dompurify@2",
+    "web-vitals": "npm:web-vitals@5"
   },
   "tasks": {
     "dev": "deno run -A npm:vite@6 dev",

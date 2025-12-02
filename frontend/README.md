@@ -100,6 +100,6 @@ The frontend uses the following key dependencies:
 - **Dev server cannot reach backend**: ensure the backend listens on port 3002.
 - **WebSocket fails**: confirm `VITE_WS_URL` matches backend host and that `websocket.allowed_origins` in backend config includes the frontend origin.
 - **Type errors on fresh clone**: run `deno cache --reload` or `npm install` before starting dev.
-- **Live data missing**: run the sync worker and publish sample messages (`task publish-stream:fast`).
+- **Live data missing**: ensure backend is running and publish sample messages (`task backend:publish-stream:fast`).
 
 Keep the backend running alongside the frontend for a complete experience.

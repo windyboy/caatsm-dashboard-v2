@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
@@ -231,13 +232,13 @@ func (h *Hub) handleBroadcast(message []byte) {
 	}
 }
 
-// Register adds a new client to the hub.
-func (h *Hub) Register(client *Client) {
+// RegisterClient adds a new client to the hub (internal method).
+func (h *Hub) RegisterClient(client *Client) {
 	h.register <- client
 }
 
-// Broadcast sends a message to all connected clients.
-func (h *Hub) Broadcast(message []byte) {
+// BroadcastBytes sends a message to all connected clients (internal method).
+func (h *Hub) BroadcastBytes(message []byte) {
 	select {
 	case h.broadcast <- message:
 	default:
@@ -253,7 +254,7 @@ func (h *Hub) BroadcastJSON(msg *Message) error {
 	if err != nil {
 		return fmt.Errorf("marshal message: %w", err)
 	}
-	h.Broadcast(data)
+	h.BroadcastBytes(data)
 	return nil
 }
 
@@ -262,6 +263,47 @@ func (h *Hub) GetClientCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
+}
+
+// Ensure Hub implements app.WebSocketHubPort
+var _ app.WebSocketHubPort = (*Hub)(nil)
+
+// Register implements app.WebSocketHubPort.Register.
+func (h *Hub) Register(client interface{}) error {
+	wsClient, ok := client.(*Client)
+	if !ok {
+		return fmt.Errorf("client must be of type *Client")
+	}
+	h.register <- wsClient
+	return nil
+}
+
+// Unregister implements app.WebSocketHubPort.Unregister.
+func (h *Hub) Unregister(client interface{}) {
+	if wsClient, ok := client.(*Client); ok {
+		h.unregister <- wsClient
+	}
+}
+
+// Broadcast implements app.WebSocketHubPort.Broadcast.
+func (h *Hub) Broadcast(message app.WSMessage) error {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
+	select {
+	case h.broadcast <- data:
+		return nil
+	default:
+		h.logger.Warn("broadcast channel full, message dropped")
+		h.metrics.messagesDroppedAdd(1)
+		return fmt.Errorf("broadcast channel full")
+	}
+}
+
+// GetActiveConnections implements app.WebSocketHubPort.GetActiveConnections.
+func (h *Hub) GetActiveConnections() int {
+	return h.GetClientCount()
 }
 
 // GetIPConnectionCount returns the number of connections for a given IP.

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { get } from "svelte/store";
-import { messages } from "../../src/lib/stores/messages";
-import { stats } from "../../src/lib/stores/stats";
-import type { Telegram } from "../../src/lib/utils/types";
+import { messages } from "$lib/stores/messages";
+import { stats } from "$lib/stores/stats";
+import type { Telegram } from "$lib/utils/types";
 
 describe("messages store", () => {
   beforeEach(() => {

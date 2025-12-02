@@ -18,6 +18,7 @@ import (
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/streaming"
 	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
@@ -28,13 +29,23 @@ import (
 
 // Server wraps echo.Echo with configuration and shared dependencies.
 type Server struct {
-	e           *echo.Echo
-	cfg         *config.AppConfig
-	logger      *zap.Logger
-	container   *app.Container
-	metrics     *observability.MetricsExporter
-	broadcaster *deliveryws.EventBroadcaster
-	hub         *ws.Hub
+	e                *echo.Echo
+	cfg              *config.AppConfig
+	logger           *zap.Logger
+	container        *app.Container
+	metrics          *observability.MetricsExporter
+	broadcaster      *deliveryws.EventBroadcaster
+	hub              *ws.Hub
+	ingestionSvc     *service.IngestionService
+	indexerSvc       *service.IndexerService
+	realtimeSvc      *service.RealtimeService
+	adminSvc         *service.AdminService
+	ingestionCtx     context.Context
+	ingestionCancel  context.CancelFunc
+	indexerCtx       context.Context
+	indexerCancel    context.CancelFunc
+	realtimeCtx      context.Context
+	realtimeCancel   context.CancelFunc
 }
 
 // New constructs a Server instance and wires base middleware/routes.
@@ -110,7 +121,8 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	}
 
 	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
-	eventBus := event.NewRedisEventBus(redisCli, "stats:update")
+	// Update to use msg:broadcast channel
+	eventBus := event.NewRedisEventBus(redisCli, "msg:broadcast")
 	eventPublisher := event.NewEventPublisherAdapter(eventBus)
 
 	// Create event broadcaster for WebSocket (before assigning to container)
@@ -119,6 +131,19 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	go broadcaster.StartRedisListener()
 	logger.Info("started Redis listener goroutine")
 
+	// Create Redis Streams publisher and consumer
+	streamPublisher := streaming.NewRedisStreamPublisher(redisCli, logger)
+	streamConsumer := streaming.NewRedisStreamConsumer(
+		redisCli,
+		"job:index",
+		"indexer-group",
+		"indexer-consumer",
+		logger,
+	)
+
+	// Create Redis Pub/Sub subscriber
+	eventSubscriber := event.NewRedisSubscriber(redisCli, logger)
+
 	// Only assign to container after all initializations succeed
 	// This transfers ownership and prevents double-close
 	container.Repo = store
@@ -126,6 +151,9 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	container.Search = meiliIndex
 	container.Pub = eventPublisher
 	container.EventBus = eventBus
+	container.EventSub = eventSubscriber
+	container.StreamPub = streamPublisher
+	container.RedisStreamCons = streamConsumer
 
 	// Set client references for health checks
 	container.SetInfrastructureClients(pool, meiliSvc, redisCli)
@@ -166,6 +194,50 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 
 	container.DashboardService = dashboardSvc
 
+	// Initialize NATS connection for ingestion
+	nc, js, err := streaming.Connect(initCtx, cfg.NATS)
+	if err != nil {
+		cleanup()
+		return nil, fmt.Errorf("connect nats: %w", err)
+	}
+	// Note: NATS connection will be closed when ingestion service stops
+	// We don't need to defer close here as it's managed by the service lifecycle
+
+	// Create NATS consumer
+	natsConsumer := streaming.NewNATSConsumer(js, cfg.NATS.Stream, cfg.NATS.Consumer)
+
+	// Create WebSocket hub
+	hubConfig := ws.DefaultConfig()
+	wsHub := ws.NewHub(hubConfig, logger)
+	container.WebSocketHub = wsHub
+
+	// Create services
+	ingestionSvc := service.NewIngestionService(
+		natsConsumer,
+		store,
+		eventPublisher,
+		streamPublisher,
+		logger,
+	)
+
+	indexerSvc := service.NewIndexerService(
+		streamConsumer,
+		meiliIndex,
+		logger,
+	)
+
+	realtimeSvc := service.NewRealtimeService(
+		eventSubscriber,
+		wsHub,
+		logger,
+	)
+
+	adminSvc := service.NewAdminService(
+		store,
+		streamPublisher,
+		logger,
+	)
+
 	// Only create metrics exporter if metrics are enabled
 	var metricsExporter *observability.MetricsExporter
 	if cfg.Metrics.Enabled {
@@ -176,13 +248,22 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	}
 
 	s := &Server{
-		e:           e,
-		cfg:         cfg,
-		logger:      logger,
-		container:   container,
-		metrics:     metricsExporter,
-		broadcaster: broadcaster,
+		e:            e,
+		cfg:          cfg,
+		logger:       logger,
+		container:    container,
+		metrics:      metricsExporter,
+		broadcaster:  broadcaster,
+		hub:          wsHub,
+		ingestionSvc: ingestionSvc,
+		indexerSvc:   indexerSvc,
+		realtimeSvc:  realtimeSvc,
+		adminSvc:     adminSvc,
 	}
+	
+	// Store NATS connection for cleanup (if needed)
+	// The connection is managed by the ingestion service, but we keep a reference
+	_ = nc
 
 	s.registerRoutes()
 	return s, nil
@@ -198,6 +279,36 @@ func (s *Server) Start(ctx context.Context) error {
 	s.logger.Info("starting HTTP server",
 		zap.String("host", s.cfg.Server.Host),
 		zap.Int("port", s.cfg.Server.Port),
+	)
+
+	// Create contexts for background services
+	s.ingestionCtx, s.ingestionCancel = context.WithCancel(ctx)
+	s.indexerCtx, s.indexerCancel = context.WithCancel(ctx)
+	s.realtimeCtx, s.realtimeCancel = context.WithCancel(ctx)
+
+	// Start background services
+	go func() {
+		if err := s.ingestionSvc.Start(s.ingestionCtx); err != nil {
+			s.logger.Error("ingestion service error", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		if err := s.indexerSvc.Start(s.indexerCtx); err != nil {
+			s.logger.Error("indexer service error", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		if err := s.realtimeSvc.Start(s.realtimeCtx); err != nil {
+			s.logger.Error("realtime service error", zap.Error(err))
+		}
+	}()
+
+	s.logger.Info("background services started",
+		zap.Bool("ingestion", true),
+		zap.Bool("indexer", true),
+		zap.Bool("realtime", true),
 	)
 
 	httpServer := &http.Server{
@@ -249,8 +360,23 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 		s.logger.Info("HTTP server stopped successfully")
 	}
 
-	// Step 2: Cancel worker contexts and wait for goroutines to finish
-	s.logger.Info("step 2: stopping worker goroutines (broadcaster, hub)")
+	// Step 2: Stop background services
+	s.logger.Info("step 2: stopping background services")
+	if s.ingestionCancel != nil {
+		s.ingestionCancel()
+		s.logger.Info("ingestion service stopped")
+	}
+	if s.indexerCancel != nil {
+		s.indexerCancel()
+		s.logger.Info("indexer service stopped")
+	}
+	if s.realtimeCancel != nil {
+		s.realtimeCancel()
+		s.logger.Info("realtime service stopped")
+	}
+
+	// Step 3: Cancel worker contexts and wait for goroutines to finish
+	s.logger.Info("step 3: stopping worker goroutines (broadcaster, hub)")
 	if s.broadcaster != nil {
 		s.broadcaster.Close() // Cancels context and waits for goroutine via WaitGroup
 		s.logger.Info("broadcaster stopped successfully")
@@ -260,14 +386,14 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 		s.logger.Info("WebSocket hub stopped successfully")
 	}
 
-	// Step 3: Flush metrics (before closing downstream connections)
+	// Step 4: Flush metrics (before closing downstream connections)
 	if s.metrics != nil {
-		s.logger.Info("step 3: flushing metrics")
+		s.logger.Info("step 4: flushing metrics")
 		// Metrics are pulled via Prometheus, no explicit flush needed
 		s.logger.Info("metrics flushed (pull-based, no action required)")
 	}
 
-	// Step 4: Close container-managed resources (DB pool, Redis, etc.)
+	// Step 5: Close container-managed resources (DB pool, Redis, etc.)
 	// This should be done after workers complete to avoid connection errors
 	s.logger.Info("step 4: closing container resources (DB pool, Redis)")
 	if err := s.container.Close(); err != nil {
@@ -277,7 +403,7 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 		s.logger.Info("container resources closed successfully")
 	}
 
-	// Step 5: Report shutdown completion
+	// Step 6: Report shutdown completion
 	if len(shutdownErrors) > 0 {
 		s.logger.Error("graceful shutdown completed with errors",
 			zap.Int("error_count", len(shutdownErrors)))
@@ -306,13 +432,15 @@ func (s *Server) registerRoutes() {
 	// Use new delivery layer handlers (simplified architecture)
 	// Type assertion: DashboardService from container should implement the handler interface
 	dashboardSvc := s.container.DashboardService.(deliveryhttp.DashboardService)
+	handler := deliveryhttp.NewHandler(dashboardSvc, s.logger)
+	handler.SetAdminService(s.adminSvc)
 	deliveryhttp.RegisterRoutes(s.e, dashboardSvc, s.logger)
+	// Register admin routes separately since handler is already created
+	adminGroup := s.e.Group("/api/admin")
+	adminGroup.POST("/reindex", handler.Reindex)
 	s.logger.Info("registered HTTP handlers in delivery layer")
 
-	// Register WebSocket handler using transport layer with configured allowed origins
-	// Create WebSocket hub with default configuration
-	hubConfig := ws.DefaultConfig()
-	s.hub = ws.NewHub(hubConfig, s.logger)
+	// WebSocket hub already created in New()
 
 	// Create adapters for stats and query services
 	statsAdapter := &statsServiceAdapter{

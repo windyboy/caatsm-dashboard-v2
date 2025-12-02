@@ -5,7 +5,7 @@ CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviatio
 ## Highlights
 
 - Go backend powered by Echo with consistent request validation
-- NATS JetStream ingestion processed by the sync worker
+- NATS JetStream ingestion processed by the ingestion service (integrated in main server)
 - PostgreSQL (TimescaleDB-compatible image) storage via pgx
 - Meilisearch full-text search with typed autocomplete suggestions
 - Valkey/Redis cache for stats, counters, and realtime fan-out
@@ -33,7 +33,7 @@ Extra support packages:
 
 - `internal/observability/`
 - `internal/server/`
-- `internal/sync/`
+- `internal/service/` (includes ingestion and indexer services)
 - `internal/testing/`
 
 ## Requirements
@@ -86,7 +86,9 @@ Extra support packages:
 5. Run migrations:
 
    ```
-   task migrate
+   make backend-migrate
+   # or
+   task backend:migrate
    # or
    goose -dir migrations postgres "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable" up
    ```
@@ -94,7 +96,9 @@ Extra support packages:
 6. Start backend with hot reload:
 
    ```
-   make dev
+   make backend-dev
+   # or
+   task backend:dev
    ```
 
 7. Start frontend:
@@ -122,11 +126,12 @@ caatsm-dashboard/
 └── Makefile / Taskfile # Task runners
 ```
 
-See `docs/ARCHITECTURE.md` for deep detail.
+See `docs/architecture.md` for deep detail.
 
 ## Running the Backend
 
-- `make dev` starts the API with Air hot reload.
+- `make backend-dev` / `task backend:dev` starts the API with Air hot reload.
+- `make backend-dev-run` / `task backend:dev:run` runs the server directly (no hot reload).
 - Binary output lives in `./bin/`.
 - Run without hot reload:
 
@@ -169,15 +174,17 @@ The dev server proxies API calls to `http://localhost:3002`.
   - Auth enabled
   - Proper database DSN
 
-See `docs/configuration.md` for templates and secret manager examples.
+See `docs/configuration.md` for configuration details.
 
 ## Data Flow Summary
 
 1. Messages enter NATS JetStream.
-2. Sync worker consumes, validates, and stores them in Postgres and Meilisearch.
-3. Application services read from Postgres, cache hot data in Valkey, and push stats.
-4. Delivery layer exposes REST and WebSocket endpoints.
-5. Frontend receives updates in real time.
+2. Ingestion service (in main server) consumes, validates, and stores them in Postgres.
+3. Messages are published to Redis Pub/Sub for real-time updates and Redis Streams for indexing.
+4. Indexer service (in main server) consumes from Redis Streams and updates Meilisearch.
+5. Application services read from Postgres, cache hot data in Valkey, and push stats.
+6. Delivery layer exposes REST and WebSocket endpoints.
+7. Frontend receives updates in real time via WebSocket.
 
 ## Database Notes
 
@@ -190,10 +197,10 @@ See `docs/configuration.md` for templates and secret manager examples.
 ### Backend
 
 ```
-make test             # run all tests
-make test-unit        # unit tests
-make test-integration # integration (requires Docker)
-make test-race        # go test with race detector
+make backend-test             # run all tests
+make backend-test-unit        # unit tests
+make backend-test-integration # integration (requires Docker)
+make backend-test-race        # go test with race detector
 ```
 
 Run specific packages:
@@ -217,39 +224,42 @@ deno task test
 deno task test:unit
 ```
 
-More guidance in `TESTING.md`.
+More guidance in `testing.md`.
 
 ## Useful Commands
 
 Using Makefile:
 
-- `make build`
-- `make lint`
-- `make docker-build`
-- `make docker-up`
-- `make docker-down`
-- `make clean`
-- `make help`
-
+- `make backend-build` - Build the API server binary
+- `make backend-dev` - Start backend with hot reload
+- `make backend-dev-run` - Run backend server directly
+- `make backend-test` - Run all Go tests
+- `make backend-test-unit` - Run unit tests only
+- `make backend-test-integration` - Run integration tests
+- `make backend-lint` - Run golangci-lint
+- `make backend-migrate` - Run database migrations
+- `make backend-generate-test-data` - Generate sample telegram data
+- `make backend-publish-stream` - Publish live messages to NATS
+- `make docker-build` - Build Docker image
+- `make docker-up` - Start docker-compose stack
+- `make docker-down` - Stop docker-compose stack
+- `make clean` - Remove build artifacts
+- `make help` - Show all available commands
 
 Using Taskfile:
 
-
-
-- `task build`
-
-- `task dev`
-
-- `task dev:run`
-- `task lint`
-
-- `task migrate`
-
-- `task dev:up`
-- `task dev:down`
-- `task generate-test-data`
-
-- `task publish-stream` (slow/fast variants available)
+- `task backend:build` - Build the API server binary
+- `task backend:dev` - Start backend with hot reload
+- `task backend:dev:run` - Run backend server directly
+- `task backend:test` - Run all Go tests
+- `task backend:test:unit` - Run unit tests only
+- `task backend:test:integration` - Run integration tests
+- `task backend:lint` - Run golangci-lint
+- `task backend:migrate` - Run database migrations
+- `task backend:generate-test-data` - Generate sample telegram data
+- `task backend:publish-stream` - Publish live messages to NATS (slow/fast variants available)
+- `task dev:up` - Start development dependencies
+- `task dev:down` - Stop development dependencies
 
 
 
@@ -313,7 +323,7 @@ docker run -d \
 - Supply real secrets through environment variables or a secret manager.
 - Enable TLS.
 - Run migrations before startup.
-- Build frontend (`task frontend:build`) and backend (`make build`).
+- Build frontend (`task frontend:build`) and backend (`make backend-build`).
 - Serve static files from `frontend/build`.
 - Configure rate limiting and CORS.
 
@@ -362,7 +372,7 @@ See `docs/troubleshooting.md` for checklists on:
 1. Fork the repo.
 2. Create a feature branch.
 3. Make changes following Clean Architecture rules.
-4. Run `make lint` and `make test`.
+4. Run `make backend-lint` and `make backend-test`.
 5. Open a pull request.
 
 ## License

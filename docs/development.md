@@ -47,41 +47,128 @@ task install
 ### 2. Start Development Environment
 
 ```bash
+# Create .env.local from example (if not exists)
+make dev-config
+# or
+task dev:config
+
 # Start all dependencies (Postgres, Meilisearch, NATS, Valkey)
 make dev-up
 # or
 task dev:up
 
+# Verify services are running
+docker compose -f docker-compose.dev.yml ps
+
 # Run database migrations
-task migrate
+make backend-migrate
+# or
+task backend:migrate
 ```
 
 ### 3. Start Development Servers
 
 ```bash
 # Terminal 1: Backend API (with hot reload)
-make dev
+make backend-dev
+# or
+task backend:dev
 
 # Terminal 2: Frontend (with hot reload)
 make frontend-dev
+# or
+task frontend:dev
 ```
 
 ### 4. Access Application
 
 - **Frontend**: http://localhost:5173
 - **API**: http://localhost:3002
-- **API Docs**: http://localhost:3002/api/health
+- **API Health**: http://localhost:3002/api/health
+- **NATS Monitoring**: http://localhost:8222
+- **Meilisearch**: http://localhost:7700
+- **PostgreSQL**: localhost:5432
+- **Redis/Valkey**: localhost:6379
 
 ### 5. Generate Test Data (Optional)
 
 ```bash
-# Generate sample telegrams
-task generate-test-data
+# Generate sample telegrams in database
+make backend-generate-test-data
+# or
+task backend:generate-test-data
 
 # Publish test messages to NATS
-task publish-stream:fast  # 50 messages quickly
-task publish-stream:slow  # Messages every 5 seconds
+make backend-publish-stream-fast  # 50 messages at 1/sec
+# or
+task backend:publish-stream:fast
+
+make backend-publish-stream-slow  # Messages every 5 seconds
+# or
+task backend:publish-stream:slow
 ```
+
+## Development Environment
+
+### Docker Compose Services
+
+The development environment uses `docker-compose.dev.yml` to run dependencies:
+
+- **PostgreSQL 15+ (TimescaleDB)**: Primary database with time-series extensions
+- **Meilisearch 1.5+**: Full-text search engine
+- **NATS 2.12.2**: Message broker with JetStream
+- **Valkey 9**: Redis-compatible cache and pub/sub
+
+All services:
+- Run on the `backend` network
+- Use named volumes for data persistence
+- Include health checks for dependency management
+- Read configuration from `.env.local` if present
+
+### Managing Development Services
+
+```bash
+# Start all services
+make dev-up
+
+# Stop all services
+make dev-down
+
+# View logs
+make dev-logs
+# or for specific service
+docker compose -f docker-compose.dev.yml logs -f postgres
+
+# Check service status
+docker compose -f docker-compose.dev.yml ps
+
+# Restart a specific service
+docker compose -f docker-compose.dev.yml restart postgres
+
+# Remove all data (fresh start)
+make dev-down
+docker volume rm caatsm-dashboard-v2_pg_data_dev
+docker volume rm caatsm-dashboard-v2_meili_data_dev
+docker volume rm caatsm-dashboard-v2_nats_data_dev
+docker volume rm caatsm-dashboard-v2_redis_data_dev
+```
+
+### Environment Configuration
+
+Create `.env.local` from the example:
+
+```bash
+make dev-config
+# or
+task dev:config
+```
+
+Edit `.env.local` to customize:
+- Database credentials
+- Service ports
+- API keys (for development only)
+
+**Note**: Never commit `.env.local` to version control. It's in `.gitignore`.
 
 ## Development Workflow
 
@@ -92,7 +179,6 @@ task publish-stream:slow  # Messages every 5 seconds
 ```
 cmd/
 ├── server/          # Main API server
-├── sync/           # Message ingestion worker
 ├── generate-test-data/
 └── publish-stream/
 
@@ -244,7 +330,9 @@ export class ApiService {
 
 ```bash
 # Run all unit tests
-make test-unit
+make backend-test-unit
+# or
+task backend:test:unit
 # or
 go test -short ./...
 
@@ -260,7 +348,9 @@ go test -cover ./internal/domain
 
 ```bash
 # Run integration tests (requires Docker)
-make test-integration
+make backend-test-integration
+# or
+task backend:test:integration
 # or
 go test -tags=integration ./...
 
@@ -351,11 +441,17 @@ describe('Dashboard', () => {
 
 ```bash
 # Generate sample telegrams in database
-task generate-test-data
+make backend-generate-test-data
+# or
+task backend:generate-test-data
 
 # Publish messages to NATS for testing
-task publish-stream:fast  # 50 messages at 1/sec
-task publish-stream:slow  # Messages every 5 seconds
+make backend-publish-stream-fast  # 50 messages at 1/sec
+# or
+task backend:publish-stream:fast
+make backend-publish-stream-slow  # Messages every 5 seconds
+# or
+task backend:publish-stream:slow
 ```
 
 #### Test Fixtures
@@ -382,7 +478,9 @@ func CreateTestTelegram() *domain.Telegram {
 
 ```bash
 # Run Go linter
-make lint
+make backend-lint
+# or
+task backend:lint
 # or
 golangci-lint run ./...
 
@@ -440,13 +538,18 @@ logger.Info("processing telegram",
 export CAATSM_LOG_LEVEL=debug
 
 # Start with debug logging
-make dev
+make backend-dev
+# or
+task backend:dev
 ```
 
 #### Database Debugging
 
 ```bash
-# Connect to database
+# Connect to database (using Docker)
+docker compose -f docker-compose.dev.yml exec postgres psql -U caatsm -d caatsm
+
+# Or using local psql
 psql "postgres://caatsm:caatsm@localhost:5432/caatsm?sslmode=disable"
 
 # Check recent messages
@@ -455,8 +558,16 @@ FROM telegrams
 ORDER BY time DESC
 LIMIT 10;
 
+# Check table statistics
+SELECT schemaname, tablename, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum
+FROM pg_stat_user_tables
+WHERE tablename = 'telegrams';
+
 # Check Meilisearch index
 curl "http://localhost:7700/indexes/telegrams/search?q=*"
+
+# Check Meilisearch stats
+curl "http://localhost:7700/stats"
 ```
 
 ### Frontend Debugging
@@ -483,20 +594,35 @@ Install Svelte DevTools browser extension for component inspection.
 ### Common Debug Commands
 
 ```bash
-# Check service health
+# Check API health
 curl http://localhost:3002/api/health
 
-# View application logs
-docker compose logs app -f
+# View dependency logs
+make dev-logs
+# or specific service
+docker compose -f docker-compose.dev.yml logs -f postgres
+docker compose -f docker-compose.dev.yml logs -f nats
+docker compose -f docker-compose.dev.yml logs -f redis
 
-# Check NATS streams
-docker compose exec nats nats stream ls
+# Check NATS streams (requires NATS CLI)
+docker compose -f docker-compose.dev.yml exec nats nats stream ls
+docker compose -f docker-compose.dev.yml exec nats nats stream info TELEGRAMS
 
-# Monitor Redis keys
-docker compose exec redis redis-cli keys "*"
+# Monitor Redis/Valkey
+docker compose -f docker-compose.dev.yml exec redis valkey-cli ping
+docker compose -f docker-compose.dev.yml exec redis valkey-cli keys "*"
+docker compose -f docker-compose.dev.yml exec redis valkey-cli info stats
 
 # Check Meilisearch health
 curl http://localhost:7700/health
+
+# Check NATS monitoring
+curl http://localhost:8222/healthz
+curl http://localhost:8222/varz
+curl http://localhost:8222/jsz
+
+# Test database connection
+docker compose -f docker-compose.dev.yml exec postgres pg_isready -U caatsm
 ```
 
 ## Performance Testing
@@ -590,20 +716,31 @@ docker run --rm \
 
 ```bash
 # Test full message flow
-# 1. Start stack
-make docker-up
+# 1. Start development dependencies
+make dev-up
 
-# 2. Publish test message
-task publish-stream:fast
+# 2. Start backend and frontend
+make backend-dev              # Terminal 1
+# or
+task backend:dev
+make frontend-dev     # Terminal 2
+# or
+task frontend:dev
 
-# 3. Verify in database
-docker compose exec postgres psql -U caatsm -d caatsm -c "SELECT COUNT(*) FROM telegrams;"
+# 3. Publish test messages
+make backend-publish-stream-fast
+# or
+task backend:publish-stream:fast
 
-# 4. Verify in search
+# 4. Verify in database
+docker compose -f docker-compose.dev.yml exec postgres psql -U caatsm -d caatsm -c "SELECT COUNT(*) FROM telegrams;"
+
+# 5. Verify in search
 curl "http://localhost:7700/indexes/telegrams/search?q=*"
 
-# 5. Test WebSocket
-# Open browser to http://localhost:3002 and check real-time updates
+# 6. Test WebSocket
+# Open browser to http://localhost:5173 and check real-time updates
+# Or use browser console: new WebSocket('ws://localhost:3002/ws')
 ```
 
 ### Health Checks
@@ -611,9 +748,15 @@ curl "http://localhost:7700/indexes/telegrams/search?q=*"
 ```bash
 # Test all service health
 curl http://localhost:3002/api/health
-curl http://localhost:7700/health
-curl http://localhost:8222/
-redis-cli -h localhost ping
+
+# Dependency health checks
+curl http://localhost:7700/health                    # Meilisearch
+curl http://localhost:8222/healthz                  # NATS
+docker compose -f docker-compose.dev.yml exec redis valkey-cli ping  # Redis/Valkey
+docker compose -f docker-compose.dev.yml exec postgres pg_isready -U caatsm  # PostgreSQL
+
+# Check Docker service health
+docker compose -f docker-compose.dev.yml ps
 ```
 
 ## Troubleshooting
@@ -623,14 +766,27 @@ redis-cli -h localhost ping
 #### Backend Won't Start
 
 ```bash
-# Check dependencies
-docker compose ps
+# Check dependencies are running
+docker compose -f docker-compose.dev.yml ps
 
-# Check logs
-docker compose logs app
+# Check dependency logs
+make dev-logs
 
 # Test database connection
-docker compose exec postgres pg_isready -U caatsm -d caatsm
+docker compose -f docker-compose.dev.yml exec postgres pg_isready -U caatsm -d caatsm
+
+# Verify all services are healthy
+docker compose -f docker-compose.dev.yml ps
+
+# Check if ports are already in use
+lsof -i :3002  # API port
+lsof -i :5432  # PostgreSQL
+lsof -i :7700  # Meilisearch
+lsof -i :4222  # NATS
+lsof -i :6379  # Redis
+
+# Restart all dependencies
+make dev-down && make dev-up
 ```
 
 #### Frontend Build Fails
@@ -663,28 +819,41 @@ task dev:up
 #### WebSocket Not Working
 
 ```bash
-# Check Redis connection
-docker compose exec redis redis-cli ping
+# Check Redis/Valkey connection
+docker compose -f docker-compose.dev.yml exec redis valkey-cli ping
 
-# Check WebSocket logs
+# Check Redis pub/sub channels
+docker compose -f docker-compose.dev.yml exec redis valkey-cli pubsub channels
+
+# Check WebSocket logs (if running in Docker)
 docker compose logs app | grep -i websocket
 
-# Test WebSocket manually
-# Use browser dev tools or websocat
+# Test WebSocket manually in browser console
+# const ws = new WebSocket('ws://localhost:3002/ws');
+# ws.onopen = () => console.log('Connected');
+# ws.onmessage = (e) => console.log('Message:', e.data);
+
+# Or use websocat
+websocat ws://localhost:3002/ws
 ```
 
 ### Getting Help
 
-1. **Check logs**: `docker compose logs -f [service]`
-2. **Review docs**: See `docs/troubleshooting.md`
-3. **Check issues**: GitHub issues for similar problems
-4. **Community**: Ask in project discussions
+1. **Check logs**: `make dev-logs` or `docker compose -f docker-compose.dev.yml logs -f [service]`
+2. **Review docs**: 
+   - `docs/troubleshooting.md` - Common issues and solutions
+   - `docs/architecture.md` - System architecture
+   - `docs/configuration.md` - Configuration guide
+   - `AGENTS.md` - Quick reference for AI agents
+3. **Check service health**: `docker compose -f docker-compose.dev.yml ps`
+4. **Verify configuration**: Check `.env.local` and `config/config.local.toml`
+5. **Check issues**: GitHub issues for similar problems
 
 ### Development Checklist
 
 - [ ] Code follows style guidelines
-- [ ] Tests pass (`make test`)
-- [ ] Linting passes (`make lint`)
+- [ ] Tests pass (`make backend-test`)
+- [ ] Linting passes (`make backend-lint`)
 - [ ] Documentation updated
 - [ ] No secrets committed
 - [ ] Database migrations tested

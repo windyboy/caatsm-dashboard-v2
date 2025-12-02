@@ -33,9 +33,15 @@ type DashboardService interface {
 	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]app.AutocompleteSuggestion, error)
 }
 
+// AdminService defines the interface for admin operations.
+type AdminService interface {
+	Reindex(ctx context.Context, from, to time.Time) (interface{}, error)
+}
+
 // Handler handles HTTP requests for the dashboard
 type Handler struct {
 	dashboardSvc DashboardService
+	adminSvc     AdminService
 	logger       *zap.Logger
 }
 
@@ -45,6 +51,11 @@ func NewHandler(dashboardSvc DashboardService, logger *zap.Logger) *Handler {
 		dashboardSvc: dashboardSvc,
 		logger:       logger,
 	}
+}
+
+// SetAdminService sets the admin service for the handler.
+func (h *Handler) SetAdminService(adminSvc AdminService) {
+	h.adminSvc = adminSvc
 }
 
 // Dashboard handles GET /api/dashboard - unified dashboard data endpoint
@@ -213,6 +224,61 @@ func (h *Handler) Health(c echo.Context) error {
 		"status":  "ok",
 		"service": "dashboard",
 	})
+}
+
+// Reindex handles POST /api/admin/reindex - trigger reindex operation
+func (h *Handler) Reindex(c echo.Context) error {
+	if h.adminSvc == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{
+			"error": "admin service not available",
+		})
+	}
+
+	// Parse time range parameters
+	fromStr := c.QueryParam("from")
+	toStr := c.QueryParam("to")
+
+	if fromStr == "" || toStr == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "from and to parameters are required (format: YYYY-MM-DD)",
+		})
+	}
+
+	// Parse dates (YYYY-MM-DD format)
+	from, err := time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("invalid from date format: %v", err),
+		})
+	}
+
+	to, err := time.Parse("2006-01-02", toStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("invalid to date format: %v", err),
+		})
+	}
+
+	// Validate time range
+	if from.After(to) {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "from date must be before to date",
+		})
+	}
+
+	// Set time to end of day for 'to' date
+	to = to.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	// Call admin service
+	jobID, err := h.adminSvc.Reindex(c.Request().Context(), from, to)
+	if err != nil {
+		h.logger.Error("reindex failed", zap.Error(err))
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, jobID)
 }
 
 // Helper functions

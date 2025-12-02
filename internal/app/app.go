@@ -49,11 +49,15 @@ type Container struct {
 	Logger *zap.Logger
 
 	// Core infrastructure ports
-	Repo     Repository
-	Cache    Cache
-	Search   SearchIndex
-	Pub      EventPublisher
-	EventBus EventBus
+	Repo              Repository
+	Cache             Cache
+	Search            SearchIndex
+	Pub               EventPublisher
+	EventBus          EventBus
+	EventSub          EventSubscriber
+	StreamPub         StreamPublisher
+	RedisStreamCons   RedisStreamConsumer
+	WebSocketHub     WebSocketHubPort
 
 	// Application services
 	DashboardService interface{}
@@ -86,6 +90,10 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	container.Search = nil
 	container.Pub = nil
 	container.EventBus = nil
+	container.EventSub = nil
+	container.StreamPub = nil
+	container.RedisStreamCons = nil
+	container.WebSocketHub = nil
 
 	// Initialize application services with nil dependencies (will fail at runtime)
 	// Services will be initialized by the server layer to avoid import cycles

@@ -34,6 +34,7 @@ func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Log
 	// Autocomplete (for frontend)
 	api.GET("/autocomplete", handler.Autocomplete)
 
+	// Admin routes are registered separately in server.go
 }
 
 // Autocomplete handles GET /api/autocomplete - search suggestions

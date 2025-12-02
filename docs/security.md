@@ -146,7 +146,7 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
   1. Create an update branch.
   2. Run `go get -u ./...` and `go mod tidy`.
   3. Refresh frontend dependencies (`deno cache --reload` or `npm update`).
-  4. Run all automated tests (`make test`, `make frontend-test-unit`, `make frontend-test`).
+  4. Run all automated tests (`make backend-test`, `make frontend-test-unit`, `make frontend-test`).
   5. Run security scanners.
 - Security scanning:
   - `make security-scan` (runs gosec and Trivy).

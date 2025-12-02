@@ -181,7 +181,10 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 
 	// Create client and register with hub
 	client := ws.NewClient(conn, h.hub, h.logger)
-	h.hub.Register(client)
+	if err := h.hub.Register(client); err != nil {
+		h.logger.Warn("failed to register client", zap.Error(err))
+		return err
+	}
 
 	// Send initial data using request context (safe for this quick operation)
 	ctx := c.Request().Context()
@@ -291,7 +294,7 @@ func (h *Handler) startRedisListener(ctx context.Context) {
 		return
 	}
 
-	pubsub := h.redisCli.Subscribe(ctx, "stats:update")
+	pubsub := h.redisCli.Subscribe(ctx, "msg:broadcast")
 	defer func() {
 		_ = pubsub.Close()
 	}()
@@ -306,12 +309,18 @@ func (h *Handler) startRedisListener(ctx context.Context) {
 			if !ok {
 				return
 			}
-			if msg != nil && msg.Channel == "stats:update" && msg.Payload != "" {
+			if msg != nil && msg.Channel == "msg:broadcast" && msg.Payload != "" {
 				// Verify it's valid JSON
 				var eventData map[string]any
 				if err := json.Unmarshal([]byte(msg.Payload), &eventData); err == nil {
-					// Broadcast to all clients via hub
-					h.hub.Broadcast([]byte(msg.Payload))
+				// Broadcast to all clients via hub
+				wsMsg := app.WSMessage{
+					Type: "message",
+					Data: msg.Payload,
+				}
+				if err := h.hub.Broadcast(wsMsg); err != nil {
+					h.logger.Warn("failed to broadcast message", zap.Error(err))
+				}
 				} else {
 					h.logger.Warn("ignored invalid JSON message from redis",
 						zap.String("channel", msg.Channel),

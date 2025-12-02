@@ -6,7 +6,7 @@ import { API_CONFIG } from "../constants";
 
 const logger = createLogger("API");
 
-function resolveApiBase(): string {
+function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
@@ -23,20 +23,19 @@ function resolveApiBase(): string {
   return "http://localhost:3002";
 }
 
-const API_BASE_URL = resolveApiBase();
-
 function buildUrl(endpoint: string): string {
+  const apiBaseUrl = getApiBaseUrl();
   try {
-    const url = new URL(endpoint, API_BASE_URL);
+    const url = new URL(endpoint, apiBaseUrl);
     return url.toString();
   } catch (error) {
     logger.error("Failed to build API URL", error, {
       endpoint,
-      apiBase: API_BASE_URL,
+      apiBase: apiBaseUrl,
     });
 
     // Normalize base: trim trailing slashes
-    const normalizedBase = API_BASE_URL.replace(/\/+$/, "");
+    const normalizedBase = apiBaseUrl.replace(/\/+$/, "");
 
     // Normalize endpoint: ensure it starts with exactly one slash
     let normalizedEndpoint = endpoint.trim();
@@ -128,9 +127,37 @@ async function request<T>(
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText }));
-        const errorMessage = error.error || `HTTP ${response.status}: ${response.statusText}`;
+        // Try to parse error response, but preserve original error information
+        let errorData: { error?: string; [key: string]: unknown } = { error: response.statusText };
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            errorData = await response.json();
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, log the parse error but keep the statusText
+          logger.warn("Failed to parse error response as JSON", {
+            url,
+            status: response.status,
+            contentType: response.headers.get("content-type"),
+            parseError: parseError instanceof Error
+              ? {
+                  name: parseError.name,
+                  message: parseError.message,
+                  stack: parseError.stack,
+                }
+              : parseError,
+          });
+        }
+        
+        // Preserve original error information while using parsed data if available
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
         lastError = new Error(errorMessage);
+        
+        // Attach additional error context if available
+        if (errorData && Object.keys(errorData).length > 1) {
+          (lastError as Error & { context?: Record<string, unknown> }).context = errorData;
+        }
 
         // Don't retry client errors (4xx except 429)
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {

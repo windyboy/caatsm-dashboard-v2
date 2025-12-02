@@ -261,7 +261,7 @@ func TestFullDataFlowIntegration(t *testing.T) {
 	store := persistence.NewPostgresStore(env.Pool)
 	searchIndex := search.NewMeilisearchIndex(env.Meili, "telegrams-test")
 	cache := cache.NewValkeyCache(env.Redis)
-	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
+	eventBus := event.NewRedisEventBus(env.Redis.Client(), "msg:broadcast")
 
 	// Wire application services with real dependencies
 	dashboardSvc := services.NewDashboardService(store, searchIndex, cache, eventBus)
@@ -339,7 +339,7 @@ func TestAPIErrorScenarios(t *testing.T) {
 	store := persistence.NewPostgresStore(env.Pool)
 	searchIndex := search.NewMeilisearchIndex(env.Meili, "telegrams-test")
 	cache := cache.NewValkeyCache(env.Redis)
-	eventBus := event.NewRedisEventBus(env.Redis.Client(), "stats:update")
+	eventBus := event.NewRedisEventBus(env.Redis.Client(), "msg:broadcast")
 
 	// Wire application services
 	dashboardSvc := services.NewDashboardService(store, searchIndex, cache, eventBus)

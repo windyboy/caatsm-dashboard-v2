@@ -1,8 +1,9 @@
 <script lang="ts">
   import { websocket } from '../stores/websocket';
+  import type { WebSocketStatus } from '../services/websocket';
   import { onMount } from 'svelte';
 
-  let status = $state<string>('disconnected');
+  let status = $state<WebSocketStatus>('disconnected');
   let error = $state<string | null>(null);
   let reconnectAttempts = $state<number>(0);
   let isVisible = $state(false);

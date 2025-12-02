@@ -43,9 +43,7 @@ info:
         ↓ Broadcast stats updates and new messages
     Client receives JSON messages:
     - { "type": "message", "data": {...} }
-    - { "type": "stats-total", "data": { "total": 1234 } }
-    - { "type": "stats-priority", "data": { "byPriority": {...} } }
-    - { "type": "stats-type", "data": { "byType": {...} } }
+    - { "type": "stats", "data": { "total": 1234, "byPriority": {...}, "byType": {...} } }
     ```
 
     ## Component Interactions
@@ -67,6 +65,7 @@ info:
     Features:
     - Full-text search with Meilisearch
     - Real-time analytics and statistics
+    - Unified dashboard endpoint
     - Streaming CSV export (max 10,000 records per request)
     - Time range validation (max 90 days)
     - WebSocket real-time updates
@@ -174,6 +173,16 @@ components:
           example: 1500
         page:
           $ref: '#/components/schemas/Pagination'
+
+    DashboardResponse:
+      type: object
+      properties:
+        searchResults:
+          $ref: '#/components/schemas/SearchResult'
+        stats:
+          $ref: '#/components/schemas/TrafficSummary'
+        timeRange:
+          $ref: '#/components/schemas/TimeWindow'
     
     Pagination:
       type: object
@@ -198,6 +207,18 @@ components:
           type: string
           enum: [asc, desc]
           default: desc
+
+    TimeWindow:
+      type: object
+      properties:
+        start_time:
+          type: string
+          format: date-time
+          description: Start time of the time window
+        end_time:
+          type: string
+          format: date-time
+          description: End time of the time window
     
     TrafficSummary:
       type: object
@@ -206,31 +227,26 @@ components:
           type: integer
           description: Total number of telegrams
           example: 15000
-    
-    TrafficByPriority:
-      type: object
-      properties:
         byPriority:
           type: object
           additionalProperties:
             type: integer
+          description: Message count by priority level (1-3)
           example:
             "1": 5000
             "2": 8000
             "3": 2000
-    
-    TrafficByType:
-      type: object
-      properties:
         byType:
           type: object
           additionalProperties:
             type: integer
+          description: Message count by telegram type
           example:
             "AFTN": 10000
             "SITA": 3000
             "ACARS": 1500
             "CPDLC": 500
+    
     
     AutocompleteResult:
       type: object
@@ -247,41 +263,12 @@ components:
         status:
           type: string
           enum: [ok, degraded, error]
-          description: Overall system health status
-        timestamp:
+          description: Service health status
+        service:
           type: string
-          format: date-time
-        postgresql:
-          $ref: '#/components/schemas/ComponentHealth'
-        meilisearch:
-          $ref: '#/components/schemas/ComponentHealth'
-        redis:
-          $ref: '#/components/schemas/ComponentHealth'
-        nats:
-          $ref: '#/components/schemas/ComponentHealth'
-        websocket:
-          $ref: '#/components/schemas/ComponentHealth'
-        degraded:
-          type: array
-          items:
-            type: string
-          description: List of degraded component names
+          description: Service name
+          example: "dashboard"
     
-    ComponentHealth:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [ok, degraded, error, unknown]
-        message:
-          type: string
-          description: Status message or error details
-        last_checked:
-          type: string
-          format: date-time
-        latency_ms:
-          type: integer
-          description: Component response latency in milliseconds
 
     WebSocketMessage:
       type: object
@@ -291,30 +278,12 @@ components:
       properties:
         type:
           type: string
-          enum: [message, stats-total, stats-priority, stats-type, pong]
+          enum: [message, stats, pong]
           description: Message type identifier
         data:
           oneOf:
             - $ref: '#/components/schemas/Telegram'
-            - type: object
-              properties:
-                total:
-                  type: integer
-                  description: Total message count
-            - type: object
-              properties:
-                byPriority:
-                  type: object
-                  additionalProperties:
-                    type: integer
-                  description: Message count by priority level (1-3)
-            - type: object
-              properties:
-                byType:
-                  type: object
-                  additionalProperties:
-                    type: integer
-                  description: Message count by telegram type
+            - $ref: '#/components/schemas/TrafficSummary'
             - type: string
               enum: [null]
               description: Empty data for pong messages
@@ -341,6 +310,122 @@ components:
           example: "invalid parameters"
 
 paths:
+  /dashboard:
+    get:
+      summary: Get unified dashboard data
+      description: |
+        Retrieve unified dashboard data including search results and statistics.
+
+        **Data Flow:**
+        1. Request parsed and validated at Delivery layer
+        2. Rate limiting applied (10 req/sec per IP)
+        3. Application layer orchestrates parallel queries to PostgreSQL + Meilisearch
+        4. Domain layer validates time range and applies business rules
+        5. Infrastructure layer executes optimized queries with caching
+
+        **Security & Validation:**
+        - Input sanitization and SQL injection prevention
+        - Time range validation (max 90 days from start_time)
+        - Query length limit (500 characters)
+        - Pagination limits (max 1000 results per page)
+        - Sort field whitelist validation
+      tags:
+        - search
+        - stats
+      parameters:
+        - name: query
+          in: query
+          description: Search query text (max 500 characters)
+          schema:
+            type: string
+            maxLength: 500
+        - name: limit
+          in: query
+          description: Number of results per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+        - name: sort_by
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [time, priority, message_id, type, flight_number, source, destination]
+            default: time
+        - name: order
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: type
+          in: query
+          description: Filter by telegram type
+          schema:
+            type: string
+            enum: [AFTN, SITA, ACARS, CPDLC]
+        - name: source
+          in: query
+          description: Filter by source airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+        - name: destination
+          in: query
+          description: Filter by destination airport (ICAO code)
+          schema:
+            type: string
+            pattern: ^[A-Z]{4}$
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+        - name: start_time
+          in: query
+          description: Filter start time (RFC3339 format)
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          description: Filter end time (RFC3339 format, max 90 days from start_time)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '400':
+          description: Bad request (invalid parameters, time range > 90 days, query too long)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /search:
     get:
       summary: Search telegrams
@@ -461,7 +546,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  
+    post:
+      summary: Search telegrams with body parameters
+      description: |
+        Search aviation telegrams with full-text search and filters using request body.
+
+        **Data Flow:**
+        1. Request parsed and validated at Delivery layer
+        2. Rate limiting applied (10 req/sec per IP)
+        3. Application layer orchestrates parallel queries to PostgreSQL + Meilisearch
+        4. Domain layer validates time range (max 90 days) and applies business rules
+        5. Infrastructure layer executes optimized queries with caching
+
+        **Security & Validation:**
+        - Input sanitization and SQL injection prevention
+        - Time range validation (max 90 days from start_time)
+        - Query length limit (500 characters)
+        - Pagination limits (max 1000 results per page)
+        - Sort field whitelist validation
+
+        **Performance Features:**
+        - Parallel execution of database and search queries
+        - Valkey caching for frequently accessed results
+        - Meilisearch typo-tolerant full-text search
+        - TimescaleDB optimization for time-series data
+      tags:
+        - search
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  maxLength: 500
+                  description: Search query text (max 500 characters)
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+                  default: 50
+                  description: Number of results per page
+                offset:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000
+                  default: 0
+                  description: Pagination offset
+                sort_by:
+                  type: string
+                  enum: [time, priority, message_id, type, flight_number, source, destination]
+                  default: time
+                  description: Sort field
+                order:
+                  type: string
+                  enum: [asc, desc]
+                  default: desc
+                  description: Sort order
+                type:
+                  type: string
+                  enum: [AFTN, SITA, ACARS, CPDLC]
+                  description: Filter by telegram type
+                source:
+                  type: string
+                  pattern: ^[A-Z]{4}$
+                  description: Filter by source airport (ICAO code)
+                destination:
+                  type: string
+                  pattern: ^[A-Z]{4}$
+                  description: Filter by destination airport (ICAO code)
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                  description: Filter by priority level
+                start_time:
+                  type: string
+                  format: date-time
+                  description: Filter start time (RFC3339 format)
+                end_time:
+                  type: string
+                  format: date-time
+                  description: Filter end time (RFC3339 format, max 90 days from start_time)
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '400':
+          description: Bad request (invalid parameters, time range > 90 days, query too long)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /autocomplete:
     get:
       summary: Get autocomplete suggestions
@@ -497,15 +685,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /stats/total:
+  /stats:
     get:
-      summary: Get total telegram count
-      description: Get the total number of telegrams in the system
+      summary: Get telegram statistics
+      description: Get all telegram statistics including total count, breakdown by priority, and breakdown by type
       tags:
         - stats
       responses:
         '200':
-          description: Total telegram count
+          description: Telegram statistics
           content:
             application/json:
               schema:
@@ -517,51 +705,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   
-  /stats/priority:
-    get:
-      summary: Get telegram statistics by priority
-      description: Get breakdown of telegram counts by priority level (1-3)
-      tags:
-        - stats
-      responses:
-        '200':
-          description: Telegram count by priority
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrafficByPriority'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  
-  /stats/type:
-    get:
-      summary: Get telegram statistics by type
-      description: Get breakdown of telegram counts by message type (AFTN, SITA, ACARS, CPDLC)
-      tags:
-        - stats
-      responses:
-        '200':
-          description: Telegram count by type
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrafficByType'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  
   /export:
     get:
-      summary: Export telegrams
+      summary: Export telegrams to CSV
       description: |
-        Export search results to CSV, Excel, or PDF format with streaming support.
+        Export search results to CSV format with streaming support.
 
         **Streaming Export Process:**
         1. Request validated and rate limited at Delivery layer
@@ -582,19 +730,17 @@ paths:
         - Input validation on all filter parameters
         - SQL injection prevention through parameterized queries
 
-        **Supported Formats:**
+        **Supported Format:**
         - CSV: Plain text with proper escaping
-        - Excel (XLSX): Structured spreadsheet format
-        - PDF: Formatted report with headers and pagination
       tags:
         - export
       parameters:
         - name: format
           in: query
-          description: Export format
+          description: Export format (only CSV supported)
           schema:
             type: string
-            enum: [csv, xlsx, pdf]
+            enum: [csv]
             default: csv
         - name: query
           in: query
@@ -621,17 +767,9 @@ paths:
             pattern: ^[A-Z]{4}$
       responses:
         '200':
-          description: Exported file
+          description: Exported CSV file
           content:
             text/csv:
-              schema:
-                type: string
-                format: binary
-            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
-              schema:
-                type: string
-                format: binary
-            application/pdf:
               schema:
                 type: string
                 format: binary
@@ -651,18 +789,18 @@ paths:
   /health:
     get:
       summary: Health check
-      description: Check health status of all system components (PostgreSQL, Meilisearch, Redis, NATS, WebSocket)
+      description: Check basic health status of the dashboard service
       tags:
         - health
       responses:
         '200':
-          description: System is healthy
+          description: Service is healthy
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
         '503':
-          description: System is degraded or in error state
+          description: Service is unhealthy
           content:
             application/json:
               schema:
@@ -683,9 +821,7 @@ paths:
 
         **Message Types:**
         - `message`: New telegram received
-        - `stats-total`: Updated total message count
-        - `stats-priority`: Updated priority breakdown
-        - `stats-type`: Updated message type breakdown
+        - `stats`: Updated statistics (total, byPriority, byType)
         - `pong`: Heartbeat response
 
         **Example Message:**

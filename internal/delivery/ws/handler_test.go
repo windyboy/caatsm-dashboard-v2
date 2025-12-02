@@ -357,8 +357,7 @@ func TestWebSocketHandler_MessageBroadcast(t *testing.T) {
 		Type: "test-message",
 		Data: map[string]string{"key": "value"},
 	}
-	msgBytes, _ := json.Marshal(testMsg)
-	hub.Broadcast(msgBytes)
+	require.NoError(t, hub.Broadcast(testMsg))
 
 	// Read messages until we find the broadcast message
 	// There might be recent messages sent first, so we need to skip those
@@ -435,8 +434,7 @@ func TestWebSocketHandler_SlowClientDisconnect(t *testing.T) {
 			Type: "test",
 			Data: map[string]int{"count": i},
 		}
-		msgBytes, _ := json.Marshal(testMsg)
-		hub.Broadcast(msgBytes)
+		require.NoError(t, hub.Broadcast(testMsg))
 	}
 
 	// Wait for disconnect due to slow client (buffer should fill and trigger disconnection)

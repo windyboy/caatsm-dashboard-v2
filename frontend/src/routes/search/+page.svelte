@@ -43,8 +43,8 @@
       logger.info("Search succeeded", {
         total: result.total,
         query: params.query || "",
-        type: params.type || "any",
-        priority: params.priority ?? "any",
+        type: params.type ?? undefined,
+        priority: params.priority ?? undefined,
       });
     } catch (err) {
       error = err instanceof Error ? err.message : "Search failed";

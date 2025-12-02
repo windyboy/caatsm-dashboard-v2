@@ -180,7 +180,7 @@ func (c *AppConfig) Validate() error {
 		}
 
 		// Note: Tracing validation removed - tracing instrumentation is not yet implemented.
-		// See docs/ARCHITECTURE.md and docs/security.md for details.
+		// See docs/architecture.md and docs/security.md for details.
 		// Once tracing is implemented, re-enable this validation.
 	}
 

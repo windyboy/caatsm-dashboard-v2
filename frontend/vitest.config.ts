@@ -66,20 +66,11 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./tests/unit/setup.ts"],
     include: ["tests/unit/**/*.test.ts"],
-    exclude: [
-      "node_modules",
-      "tests/**/*.spec.ts",
-      "tests/api.test.ts",
-      "tests/websocket.test.ts",
-    ],
+    exclude: ["node_modules", "tests/**/*.spec.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
       exclude: ["node_modules/", "tests/", "**/*.config.*", "**/*.d.ts"],
     },
-    // Suppress unhandled errors that don't affect test results
-    // Known issue: jsdom/Deno compatibility causes "dispatchEvent" errors
-    // This doesn't affect test functionality - all 84 tests pass correctly
-    onUnhandledRejection: "warn",
   },
 });

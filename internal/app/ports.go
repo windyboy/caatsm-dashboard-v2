@@ -106,6 +106,31 @@ type StreamConsumer interface {
 	Close() error
 }
 
+// EventSubscriber subscribes to Redis Pub/Sub channels.
+type EventSubscriber interface {
+	Subscribe(ctx context.Context, channel string, handler func(context.Context, Event) error) error
+}
+
+// StreamPublisher publishes messages to Redis Streams.
+type StreamPublisher interface {
+	Publish(ctx context.Context, stream string, telegram *Telegram) error
+}
+
+// RedisStreamConsumer consumes messages from Redis Streams using Consumer Groups.
+type RedisStreamConsumer interface {
+	Start(ctx context.Context) error
+	Close() error
+	SetHandler(handler func(context.Context, *Telegram) error)
+}
+
+// WebSocketHubPort defines the interface for WebSocket connection management.
+type WebSocketHubPort interface {
+	Register(client interface{}) error
+	Unregister(client interface{})
+	Broadcast(message WSMessage) error
+	GetActiveConnections() int
+}
+
 // WSMessage is the message format for WebSocket communication from app layer.
 type WSMessage struct {
 	Type string      `json:"type"`

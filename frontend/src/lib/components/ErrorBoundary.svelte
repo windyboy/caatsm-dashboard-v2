@@ -27,6 +27,7 @@
   let error = $state<Error | null>(null);
   let errorId = $state<string | null>(null);
   let errorHandler: ((event: ErrorEvent) => void) | null = null;
+  let rejectionHandler: ((event: PromiseRejectionEvent) => void) | null = null;
 
   export function handleError(
     err: Error | unknown,
@@ -61,15 +62,40 @@
       }
     };
 
+    // Catch unhandled Promise rejections
+    rejectionHandler = (event: PromiseRejectionEvent) => {
+      // Only handle if we don't already have an error
+      if (!error) {
+        event.preventDefault();
+        handleError(event.reason || new Error("Unhandled promise rejection"), {
+          type: "promise_rejection",
+          reason: event.reason instanceof Error
+            ? {
+                name: event.reason.name,
+                message: event.reason.message,
+                stack: event.reason.stack,
+              }
+            : event.reason,
+        });
+      }
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("error", errorHandler);
+      window.addEventListener("unhandledrejection", rejectionHandler);
     }
   });
 
   onDestroy(() => {
-    if (errorHandler && typeof window !== "undefined") {
-      window.removeEventListener("error", errorHandler);
-      errorHandler = null;
+    if (typeof window !== "undefined") {
+      if (errorHandler) {
+        window.removeEventListener("error", errorHandler);
+        errorHandler = null;
+      }
+      if (rejectionHandler) {
+        window.removeEventListener("unhandledrejection", rejectionHandler);
+        rejectionHandler = null;
+      }
     }
   });
 </script>
