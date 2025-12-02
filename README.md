@@ -186,6 +186,33 @@ See `docs/configuration.md` for configuration details.
 6. Delivery layer exposes REST and WebSocket endpoints.
 7. Frontend receives updates in real time via WebSocket.
 
+## Data Guarantees
+
+### Message Identity & Idempotency
+
+- Each telegram has a unique, immutable `message_id` (primary key)
+- Duplicate messages are silently ignored via `ON CONFLICT DO NOTHING`
+- Safe to replay messages from NATS without duplication
+
+### Delivery Guarantees by Layer
+
+- **NATS → PostgreSQL**: At-least-once delivery, exactly-once storage
+- **PostgreSQL → Meilisearch**: At-least-once indexing, eventually consistent (reindexable)
+- **Redis Pub/Sub → WebSocket**: Best-effort, no persistence or replay
+
+### Data Retention
+
+- PostgreSQL stores messages for **180 days** (enforced by TimescaleDB retention policy)
+- Chunks older than 7 days are compressed automatically
+- Meilisearch index can be rebuilt from PostgreSQL at any time
+- No long-term cold storage or compliance archiving (out of scope)
+
+### Consistency Model
+
+- PostgreSQL is the **source of truth** (canonical)
+- Meilisearch is **eventually consistent** with PostgreSQL
+- Real-time WebSocket views are **best-effort**; clients must resync via `/api/search` after reconnect
+
 ## Database Notes
 
 - TimescaleDB extensions are optional.

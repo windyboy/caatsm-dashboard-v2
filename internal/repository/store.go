@@ -8,9 +8,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/domain"
 )
+
+var tracer = otel.Tracer("caatsm.repository")
 
 const (
 	// DefaultSearchLimit is the default number of results per page when limit is not specified or invalid.
@@ -63,18 +68,17 @@ func New(pool *pgxpool.Pool) *Store {
 
 // Save persists a single telegram.
 func (s *Store) Save(ctx context.Context, telegram *domain.Telegram) error {
+	ctx, span := tracer.Start(ctx, "repository.Save")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("telegram.message_id", telegram.MessageID),
+		attribute.String("telegram.type", telegram.Type),
+	)
+
 	query := `INSERT INTO telegrams (message_id, type, time, flight_number, source, destination, content, priority, raw_data)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (message_id) DO UPDATE SET
-			type = EXCLUDED.type,
-			time = EXCLUDED.time,
-			flight_number = EXCLUDED.flight_number,
-			source = EXCLUDED.source,
-			destination = EXCLUDED.destination,
-			content = EXCLUDED.content,
-			priority = EXCLUDED.priority,
-			raw_data = EXCLUDED.raw_data,
-			updated_at = NOW()`
+		ON CONFLICT (message_id) DO NOTHING`
 
 	_, err := s.pool.Exec(ctx, query,
 		telegram.MessageID,
@@ -107,16 +111,7 @@ func (s *Store) BulkSave(ctx context.Context, telegrams []any) error {
 
 	query := `INSERT INTO telegrams (message_id, type, time, flight_number, source, destination, content, priority, raw_data)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (message_id) DO UPDATE SET
-			type = EXCLUDED.type,
-			time = EXCLUDED.time,
-			flight_number = EXCLUDED.flight_number,
-			source = EXCLUDED.source,
-			destination = EXCLUDED.destination,
-			content = EXCLUDED.content,
-			priority = EXCLUDED.priority,
-			raw_data = EXCLUDED.raw_data,
-			updated_at = NOW()`
+		ON CONFLICT (message_id) DO NOTHING`
 
 	batch := &pgx.Batch{}
 	for _, item := range telegrams {
@@ -294,6 +289,15 @@ func (s *Store) buildSearchQuery(whereClause string, args []any, pagination doma
 
 // Search performs a structured query over telegram records.
 func (s *Store) Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error) {
+	ctx, span := tracer.Start(ctx, "repository.Search")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("filter.query", filter.Query),
+		attribute.Int("filter.limit", filter.Pagination.Limit),
+		attribute.Int("filter.offset", filter.Pagination.Offset),
+	)
+
 	whereClause, args := s.buildSearchConditions(filter)
 
 	countQuery := "SELECT COUNT(*) FROM telegrams " + whereClause

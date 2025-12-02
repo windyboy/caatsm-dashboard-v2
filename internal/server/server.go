@@ -40,6 +40,7 @@ type Server struct {
 	indexerSvc       *service.IndexerService
 	realtimeSvc      *service.RealtimeService
 	adminSvc         *service.AdminService
+	shutdownTracer   func(context.Context) error
 	ingestionCtx     context.Context
 	ingestionCancel  context.CancelFunc
 	indexerCtx       context.Context
@@ -69,6 +70,15 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	container, err := app.New(initCtx, cfg, logger)
 	if err != nil {
 		return nil, err
+	}
+
+	// Initialize tracing
+	shutdownTracer, err := observability.InitTracer(initCtx, cfg.Tracing)
+	if err != nil {
+		return nil, fmt.Errorf("init tracer: %w", err)
+	}
+	if cfg.Tracing.Enabled {
+		logger.Info("tracing enabled", zap.String("endpoint", cfg.Tracing.OTLPEndpoint))
 	}
 
 	// Initialize infrastructure implementations in server layer to avoid circular imports
@@ -248,17 +258,18 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	}
 
 	s := &Server{
-		e:            e,
-		cfg:          cfg,
-		logger:       logger,
-		container:    container,
-		metrics:      metricsExporter,
-		broadcaster:  broadcaster,
-		hub:          wsHub,
-		ingestionSvc: ingestionSvc,
-		indexerSvc:   indexerSvc,
-		realtimeSvc:  realtimeSvc,
-		adminSvc:     adminSvc,
+		e:              e,
+		cfg:            cfg,
+		logger:         logger,
+		container:      container,
+		metrics:        metricsExporter,
+		broadcaster:    broadcaster,
+		hub:            wsHub,
+		ingestionSvc:   ingestionSvc,
+		indexerSvc:     indexerSvc,
+		realtimeSvc:    realtimeSvc,
+		adminSvc:       adminSvc,
+		shutdownTracer: shutdownTracer,
 	}
 	
 	// Store NATS connection for cleanup (if needed)
@@ -386,16 +397,27 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 		s.logger.Info("WebSocket hub stopped successfully")
 	}
 
-	// Step 4: Flush metrics (before closing downstream connections)
+	// Step 4: Flush tracing spans
+	if s.shutdownTracer != nil {
+		s.logger.Info("step 4: flushing tracing spans")
+		if err := s.shutdownTracer(shutdownCtx); err != nil {
+			s.logger.Error("tracer shutdown error", zap.Error(err))
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("tracer shutdown: %w", err))
+		} else {
+			s.logger.Info("tracing shutdown successfully")
+		}
+	}
+
+	// Step 5: Flush metrics (before closing downstream connections)
 	if s.metrics != nil {
-		s.logger.Info("step 4: flushing metrics")
+		s.logger.Info("step 5: flushing metrics")
 		// Metrics are pulled via Prometheus, no explicit flush needed
 		s.logger.Info("metrics flushed (pull-based, no action required)")
 	}
 
-	// Step 5: Close container-managed resources (DB pool, Redis, etc.)
+	// Step 6: Close container-managed resources (DB pool, Redis, etc.)
 	// This should be done after workers complete to avoid connection errors
-	s.logger.Info("step 4: closing container resources (DB pool, Redis)")
+	s.logger.Info("step 6: closing container resources (DB pool, Redis)")
 	if err := s.container.Close(); err != nil {
 		s.logger.Error("container close error", zap.Error(err))
 		shutdownErrors = append(shutdownErrors, fmt.Errorf("container close: %w", err))
@@ -403,7 +425,7 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 		s.logger.Info("container resources closed successfully")
 	}
 
-	// Step 6: Report shutdown completion
+	// Step 7: Report shutdown completion
 	if len(shutdownErrors) > 0 {
 		s.logger.Error("graceful shutdown completed with errors",
 			zap.Int("error_count", len(shutdownErrors)))

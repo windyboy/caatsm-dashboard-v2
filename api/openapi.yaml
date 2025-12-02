@@ -46,6 +46,15 @@ info:
     - { "type": "stats", "data": { "total": 1234, "byPriority": {...}, "byType": {...} } }
     ```
 
+    **Important - WebSocket Guarantees**:
+    
+    WebSocket messages are **best-effort** and not guaranteed. Clients should:
+    - Treat messages as hints for UI updates
+    - Periodically poll `GET /api/dashboard` or `POST /api/search` for reconciliation
+    - Re-fetch full state after reconnection (no replay buffer maintained)
+    - Handle connection drops gracefully with exponential backoff
+    - Implement client-side timeouts and reconnection logic
+
     ## Component Interactions
 
     - **PostgreSQL**: Primary data storage with TimescaleDB for time-series optimization

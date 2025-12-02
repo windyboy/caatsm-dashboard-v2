@@ -4,13 +4,15 @@
   "version": "0.1.0",
   "scripts": {
     "unocss:dev": "unocss \"assets/css/**/*.css\" --watch -o ./public/css/app.css",
-    "unocss:build": "unocss \"assets/css/**/*.css\" -o ./public/css/app.css --minify"
+    "unocss:build": "unocss \"assets/css/**/*.css\" -o ./public/css/app.css --minify",
+    "generate:api-client": "openapi-ts -i api/openapi.yaml -o frontend/src/lib/api/generated -c @hey-api/client-fetch"
   },
   "dependencies": {
     "@modelcontextprotocol/server-github": "2025.1.23",
     "@sveltejs/mcp": "^0.1.11"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "^0.53.0",
     "@unocss/cli": "^66.5.6",
     "@unocss/preset-typography": "latest",
     "@unocss/preset-wind4": "latest",

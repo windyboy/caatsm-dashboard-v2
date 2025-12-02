@@ -15,7 +15,7 @@ This document describes the high-level architecture for a real-time telegram mon
 ### Key Principles
 
 - **Direct Storage**: Messages stored with minimal validation, no domain-level enrichment
-- **Single Process**: HTTP server handles queries, ingestion, and indexing in one process
+- **Single Process**: All services (HTTP, ingestion, indexer, realtime) run as goroutines within one process
 - **Clean Architecture**: Layered architecture with unidirectional dependencies
 
 ---
@@ -155,7 +155,61 @@ internal/
 
 ---
 
-## 6. Technology Stack
+## 6. Deployment Topology
+
+### Current: Single Process (Embedded Services)
+
+All services run as goroutines within the main HTTP server process (`cmd/server`):
+
+- **NATS ingestion service** - Background goroutine consuming from JetStream
+- **Redis Streams indexer service** - Background goroutine updating Meilisearch
+- **Real-time broadcast service** - Background goroutine managing WebSocket broadcasts
+- **HTTP API handlers** - Main Echo server handling REST endpoints
+- **WebSocket hub** - Integrated connection manager with backpressure control
+
+See `internal/server/server.go` lines 289-312 for service startup code.
+
+**Benefits**:
+- Simple deployment (single binary)
+- Shared connection pools and caches
+- Easier local development
+- Lower operational complexity
+
+**Trade-offs**:
+- All workloads share same process resources
+- Scaling requires scaling entire stack
+- Failure in one service can affect others
+
+### Future: Multi-Process Option
+
+Services are architecturally independent and can be split into separate binaries for horizontal scaling:
+
+```
+┌─────────────────┐
+│  cmd/server     │  HTTP API only
+│  (API endpoints)│
+└─────────────────┘
+
+┌─────────────────┐
+│ cmd/ingestion   │  Dedicated NATS consumer
+│ (NATS → DB)     │  (can run multiple instances)
+└─────────────────┘
+
+┌─────────────────┐
+│  cmd/indexer    │  Dedicated Meilisearch indexer
+│ (Redis → Meili) │  (can run multiple workers)
+└─────────────────┘
+```
+
+**Migration steps** (when needed):
+1. Create new `cmd/ingestion/main.go` and `cmd/indexer/main.go` entrypoints
+2. Extract service initialization logic from `internal/server/server.go`
+3. Update deployment manifests (Docker Compose, Kubernetes)
+4. Configure separate scaling policies per service type
+
+---
+
+## 7. Technology Stack
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
@@ -170,7 +224,7 @@ internal/
 
 ---
 
-## 7. Design Principles
+## 8. Design Principles
 
 - **Stateless**: Server instances share no memory state
 - **Idempotency**: Duplicate messages handled via unique constraints
@@ -180,7 +234,7 @@ internal/
 
 ---
 
-## 8. Limitations
+## 9. Limitations
 
 - **No guaranteed realtime delivery**: WebSocket is best-effort
 - **No long-term storage**: Data beyond 180 days is dropped
@@ -189,7 +243,7 @@ internal/
 
 ---
 
-## 9. Observability
+## 10. Observability
 
 **Key Metrics**:
 - Ingestion: `ingest_total`, `ingest_errors`, `ingest_latency_p95`

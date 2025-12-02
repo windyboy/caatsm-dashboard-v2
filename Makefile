@@ -1,9 +1,9 @@
 .PHONY: help \
         backend-build backend-test backend-test-unit backend-test-integration backend-test-race \
-        backend-lint backend-dev backend-dev-run backend-migrate \
+        backend-lint backend-check-layers backend-dev backend-dev-run backend-migrate \
         backend-generate-test-data backend-publish-stream backend-publish-stream-fast backend-publish-stream-slow \
         install install-deno frontend-install frontend-setup \
-        frontend-dev frontend-build frontend-test frontend-test-unit \
+        frontend-dev frontend-build frontend-test frontend-test-unit frontend-generate-client \
         dev-up dev-down dev-logs dev-config clean clean-all \
         docker-build docker-up docker-down
 
@@ -34,7 +34,10 @@ backend-test-race: ## Run tests with race detector
 	@go test -race ./...
 
 # Backend - Code Quality
-backend-lint: ## Run golangci-lint
+backend-check-layers: ## Check architecture layer import boundaries
+	@./scripts/check-layer-imports.sh
+
+backend-lint: backend-check-layers ## Run golangci-lint and layer checks
 	@golangci-lint run ./...
 
 # Backend - Development
@@ -132,6 +135,11 @@ frontend-test-unit: ## Run frontend unit tests (Vitest via Deno, fallback to npm
 	else \
 		npm run test:unit; \
 	fi
+
+frontend-generate-client: ## Generate TypeScript API client from OpenAPI spec
+	@echo "Generating TypeScript client from OpenAPI spec..."
+	@npm run generate:api-client
+	@echo "TypeScript client generated at frontend/src/lib/api/generated"
 
 # Environment
 dev-up: ## Start development dependencies (docker-compose.dev.yml)

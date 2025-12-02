@@ -49,16 +49,26 @@ type (
 	APIError           = domain.APIError
 )
 
-// Repository defines the interface for data persistence operations.
-type Repository interface {
+// TelegramRepository handles telegram persistence operations.
+type TelegramRepository interface {
 	Save(ctx context.Context, telegram *domain.Telegram) error
 	BulkSave(ctx context.Context, telegrams []any) error
 	Search(ctx context.Context, filter domain.SearchFilters) (*domain.SearchResult, error)
 	StreamSearch(ctx context.Context, filter domain.SearchFilters) (<-chan *domain.Telegram, <-chan error)
 	FindByID(ctx context.Context, messageID string) (*domain.Telegram, error)
+	Delete(ctx context.Context, messageID string) error
+}
+
+// StatsRepository handles statistics and aggregations.
+type StatsRepository interface {
 	TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error)
 	RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error)
-	Delete(ctx context.Context, messageID string) error
+}
+
+// Repository combines telegram and stats operations for backward compatibility.
+type Repository interface {
+	TelegramRepository
+	StatsRepository
 }
 
 // Cache defines the interface for caching operations.
