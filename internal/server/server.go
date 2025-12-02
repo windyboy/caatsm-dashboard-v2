@@ -205,7 +205,9 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	container.DashboardService = dashboardSvc
 
 	// Initialize NATS connection for ingestion
-	nc, js, err := streaming.Connect(initCtx, cfg.NATS)
+	// Pass nil context to avoid premature connection closure
+	// Connection lifecycle is managed by the ingestion service, not initCtx
+	nc, js, err := streaming.Connect(nil, cfg.NATS)
 	if err != nil {
 		cleanup()
 		return nil, fmt.Errorf("connect nats: %w", err)

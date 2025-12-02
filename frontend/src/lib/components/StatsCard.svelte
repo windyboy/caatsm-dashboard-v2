@@ -59,7 +59,7 @@
 
   {#if type === "total"}
     <div class="stats-value" aria-live="polite">
-      {statsValue.total.toLocaleString()}
+      {(statsValue.total ?? 0).toLocaleString()}
     </div>
   {:else if type === "priority"}
     <div class="stats-list" aria-live="polite">

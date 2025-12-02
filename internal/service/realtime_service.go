@@ -41,6 +41,10 @@ func (s *RealtimeService) Start(ctx context.Context) error {
 		return fmt.Errorf("subscribe to msg:broadcast: %w", err)
 	}
 
+	s.logger.Info("realtime service started",
+		zap.String("channel", "msg:broadcast"),
+	)
+
 	return nil
 }
 
@@ -85,7 +89,7 @@ func (s *RealtimeService) handleMessage(ctx context.Context, event app.Event) er
 		return err
 	}
 
-	s.logger.Debug("message broadcasted to websocket clients",
+	s.logger.Info("message broadcasted to websocket clients",
 		zap.String("message_id", telegram.MessageID),
 		zap.Int("active_connections", s.hub.GetActiveConnections()),
 	)

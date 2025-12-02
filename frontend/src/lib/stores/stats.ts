@@ -19,6 +19,12 @@ function createStatsStore() {
 
   return {
     subscribe,
+    /**
+     * Sets the complete statistics state from server data.
+     */
+    setStats: (stats: StatsState) => {
+      set(stats);
+    },
     setTotal: (total: number) => {
       update((state) => ({ ...state, total }));
     },

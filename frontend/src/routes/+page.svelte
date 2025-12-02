@@ -1,7 +1,49 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import LiveStream from "$lib/components/LiveStream.svelte";
   import StatsCard from "$lib/components/StatsCard.svelte";
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
+  import { getStats } from "$lib/services/api";
+  import { stats } from "$lib/stores/stats";
+  import { createLogger } from "$lib/utils/logger";
+
+  const logger = createLogger("Dashboard");
+
+  // Load statistics on page mount
+  onMount(async () => {
+    // Only run in browser environment
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      logger.debug("Loading statistics from server");
+      const serverStats = await getStats();
+      
+      // Validate and normalize response structure
+      if (!serverStats || typeof serverStats !== 'object') {
+        logger.warn("Invalid statistics response", { serverStats });
+        return;
+      }
+      
+      // Ensure all required fields exist with defaults
+      const validatedStats = {
+        total: serverStats.total ?? 0,
+        byPriority: serverStats.byPriority ?? {},
+        byType: serverStats.byType ?? {},
+      };
+      
+      stats.setStats(validatedStats);
+      logger.info("Statistics loaded successfully", {
+        total: validatedStats.total,
+        byPriorityCount: Object.keys(validatedStats.byPriority).length,
+        byTypeCount: Object.keys(validatedStats.byType).length,
+      });
+    } catch (error) {
+      logger.error("Failed to load statistics", error);
+      // Don't throw - let WebSocket updates handle it
+    }
+  });
 </script>
 
 <div

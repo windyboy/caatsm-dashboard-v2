@@ -10,7 +10,7 @@ type TimeWindow struct {
 
 // TrafficSummary contains aggregated metrics for dashboard visualisations.
 type TrafficSummary struct {
-	TotalMessages int64
-	ByType        map[string]int64
-	ByPriority    map[int]int64
+	TotalMessages int64            `json:"total"`
+	ByType        map[string]int64 `json:"byType"`
+	ByPriority    map[int]int64     `json:"byPriority"`
 }

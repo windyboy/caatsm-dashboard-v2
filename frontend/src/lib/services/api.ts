@@ -64,6 +64,13 @@ export interface SearchParams {
   order?: string;
 }
 
+export interface TrafficSummary {
+  total: number;
+  byPriority: Record<number, number>;
+  byType: Record<string, number>;
+}
+
+// Legacy interfaces for backward compatibility (if needed)
 export interface StatsTotal {
   total: number;
 }
@@ -245,6 +252,33 @@ export async function autocomplete(
   return request<AutocompleteResult>(`/api/autocomplete?${params.toString()}`, { signal });
 }
 
+/**
+ * Get telegram statistics from the server.
+ * Returns total count, breakdown by priority, and breakdown by type.
+ * Defaults to last 24 hours if no time range is provided.
+ */
+export async function getStats(startTime?: string, endTime?: string): Promise<TrafficSummary> {
+  const params = new URLSearchParams();
+  if (startTime) {
+    params.set("start_time", startTime);
+  }
+  if (endTime) {
+    params.set("end_time", endTime);
+  }
+  
+  // Default to last 24 hours if no time range provided
+  if (!startTime && !endTime) {
+    const end = new Date();
+    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+    params.set("start_time", start.toISOString());
+    params.set("end_time", end.toISOString());
+  }
+  
+  const queryString = params.toString();
+  return request<TrafficSummary>(`/api/stats${queryString ? `?${queryString}` : ""}`);
+}
+
+// Legacy functions for backward compatibility (if needed)
 export async function getStatsTotal(): Promise<StatsTotal> {
   return request<StatsTotal>("/api/stats/total");
 }

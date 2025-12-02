@@ -82,9 +82,12 @@ function createWebSocketStore() {
                 messages.add(message.data);
                 break;
               case "stats":
-                stats.setTotal(message.data.total);
-                stats.setByPriority(message.data.byPriority);
-                stats.setByType(message.data.byType);
+                // Update statistics from WebSocket message
+                stats.setStats({
+                  total: message.data.total,
+                  byPriority: message.data.byPriority,
+                  byType: message.data.byType,
+                });
                 break;
               case "pong":
                 // Ping/pong handled internally by client

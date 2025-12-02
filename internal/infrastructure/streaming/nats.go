@@ -96,6 +96,21 @@ func (c *Consumer) EnsureStream(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("ensure stream: %w", err)
 		}
+		// Stream already exists and was updated
+		if c.logger != nil {
+			c.logger.Info("NATS stream updated",
+				zap.String("stream", c.stream),
+				zap.Strings("subjects", cfg.Subjects),
+			)
+		}
+	} else {
+		// Stream was created
+		if c.logger != nil {
+			c.logger.Info("NATS stream created",
+				zap.String("stream", c.stream),
+				zap.Strings("subjects", cfg.Subjects),
+			)
+		}
 	}
 
 	return nil
@@ -153,6 +168,14 @@ func (c *Consumer) EnsureConsumer(ctx context.Context) error {
 			return fmt.Errorf("ensure consumer: existing consumer has different configuration (differences: %s). manual intervention required to avoid message loss", diff)
 		}
 		return fmt.Errorf("ensure consumer: %w", err)
+	}
+
+	// Consumer was created successfully
+	if c.logger != nil {
+		c.logger.Info("NATS consumer created",
+			zap.String("stream", c.stream),
+			zap.String("consumer", c.consumer),
+		)
 	}
 
 	return nil
@@ -217,6 +240,14 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 	c.sub = sub
 
+	if c.logger != nil {
+		c.logger.Info("NATS consumer started, polling for messages",
+			zap.String("stream", c.stream),
+			zap.String("consumer", c.consumer),
+			zap.String("subject", "telegrams.>"),
+		)
+	}
+
 	go c.processMessages(ctx)
 
 	return nil
@@ -227,9 +258,19 @@ func (c *Consumer) processMessages(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	if c.logger != nil {
+		c.logger.Info("NATS message processor started",
+			zap.Int("batch_size", batchSize),
+			zap.Duration("poll_interval", 1*time.Second),
+		)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
+			if c.logger != nil {
+				c.logger.Info("NATS message processor stopping")
+			}
 			return
 		case <-ticker.C:
 			msgs, err := c.sub.Fetch(batchSize, nats.MaxWait(1*time.Second))
@@ -241,6 +282,12 @@ func (c *Consumer) processMessages(ctx context.Context) {
 					c.logger.Warn("fetch messages failed", zap.Error(err))
 				}
 				continue
+			}
+
+			if len(msgs) > 0 && c.logger != nil {
+				c.logger.Debug("fetched messages from NATS",
+					zap.Int("count", len(msgs)),
+				)
 			}
 
 			for _, msg := range msgs {

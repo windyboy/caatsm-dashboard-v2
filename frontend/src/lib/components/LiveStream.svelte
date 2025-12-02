@@ -27,13 +27,13 @@
   const typedMessages = $derived((Array.isArray($messages) ? $messages : []) as Telegram[]);
 
   // Generate stable unique key for each message
-  // Uses message_id when truthy and not "0", otherwise falls back to time-based key
+  // Always includes index to ensure uniqueness even if message_id or time are duplicated
   const getMessageKey = (message: Telegram, index: number): string => {
+    // Use message_id if available and not "0", but always append index for uniqueness
     if (message.message_id && message.message_id !== "0") {
-      return message.message_id;
+      return `${message.message_id}-${index}`;
     }
-    // Fallback: use time-based key for server-scheduled messages without message_id
-    // time is stable across re-renders; index ensures uniqueness if time is duplicated
+    // Fallback: use time-based key with index to ensure uniqueness
     // Format: scheduled-{time}-{index} or scheduled-{index} if time is missing
     return message.time ? `scheduled-${message.time}-${index}` : `scheduled-${index}`;
   };
