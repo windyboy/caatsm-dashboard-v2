@@ -3,19 +3,26 @@
   Displays a single telegram message with formatted content and metadata.
 
   @param {Telegram} telegram - The telegram message to display
+  @param {string} [highlightKeywords] - Optional keywords to highlight in the content
 -->
 
 <script lang="ts">
   import type { Telegram } from "../utils/types";
   import { sanitize } from "../utils/sanitize";
+  import { highlightText } from "../utils/highlight";
 
   interface Props {
     telegram: Telegram;
+    highlightKeywords?: string | null;
   }
 
-  let { telegram }: Props = $props();
+  let { telegram, highlightKeywords }: Props = $props();
 
-  const safeContent = $derived(sanitize(telegram.content || ""));
+  const safeContent = $derived(
+    highlightKeywords
+      ? highlightText(telegram.content || "", highlightKeywords)
+      : sanitize(telegram.content || "")
+  );
 
   function getTypeColorClass(type: string | undefined | null): string {
     // Handle undefined/null/empty type
@@ -75,7 +82,7 @@
 
   <!-- Message Content -->
   <p class="message-content">
-    {safeContent}
+    {@html safeContent}
   </p>
 
   <!-- Tags -->
@@ -181,6 +188,15 @@
     margin-bottom: 0.75rem;
     overflow-wrap: break-word;
     color: #1e293b;
+  }
+
+  .message-content :global(.highlight) {
+    background: linear-gradient(to right, #fef08a, #fde047);
+    color: #713f12;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    box-shadow: 0 1px 2px 0 rgba(113, 63, 18, 0.2);
   }
 
   .message-tags {

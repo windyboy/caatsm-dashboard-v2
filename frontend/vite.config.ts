@@ -8,9 +8,14 @@ export default defineConfig({
   // Plugin ordering for Svelte 5:
   // 1. UnoCSS first (processes CSS)
   // 2. sveltekit() includes @sveltejs/vite-plugin-svelte (processes Svelte files)
-  // 3. devtoolsJson last (development tooling)
+  // 3. devtoolsJson last (development tooling) - only in development
   // This order ensures proper HMR behavior with Svelte 5
-  plugins: [UnoCSS(), sveltekit(), devtoolsJson()],
+  plugins: [
+    UnoCSS(),
+    sveltekit(),
+    // Only enable devtools plugin in development
+    ...(process.env.NODE_ENV === "development" ? [devtoolsJson()] : []),
+  ],
   server: {
     port: 5173,
     // HMR settings for Svelte 5 - ensure proper hot module replacement

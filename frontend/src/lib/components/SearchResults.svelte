@@ -4,6 +4,7 @@
 
   @param {Telegram[] | null} [telegrams] - Array of telegram messages to display (optional, defaults to empty array if null/undefined)
   @param {number} [total] - Total number of results available (optional, defaults to 0 if undefined)
+  @param {string} [highlightKeywords] - Optional keywords to highlight in message content
 -->
 
 <script lang="ts">
@@ -14,9 +15,10 @@
   interface Props {
     telegrams?: Telegram[] | null;
     total?: number;
+    highlightKeywords?: string | null;
   }
 
-  let { telegrams = [], total = 0 }: Props = $props();
+  let { telegrams = [], total = 0, highlightKeywords }: Props = $props();
 
   // Ensure telegrams is always an array, never null
   const safeTelegrams = $derived(telegrams ?? []);
@@ -52,11 +54,8 @@
 <div class="rounded-lg bg-white/95 backdrop-blur-md border-0 p-8 card-glow min-h-[400px]">
   {#if safeTelegrams.length > 0}
     <div class="space-y-5">
-      <p class="text-base font-semibold text-slate-700 mb-5">
-        Found <span
-          class="bg-linear-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent font-bold"
-          >{total.toLocaleString()}</span
-        > results
+      <p class="results-summary mb-5">
+        Found <span class="results-count">{total.toLocaleString()}</span> results
       </p>
       <VirtualList
         items={safeTelegrams}
@@ -66,7 +65,7 @@
         let:item={telegram}
       >
         <div class="result-item">
-          <MessageItem {telegram} />
+          <MessageItem {telegram} {highlightKeywords} />
         </div>
       </VirtualList>
     </div>
@@ -94,11 +93,74 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  .results-summary {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .results-count {
+    font-weight: 700;
+    color: #2563eb;
+  }
+
   .result-item {
     margin-bottom: 1rem;
   }
 
   .result-item:last-child {
     margin-bottom: 0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .card-glow {
+      background: rgba(30, 41, 59, 0.9);
+      box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        0 0 0 0.5px rgba(255, 255, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      border: 0.5px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .results-summary {
+      color: #e2e8f0;
+    }
+
+    .results-count {
+      color: #60a5fa;
+    }
+  }
+
+  :global(.dark) .card-glow {
+    background: rgba(30, 41, 59, 0.9);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.2),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border: 0.5px solid rgba(148, 163, 184, 0.2);
+  }
+
+  :global(.dark) .results-summary {
+    color: #e2e8f0;
+  }
+
+  :global(.dark) .results-count {
+    color: #60a5fa;
+  }
+
+  .virtual-list-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .virtual-list-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .virtual-list-container::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 9999px;
   }
 </style>

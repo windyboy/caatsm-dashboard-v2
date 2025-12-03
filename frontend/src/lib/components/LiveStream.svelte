@@ -291,14 +291,9 @@
 
   .messages-container {
     border-radius: 0.5rem;
-    padding: 0.75rem;
+    padding: 1.25rem;
     border: 0;
-    background: linear-gradient(
-      to bottom right,
-      rgba(248, 250, 252, 0.4),
-      rgba(var(--brand-50), 0.3)
-    );
-    box-shadow: inset 0 2px 4px 0 rgba(15, 23, 42, 0.08);
+    background: transparent;
     height: 600px;
     max-height: 600px;
     min-height: 600px;
@@ -310,7 +305,7 @@
   }
 
   .virtual-list-container :global(.message-wrapper) {
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
   }
 
   .messages-container::-webkit-scrollbar {

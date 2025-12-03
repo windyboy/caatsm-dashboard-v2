@@ -223,10 +223,20 @@
   let unsubscribe: (() => void) | null = null;
 
   onMount(() => {
+    let isInitialLoad = true;
+    
     // Subscribe to time range changes
     unsubscribe = timeRange.subscribe(() => {
+      // Skip the initial callback to avoid duplicate API call
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        return;
+      }
       loadChartData();
     });
+    
+    // Load initial chart data after subscription is set up
+    loadChartData();
 
     // Redraw on window resize
     const handleResize = () => {

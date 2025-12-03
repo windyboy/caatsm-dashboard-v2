@@ -19,12 +19,15 @@
   const isLoginPage = $derived($page.url.pathname === "/login");
 
   onMount(() => {
-    initPerformanceMonitoring();
+    // Only initialize performance monitoring in development
+    if (import.meta.env.DEV) {
+      initPerformanceMonitoring();
+    }
     // Theme store already applies theme on initialization (see theme.ts)
     
     // Connect WebSocket at the layout level so it persists across page navigations
-    // Only connect if not already connected
-    if (typeof window !== "undefined" && !websocket.checkIsConnected()) {
+    // Only connect if not on login page and not already connected
+    if (typeof window !== "undefined" && !isLoginPage && !websocket.checkIsConnected()) {
       websocket.connect();
     }
   });
@@ -32,7 +35,8 @@
   onDestroy(() => {
     // Cleanup WebSocket when the entire app is destroyed (e.g., page unload)
     // This ensures proper cleanup on navigation away from the app
-    if (typeof window !== "undefined") {
+    // Only cleanup if not on login page
+    if (typeof window !== "undefined" && !isLoginPage) {
       websocket.cleanup();
     }
   });

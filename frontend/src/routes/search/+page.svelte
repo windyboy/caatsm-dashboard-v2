@@ -224,7 +224,11 @@
         {:else}
           <div>
             <ErrorBoundary context={{ component: "SearchResults" }}>
-              <SearchResults {telegrams} {total} />
+              <SearchResults
+                {telegrams}
+                {total}
+                highlightKeywords={$page.url.searchParams.get("query") || undefined}
+              />
             </ErrorBoundary>
           </div>
         {/if}

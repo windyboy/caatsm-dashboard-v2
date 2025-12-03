@@ -213,10 +213,7 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 700;
-    background: linear-gradient(to right, #2563eb, #9333ea);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #2563eb;
   }
 
   .metrics-content {
@@ -265,6 +262,32 @@
   .metric-value {
     color: #334155;
     font-weight: 600;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .metrics-title {
+      color: #60a5fa;
+    }
+
+    .metric-label {
+      color: #94a3b8;
+    }
+
+    .metric-value {
+      color: #cbd5e1;
+    }
+  }
+
+  :global(.dark) .metrics-title {
+    color: #60a5fa;
+  }
+
+  :global(.dark) .metric-label {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .metric-value {
+    color: #cbd5e1;
   }
 
   .error-message {

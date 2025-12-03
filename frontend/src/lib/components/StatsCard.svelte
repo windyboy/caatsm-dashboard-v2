@@ -66,8 +66,8 @@
       {#each Object.keys(statsValue.byPriority || {}) as priority (priority)}
         {@const count = statsValue.byPriority[Number(priority)] || 0}
         <div class="stats-list-item">
-          <span>Priority {priority}</span>
-          <span class="font-semibold">{count.toLocaleString()}</span>
+          <span class="stats-label">Priority {priority}</span>
+          <span class="stats-count">{count.toLocaleString()}</span>
         </div>
       {/each}
     </div>
@@ -77,8 +77,8 @@
         {@const byType = statsValue.byType as Record<string, number>}
         {@const count = byType[typeName] || 0}
         <div class="stats-list-item">
-          <span class="uppercase">{typeName}</span>
-          <span class="font-semibold">{count.toLocaleString()}</span>
+          <span class="stats-label uppercase">{typeName}</span>
+          <span class="stats-count">{count.toLocaleString()}</span>
         </div>
       {/each}
     </div>
@@ -125,26 +125,19 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 700;
-    background: linear-gradient(to right, #2563eb, #9333ea);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #2563eb;
   }
 
   .stats-value {
     font-size: 1.5rem;
     line-height: 2rem;
     font-weight: 700;
-    background: linear-gradient(to right, #2563eb, #9333ea, #16a34a);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #2563eb;
   }
 
   .stats-list {
     font-size: 0.875rem;
     line-height: 1.25rem;
-    color: #334155;
     max-height: 150px;
     overflow-y: auto;
     padding-right: 0.25rem;
@@ -173,6 +166,77 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .stats-label {
+    color: #000000;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
+    letter-spacing: 0.01em;
+  }
+
+  .stats-count {
+    color: #1e3a8a;
+    font-weight: 800;
+    font-size: 1rem;
+    line-height: 1.5rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* Ensure light mode colors - override any inherited styles */
+  :global(:not(.dark)) .stats-label {
+    color: #000000;
+  }
+
+  :global(:not(.dark)) .stats-count {
+    color: #1e3a8a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .stats-title {
+      color: #60a5fa;
+    }
+
+    .stats-value {
+      color: #60a5fa;
+    }
+
+    .stats-label {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.9375rem;
+      line-height: 1.375rem;
+    }
+
+    .stats-count {
+      color: #93c5fd;
+      font-weight: 800;
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
+  }
+
+  :global(.dark) .stats-title {
+    color: #60a5fa;
+  }
+
+  :global(.dark) .stats-value {
+    color: #60a5fa;
+  }
+
+  :global(.dark) .stats-label {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
+  }
+
+  :global(.dark) .stats-count {
+    color: #93c5fd;
+    font-weight: 800;
+    font-size: 1rem;
+    line-height: 1.5rem;
   }
 
   /* Type-specific list height */

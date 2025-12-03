@@ -62,10 +62,20 @@
 
   // Load statistics on page mount and when time range changes
   onMount(() => {
+    let isInitialLoad = true;
+    
     // Subscribe to time range changes
     const unsubscribe = timeRange.subscribe(() => {
+      // Skip the initial callback to avoid duplicate API call
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        return;
+      }
       loadStats();
     });
+    
+    // Load initial stats after subscription is set up
+    loadStats();
     
     return () => {
       unsubscribe();
