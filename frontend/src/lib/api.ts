@@ -6,12 +6,13 @@ function buildUrl(path: string): string {
   return new URL(path, API_BASE).toString();
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const url = buildUrl(path);
   
   try {
     const response = await fetch(url, {
       ...init,
+      signal: init?.signal,
       headers: {
         "Content-Type": "application/json",
         ...init?.headers,
@@ -26,7 +27,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
           errorMessage = errorBody.error || errorBody.message;
         }
       } catch {
-        // If JSON parsing fails, use status text
+        // Use status text if JSON parsing fails
       }
       throw new Error(`${response.status}: ${errorMessage}`);
     }
@@ -37,7 +38,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
     return response.json() as Promise<T>;
   } catch (err) {
-    // Handle network errors (connection refused, CORS, etc.)
+    if (err instanceof Error && err.name === "AbortError") {
+      throw err;
+    }
     if (err instanceof TypeError && err.message.includes("fetch")) {
       throw new Error(`Network error: Unable to connect to ${url}. Is the backend server running?`);
     }
@@ -50,7 +53,36 @@ export function fetchStats(): Promise<TrafficSummary> {
 }
 
 export function fetchHealth(): Promise<HealthSnapshot> {
-  return request<HealthSnapshot>("/api/health");
+  // Health endpoint may return 503 for degraded/unhealthy status, which is still valid data
+  // We need to handle 503 as a valid response since it contains health information
+  const url = buildUrl("/api/health");
+  return fetch(url, {
+    headers: { "Content-Type": "application/json" },
+  }).then(async (response) => {
+    // 503 is valid for health endpoint - it means degraded/unhealthy but still has data
+    if (response.status === 503 || response.status === 200) {
+      return response.json() as Promise<HealthSnapshot>;
+    }
+    // For other error statuses, throw an error
+    if (!response.ok) {
+      let errorMessage = response.statusText || "Request failed";
+      try {
+        const errorBody = await response.json();
+        if (errorBody.error || errorBody.message) {
+          errorMessage = errorBody.error || errorBody.message;
+        }
+      } catch {
+        // Use status text if JSON parsing fails
+      }
+      throw new Error(`${response.status}: ${errorMessage}`);
+    }
+    return response.json() as Promise<HealthSnapshot>;
+  }).catch((err) => {
+    if (err instanceof TypeError && err.message.includes("fetch")) {
+      throw new Error(`Network error: Unable to connect to ${url}. Is the backend server running?`);
+    }
+    throw err;
+  });
 }
 
 export function fetchRecentMessages(limit: number = 12): Promise<SearchResponse> {
@@ -63,7 +95,7 @@ export function fetchRecentMessages(limit: number = 12): Promise<SearchResponse>
   return request<SearchResponse>(`/api/search?${params.toString()}`);
 }
 
-export function runSearch(query: string, limit: number = 50): Promise<SearchResponse> {
+export function runSearch(query: string, limit: number = 50, signal?: AbortSignal): Promise<SearchResponse> {
   const params = new URLSearchParams({
     limit: String(limit),
     sort_by: "time",
@@ -74,5 +106,5 @@ export function runSearch(query: string, limit: number = 50): Promise<SearchResp
     params.set("query", query.trim());
   }
 
-  return request<SearchResponse>(`/api/search?${params.toString()}`);
+  return request<SearchResponse>(`/api/search?${params.toString()}`, { signal });
 }

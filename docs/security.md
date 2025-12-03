@@ -95,7 +95,6 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
 
 - Enable encryption for PostgreSQL storage (cloud-managed or OS-level).
 - Use encrypted disks or storage classes for containers and virtual machines.
-- Store exported CSV files in encrypted buckets if persisted beyond the streaming response.
 
 ### Data in Transit
 

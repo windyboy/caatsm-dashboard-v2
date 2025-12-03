@@ -37,3 +37,22 @@ export interface SearchResponse {
   telegrams: Telegram[];
   total: number;
 }
+
+// WebSocket message types
+export interface WSMessage {
+  type: string;
+  data: unknown;
+}
+
+export interface WSStatsData {
+  total: number;
+  byPriority?: Record<string, number>;
+  byType?: Record<string, number>;
+}
+
+export const WSMessageType = {
+  STATS: "stats",
+  MESSAGE: "message",
+} as const;
+
+export type WSConnectionStatus = "connecting" | "connected" | "disconnected" | "error";

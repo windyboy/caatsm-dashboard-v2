@@ -3,7 +3,11 @@ package service
 import (
 	"sync"
 	"time"
+
+	"github.com/windy/caatsm-dashboard/internal/app"
 )
+
+type RealtimeInfo = app.RealtimeInfo
 
 // RealtimeManager manages real-time dashboard information
 type RealtimeManager struct {

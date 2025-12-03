@@ -50,7 +50,7 @@ info:
     
     WebSocket messages are **best-effort** and not guaranteed. Clients should:
     - Treat messages as hints for UI updates
-    - Periodically poll `GET /api/dashboard` or `POST /api/search` for reconciliation
+    - Periodically poll `GET /api/search` for reconciliation
     - Re-fetch full state after reconnection (no replay buffer maintained)
     - Handle connection drops gracefully with exponential backoff
     - Implement client-side timeouts and reconnection logic
@@ -58,7 +58,7 @@ info:
     ## Component Interactions
 
     - **PostgreSQL**: Primary data storage with TimescaleDB for time-series optimization
-    - **Meilisearch**: Full-text search and autocomplete with typo tolerance
+    - **Meilisearch**: Full-text search with typo tolerance
     - **Valkey/Redis**: Caching layer for performance optimization
     - **NATS JetStream**: Message ingestion and event streaming
     - **WebSocket Hub**: Real-time client connections with connection limits (5/IP, 10k global)
@@ -74,8 +74,6 @@ info:
     Features:
     - Full-text search with Meilisearch
     - Real-time analytics and statistics
-    - Unified dashboard endpoint
-    - Streaming CSV export (max 10,000 records per request)
     - Time range validation (max 90 days)
     - WebSocket real-time updates
     - Production-ready with rate limiting and security
@@ -94,13 +92,13 @@ servers:
 
 tags:
   - name: search
-    description: Search and autocomplete operations
+    description: Search operations
   - name: stats
     description: Statistics and analytics
-  - name: export
-    description: Data export operations
   - name: health
     description: Health check endpoints
+  - name: admin
+    description: Admin operations
   - name: websocket
     description: WebSocket real-time streaming endpoints
 
@@ -183,16 +181,6 @@ components:
         page:
           $ref: '#/components/schemas/Pagination'
 
-    DashboardResponse:
-      type: object
-      properties:
-        searchResults:
-          $ref: '#/components/schemas/SearchResult'
-        stats:
-          $ref: '#/components/schemas/TrafficSummary'
-        timeRange:
-          $ref: '#/components/schemas/TimeWindow'
-    
     Pagination:
       type: object
       properties:
@@ -256,16 +244,6 @@ components:
             "ACARS": 1500
             "CPDLC": 500
     
-    
-    AutocompleteResult:
-      type: object
-      properties:
-        suggestions:
-          type: array
-          items:
-            type: string
-          example: ["ZBAA", "ZSPD", "ZSSS"]
-    
     HealthCheck:
       type: object
       properties:
@@ -319,122 +297,6 @@ components:
           example: "invalid parameters"
 
 paths:
-  /dashboard:
-    get:
-      summary: Get unified dashboard data
-      description: |
-        Retrieve unified dashboard data including search results and statistics.
-
-        **Data Flow:**
-        1. Request parsed and validated at Delivery layer
-        2. Rate limiting applied (10 req/sec per IP)
-        3. Application layer orchestrates parallel queries to PostgreSQL + Meilisearch
-        4. Domain layer validates time range and applies business rules
-        5. Infrastructure layer executes optimized queries with caching
-
-        **Security & Validation:**
-        - Input sanitization and SQL injection prevention
-        - Time range validation (max 90 days from start_time)
-        - Query length limit (500 characters)
-        - Pagination limits (max 1000 results per page)
-        - Sort field whitelist validation
-      tags:
-        - search
-        - stats
-      parameters:
-        - name: query
-          in: query
-          description: Search query text (max 500 characters)
-          schema:
-            type: string
-            maxLength: 500
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 1000
-            default: 50
-        - name: offset
-          in: query
-          description: Pagination offset
-          schema:
-            type: integer
-            minimum: 0
-            maximum: 100000
-            default: 0
-        - name: sort_by
-          in: query
-          description: Sort field
-          schema:
-            type: string
-            enum: [time, priority, message_id, type, flight_number, source, destination]
-            default: time
-        - name: order
-          in: query
-          description: Sort order
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
-        - name: type
-          in: query
-          description: Filter by telegram type
-          schema:
-            type: string
-            enum: [AFTN, SITA, ACARS, CPDLC]
-        - name: source
-          in: query
-          description: Filter by source airport (ICAO code)
-          schema:
-            type: string
-            pattern: ^[A-Z]{4}$
-        - name: destination
-          in: query
-          description: Filter by destination airport (ICAO code)
-          schema:
-            type: string
-            pattern: ^[A-Z]{4}$
-        - name: priority
-          in: query
-          description: Filter by priority level
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 3
-        - name: start_time
-          in: query
-          description: Filter start time (RFC3339 format)
-          schema:
-            type: string
-            format: date-time
-        - name: end_time
-          in: query
-          description: Filter end time (RFC3339 format, max 90 days from start_time)
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: Dashboard data
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardResponse'
-        '400':
-          description: Bad request (invalid parameters, time range > 90 days, query too long)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /search:
     get:
       summary: Search telegrams
@@ -555,145 +417,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    post:
-      summary: Search telegrams with body parameters
-      description: |
-        Search aviation telegrams with full-text search and filters using request body.
-
-        **Data Flow:**
-        1. Request parsed and validated at Delivery layer
-        2. Rate limiting applied (10 req/sec per IP)
-        3. Application layer orchestrates parallel queries to PostgreSQL + Meilisearch
-        4. Domain layer validates time range (max 90 days) and applies business rules
-        5. Infrastructure layer executes optimized queries with caching
-
-        **Security & Validation:**
-        - Input sanitization and SQL injection prevention
-        - Time range validation (max 90 days from start_time)
-        - Query length limit (500 characters)
-        - Pagination limits (max 1000 results per page)
-        - Sort field whitelist validation
-
-        **Performance Features:**
-        - Parallel execution of database and search queries
-        - Valkey caching for frequently accessed results
-        - Meilisearch typo-tolerant full-text search
-        - TimescaleDB optimization for time-series data
-      tags:
-        - search
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                query:
-                  type: string
-                  maxLength: 500
-                  description: Search query text (max 500 characters)
-                limit:
-                  type: integer
-                  minimum: 1
-                  maximum: 1000
-                  default: 50
-                  description: Number of results per page
-                offset:
-                  type: integer
-                  minimum: 0
-                  maximum: 100000
-                  default: 0
-                  description: Pagination offset
-                sort_by:
-                  type: string
-                  enum: [time, priority, message_id, type, flight_number, source, destination]
-                  default: time
-                  description: Sort field
-                order:
-                  type: string
-                  enum: [asc, desc]
-                  default: desc
-                  description: Sort order
-                type:
-                  type: string
-                  enum: [AFTN, SITA, ACARS, CPDLC]
-                  description: Filter by telegram type
-                source:
-                  type: string
-                  pattern: ^[A-Z]{4}$
-                  description: Filter by source airport (ICAO code)
-                destination:
-                  type: string
-                  pattern: ^[A-Z]{4}$
-                  description: Filter by destination airport (ICAO code)
-                priority:
-                  type: integer
-                  minimum: 1
-                  maximum: 3
-                  description: Filter by priority level
-                start_time:
-                  type: string
-                  format: date-time
-                  description: Filter start time (RFC3339 format)
-                end_time:
-                  type: string
-                  format: date-time
-                  description: Filter end time (RFC3339 format, max 90 days from start_time)
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SearchResult'
-        '400':
-          description: Bad request (invalid parameters, time range > 90 days, query too long)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /autocomplete:
-    get:
-      summary: Get autocomplete suggestions
-      description: Get search term suggestions for autocomplete functionality
-      tags:
-        - search
-      parameters:
-        - name: term
-          in: query
-          required: true
-          description: Search term to get suggestions for
-          schema:
-            type: string
-        - name: size
-          in: query
-          description: Number of suggestions to return
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 50
-            default: 5
-      responses:
-        '200':
-          description: Autocomplete suggestions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AutocompleteResult'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  
   /stats:
     get:
       summary: Get telegram statistics
@@ -707,87 +430,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TrafficSummary'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  
-  /export:
-    get:
-      summary: Export telegrams to CSV
-      description: |
-        Export search results to CSV format with streaming support.
-
-        **Streaming Export Process:**
-        1. Request validated and rate limited at Delivery layer
-        2. Application layer initiates streaming query with chunking (1000 records/chunk)
-        3. Infrastructure layer streams data from PostgreSQL without loading all records into memory
-        4. Response streamed directly to client with proper Content-Type headers
-        5. Automatic cleanup on client disconnection or completion
-
-        **Memory Management:**
-        - Chunked processing prevents OOM for large exports
-        - Maximum 10,000 records per export (configurable)
-        - Streaming response with Transfer-Encoding: chunked
-        - Automatic resource cleanup on errors or disconnection
-
-        **Security & Limits:**
-        - Rate limiting (10 req/sec per IP)
-        - Export size limits to prevent resource exhaustion
-        - Input validation on all filter parameters
-        - SQL injection prevention through parameterized queries
-
-        **Supported Format:**
-        - CSV: Plain text with proper escaping
-      tags:
-        - export
-      parameters:
-        - name: format
-          in: query
-          description: Export format (only CSV supported)
-          schema:
-            type: string
-            enum: [csv]
-            default: csv
-        - name: query
-          in: query
-          description: Search query text
-          schema:
-            type: string
-        - name: type
-          in: query
-          description: Filter by telegram type
-          schema:
-            type: string
-            enum: [AFTN, SITA, ACARS, CPDLC]
-        - name: source
-          in: query
-          description: Filter by source airport (ICAO code)
-          schema:
-            type: string
-            pattern: ^[A-Z]{4}$
-        - name: destination
-          in: query
-          description: Filter by destination airport (ICAO code)
-          schema:
-            type: string
-            pattern: ^[A-Z]{4}$
-      responses:
-        '200':
-          description: Exported CSV file
-          content:
-            text/csv:
-              schema:
-                type: string
-                format: binary
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -814,6 +456,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
+
+  /admin/reindex:
+    post:
+      summary: Trigger reindex operation
+      description: |
+        Admin endpoint to trigger reindexing of messages from PostgreSQL to Meilisearch.
+        Requires date range parameters (from and to in YYYY-MM-DD format).
+      tags:
+        - admin
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD format)
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD format)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Reindex job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+        '400':
+          description: Bad request (invalid date format or range)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /ws:
     get:

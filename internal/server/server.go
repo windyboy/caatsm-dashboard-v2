@@ -185,21 +185,13 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		logger,
 	)
 
-	exportSvc := service.NewExportService(
-		searchSvc,
-		store,
-		logger,
-	)
-
 	dashboardSvc := service.NewDashboardService(
 		searchSvc,
 		statsSvc,
-		exportSvc,
 		realtimeManager,
 		store,
 		cacheStore,
-		5*time.Minute, // statsTTL
-		logger,
+		5*time.Minute,
 	)
 
 	container.DashboardService = dashboardSvc

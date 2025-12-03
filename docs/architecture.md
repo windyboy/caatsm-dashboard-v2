@@ -77,8 +77,6 @@ Data Storage
    - Updates Meilisearch index
    - Handles pending message recovery
 
-6. **Export Service**
-   - Streams large datasets for export
 
 ### 3.2 Data Storage
 
@@ -89,7 +87,7 @@ Data Storage
 - 180-day retention policy
 
 **Meilisearch**
-- Full-text search and autocomplete
+- Full-text search
 - Eventually consistent with PostgreSQL
 
 **Redis**

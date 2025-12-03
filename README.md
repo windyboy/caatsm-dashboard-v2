@@ -7,10 +7,10 @@ CAATSM (Civil Aviation Aerogram Traffic Stream Monitor) Dashboard tracks aviatio
 - Go backend powered by Echo with consistent request validation
 - NATS JetStream ingestion processed by the ingestion service (integrated in main server)
 - PostgreSQL (TimescaleDB-compatible image) storage via pgx
-- Meilisearch full-text search with typed autocomplete suggestions
+- Meilisearch full-text search
 - Valkey/Redis cache for stats, counters, and realtime fan-out
 - WebSocket hub with backpressure protection and 10 req/sec rate limiting
-- Streaming CSV export backed by repository-level streaming
+- Real-time message updates via WebSocket
 - Prometheus metrics and structured Zap logging
 - Config guards enforcing TLS/auth secrets and 90-day time windows
 
@@ -302,20 +302,11 @@ Using Taskfile:
 
 ## REST API Outline
 
-
-
-- `GET /api/dashboard`
-- `GET /api/search`
-
-- `POST /api/search`
-
-- `GET /api/stats`
-- `GET /api/export` (CSV streaming)
-- `GET /api/autocomplete`
-
-- `GET /api/health`
-- `GET /metrics`
-
+- `GET /api/search` - Search telegrams with filters (query, type, source, destination, priority, time range)
+- `GET /api/stats` - Get traffic statistics (total messages, by priority, by type)
+- `GET /api/health` - Health check endpoint
+- `POST /api/admin/reindex` - Admin endpoint to trigger reindexing
+- `GET /metrics` - Prometheus metrics (if enabled)
 
 Full schemas live in `api/openapi.yaml`.
 

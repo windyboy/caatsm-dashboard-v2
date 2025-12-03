@@ -287,25 +287,46 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 		}
 	}
 
-	// NATS health check using reflection to avoid importing nats package
 	if c.natsConn == nil {
 		result.NATS = ComponentHealth{Status: "not_configured"}
 	} else {
 		start := time.Now()
-		responseTime := time.Since(start)
 		
-		// Use reflection to check NATS connection status
 		connValue := reflect.ValueOf(c.natsConn)
-		if connValue.Kind() == reflect.Ptr && !connValue.IsNil() {
-			connValue = connValue.Elem()
+		// Handle pointer types - methods are on the pointer, not the value
+		if connValue.Kind() == reflect.Ptr {
+			if connValue.IsNil() {
+				result.NATS = ComponentHealth{
+					Status:  "error",
+					Message: "NATS connection is nil",
+				}
+				errorCount++
+				if result.Status == "healthy" {
+					result.Status = "degraded"
+				}
+			} else {
+				// Don't call Elem() - methods are on the pointer type (*nats.Conn), not the value type
+				// Keep connValue as the pointer to access methods
+			}
 		}
 		
-		// Check IsClosed method
 		isClosedMethod := connValue.MethodByName("IsClosed")
 		isConnectedMethod := connValue.MethodByName("IsConnected")
 		statsMethod := connValue.MethodByName("Stats")
 		
-		if isClosedMethod.IsValid() && isConnectedMethod.IsValid() {
+		if !isClosedMethod.IsValid() || !isConnectedMethod.IsValid() {
+			result.NATS = ComponentHealth{
+				Status:       "error",
+				Message:      fmt.Sprintf("NATS connection type check failed (type: %s)", connValue.Type().String()),
+				ResponseTime: fmt.Sprintf("%.2fms", float64(time.Since(start).Nanoseconds())/1e6),
+			}
+			errorCount++
+			if result.Status == "healthy" {
+				result.Status = "degraded"
+			}
+		} else {
+			responseTime := time.Since(start)
+			
 			isClosed := isClosedMethod.Call(nil)[0].Bool()
 			isConnected := isConnectedMethod.Call(nil)[0].Bool()
 			
@@ -330,7 +351,6 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 					result.Status = "degraded"
 				}
 			} else {
-				// Get stats if available
 				details := make(map[string]interface{})
 				if statsMethod.IsValid() {
 					statsValue := statsMethod.Call(nil)[0]
@@ -347,13 +367,6 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 					ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
 					Details:      details,
 				}
-			}
-		} else {
-			// Fallback: assume connection is available if reflection fails
-			result.NATS = ComponentHealth{
-				Status:       "ok",
-				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
-				Message:      "NATS connection status check unavailable, assuming healthy",
 			}
 		}
 	}

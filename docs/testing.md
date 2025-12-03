@@ -115,7 +115,6 @@ Add to CI pipeline:
 
 1. Meilisearch adapter integration tests
 2. NATS consumer error handling tests
-3. Export service streaming tests
 
 ### Low Priority
 

@@ -351,3 +351,10 @@ a {
   border-color: #fecdd3;
   background: #fff1f2;
 }
+
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}

@@ -1,10 +1,7 @@
 package http
 
 import (
-	"strconv"
-
 	"github.com/labstack/echo/v4"
-	"github.com/windy/caatsm-dashboard/internal/app"
 	"go.uber.org/zap"
 )
 
@@ -15,55 +12,9 @@ func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Log
 		handler = NewHandler(dashboardSvc, logger)
 	}
 
-	// API v1 routes
 	api := e.Group("/api")
-
-	// Dashboard routes
-	api.GET("/dashboard", handler.Dashboard)
-
-	// Search routes
 	api.GET("/search", handler.Search)
-	api.POST("/search", handler.Search)
-
-	// Stats routes
 	api.GET("/stats", handler.Stats)
-	api.GET("/stats/historical", handler.HistoricalStats)
-
-	// Export routes
-	api.GET("/export", handler.Export)
-
-	// Health check
 	api.GET("/health", handler.Health)
-
-	// Autocomplete (for frontend)
-	api.GET("/autocomplete", handler.Autocomplete)
-
-	// Admin routes are registered separately in server.go
 }
 
-// Autocomplete handles GET /api/autocomplete - search suggestions
-func (h *Handler) Autocomplete(c echo.Context) error {
-	query := c.QueryParam("term")
-	if query == "" {
-		return c.JSON(200, map[string]interface{}{
-			"suggestions": []app.AutocompleteSuggestion{},
-		})
-	}
-
-	size := 5 // default
-	if sizeStr := c.QueryParam("size"); sizeStr != "" {
-		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= 50 {
-			size = s
-		}
-	}
-
-	suggestions, err := h.dashboardSvc.AutocompleteWithTypes(c.Request().Context(), query, size)
-	if err != nil {
-		h.logger.Error("autocomplete failed", zap.Error(err))
-		return handleError(c, err)
-	}
-
-	return c.JSON(200, map[string]interface{}{
-		"suggestions": suggestions,
-	})
-}

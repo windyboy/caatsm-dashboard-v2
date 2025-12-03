@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -14,37 +13,24 @@ import (
 	"go.uber.org/zap"
 )
 
-// Pagination and limit constants
 const (
-	// DefaultLimit is the default number of records returned when limit is not specified
-	DefaultLimit = 50
-	// MaxSearchLimit is the maximum number of records that can be returned in a search/listing query
+	DefaultLimit  = 50
 	MaxSearchLimit = 1000
 )
 
-// DashboardService defines the application boundary used by this transport layer.
 type DashboardService interface {
-	GetDashboardData(ctx context.Context, req *app.DashboardRequest) (*app.DashboardResponse, error)
 	Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error)
 	GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
-	GetHistoricalStats(ctx context.Context, timeRange app.TimeWindow, interval string) (*app.HistoricalStats, error)
-	Export(ctx context.Context, filters app.SearchFilters, format app.ExportFormat) ([]byte, error)
-	ExportStream(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error, error)
-	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
-	AutocompleteWithTypes(ctx context.Context, query string, size int) ([]app.AutocompleteSuggestion, error)
 }
 
-// AdminService defines the interface for admin operations.
 type AdminService interface {
 	Reindex(ctx context.Context, from, to time.Time) (interface{}, error)
 }
 
-// HealthCheckService defines the interface for health check operations.
 type HealthCheckService interface {
 	HealthCheck(ctx context.Context) app.HealthCheckResult
 }
 
-// Handler handles HTTP requests for the dashboard
 type Handler struct {
 	dashboardSvc DashboardService
 	adminSvc     AdminService
@@ -52,7 +38,6 @@ type Handler struct {
 	logger       *zap.Logger
 }
 
-// NewHandler creates a new HTTP handler
 func NewHandler(dashboardSvc DashboardService, logger *zap.Logger) *Handler {
 	return &Handler{
 		dashboardSvc: dashboardSvc,
@@ -60,74 +45,14 @@ func NewHandler(dashboardSvc DashboardService, logger *zap.Logger) *Handler {
 	}
 }
 
-// SetAdminService sets the admin service for the handler.
 func (h *Handler) SetAdminService(adminSvc AdminService) {
 	h.adminSvc = adminSvc
 }
 
-// SetHealthCheckService sets the health check service for the handler.
 func (h *Handler) SetHealthCheckService(healthSvc HealthCheckService) {
 	h.healthSvc = healthSvc
 }
 
-// Dashboard handles GET /api/dashboard - unified dashboard data endpoint
-func (h *Handler) Dashboard(c echo.Context) error {
-	// Extract user ID from context
-	userID, err := getUserID(c)
-	if err != nil {
-		h.logger.Error("failed to get user_id from context", zap.Error(err))
-		return handleError(c, err)
-	}
-
-	// Parse query parameters
-	req := &app.DashboardRequest{
-		UserID: userID,
-	}
-
-	// Parse search filters
-	if query := c.QueryParam("query"); query != "" {
-		req.SearchFilters = app.SearchFilters{
-			Query: query,
-			Pagination: app.Pagination{
-				Limit:  DefaultLimit,
-				Offset: 0,
-				SortBy: "time",
-				Order:  "desc",
-			},
-		}
-
-		// Parse pagination
-		if limitStr := c.QueryParam("limit"); limitStr != "" {
-			if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= MaxSearchLimit {
-				req.SearchFilters.Pagination.Limit = limit
-			}
-		}
-		if offsetStr := c.QueryParam("offset"); offsetStr != "" {
-			if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-				req.SearchFilters.Pagination.Offset = offset
-			}
-		}
-	}
-
-	// Parse time range for stats
-	timeRange, err := buildTimeWindow(c)
-	if err != nil {
-		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, app.ErrInvalidInput)
-	}
-	req.TimeRange = timeRange
-
-	// Get dashboard data
-	result, err := h.dashboardSvc.GetDashboardData(c.Request().Context(), req)
-	if err != nil {
-		h.logger.Error("failed to get dashboard data", zap.Error(err))
-		return handleError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, result)
-}
-
-// Search handles POST/GET /api/search - search telegrams
 func (h *Handler) Search(c echo.Context) error {
 	filters := parseSearchFilters(c)
 	filters.Pagination = parsePagination(c)
@@ -138,20 +63,17 @@ func (h *Handler) Search(c echo.Context) error {
 	}
 	filters.TimeRange = timeRange
 
-	// Execute search
 	result, err := h.dashboardSvc.Search(c.Request().Context(), filters)
 	if err != nil {
 		h.logger.Error("search failed", zap.Error(err))
 		return handleError(c, err)
 	}
 
-	// Ensure telegrams is always a non-nil slice (empty array instead of nil)
 	telegrams := result.Telegrams
 	if telegrams == nil {
 		telegrams = []app.Telegram{}
 	}
 
-	// Convert page object to have proper JSON field names
 	page := map[string]interface{}{
 		"limit":   result.Page.Limit,
 		"offset":  result.Page.Offset,
@@ -166,7 +88,6 @@ func (h *Handler) Search(c echo.Context) error {
 	})
 }
 
-// Stats handles GET /api/stats - statistics endpoints
 func (h *Handler) Stats(c echo.Context) error {
 	timeRange, err := buildTimeWindow(c)
 	if err != nil {
@@ -183,108 +104,25 @@ func (h *Handler) Stats(c echo.Context) error {
 	return c.JSON(http.StatusOK, stats)
 }
 
-// HistoricalStats handles GET /api/stats/historical - historical time-series statistics
-func (h *Handler) HistoricalStats(c echo.Context) error {
-	timeRange, err := buildTimeWindow(c)
-	if err != nil {
-		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, app.ErrInvalidInput)
-	}
-
-	interval := c.QueryParam("interval")
-	if interval == "" {
-		interval = "hour" // default
-	}
-	if interval != "hour" && interval != "day" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid interval. supported: hour, day",
-		})
-	}
-
-	stats, err := h.dashboardSvc.GetHistoricalStats(c.Request().Context(), timeRange, interval)
-	if err != nil {
-		h.logger.Error("historical stats retrieval failed", zap.Error(err))
-		return handleError(c, err)
-	}
-
-	return c.JSON(http.StatusOK, stats)
-}
-
-// Export handles GET /api/export - data export
-func (h *Handler) Export(c echo.Context) error {
-	filters := parseSearchFilters(c)
-	filters.Pagination = app.Pagination{
-		Limit:  app.MaxExportRecords,
-		Offset: 0,
-	}
-	timeRange, err := parseTimeRange(c)
-	if err != nil {
-		h.logger.Error("invalid time range", zap.Error(err))
-		return handleError(c, app.ErrInvalidInput)
-	}
-	filters.TimeRange = timeRange
-
-	formatStr := strings.ToLower(c.QueryParam("format"))
-	if formatStr == "" {
-		formatStr = "csv"
-	}
-
-	var format app.ExportFormat
-	switch formatStr {
-	case "csv":
-		format = app.ExportFormatCSV
-	default:
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid format. supported: csv",
-		})
-	}
-
-	// Use streaming export for CSV (supports large datasets)
-	if format == app.ExportFormatCSV {
-		stream, errCh, err := h.dashboardSvc.ExportStream(c.Request().Context(), filters)
-		if err != nil {
-			h.logger.Error("export stream failed", zap.Error(err))
-			return handleError(c, err)
-		}
-		return StreamCSV(c, stream, errCh)
-	}
-
-	// This point is unreachable since only CSV is supported
-	return c.JSON(http.StatusBadRequest, map[string]string{
-		"error": "unsupported format",
-	})
-}
-
-// Health handles GET /api/health - health check
 func (h *Handler) Health(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 	defer cancel()
 
-	// If health check service is available, use it for detailed health status
 	if h.healthSvc != nil {
 		result := h.healthSvc.HealthCheck(ctx)
-		
-		// Determine HTTP status based on overall health
 		status := http.StatusOK
-		switch result.Status {
-		case "degraded":
-			status = http.StatusServiceUnavailable
-		case "unhealthy":
+		if result.Status == "degraded" || result.Status == "unhealthy" {
 			status = http.StatusServiceUnavailable
 		}
-
-		// Return the enhanced health check result directly
 		return c.JSON(status, result)
 	}
 
-	// Fallback to simple health check if service not available
 	return c.JSON(http.StatusOK, map[string]string{
 		"status":  "ok",
 		"service": "dashboard",
 	})
 }
 
-// Reindex handles POST /api/admin/reindex - trigger reindex operation
 func (h *Handler) Reindex(c echo.Context) error {
 	if h.adminSvc == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{
@@ -292,17 +130,14 @@ func (h *Handler) Reindex(c echo.Context) error {
 		})
 	}
 
-	// Parse time range parameters
 	fromStr := c.QueryParam("from")
 	toStr := c.QueryParam("to")
-
 	if fromStr == "" || toStr == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "from and to parameters are required (format: YYYY-MM-DD)",
 		})
 	}
 
-	// Parse dates (YYYY-MM-DD format)
 	from, err := time.Parse("2006-01-02", fromStr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -317,17 +152,14 @@ func (h *Handler) Reindex(c echo.Context) error {
 		})
 	}
 
-	// Validate time range
 	if from.After(to) {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "from date must be before to date",
 		})
 	}
 
-	// Set time to end of day for 'to' date
 	to = to.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 
-	// Call admin service
 	jobID, err := h.adminSvc.Reindex(c.Request().Context(), from, to)
 	if err != nil {
 		h.logger.Error("reindex failed", zap.Error(err))
@@ -337,28 +169,6 @@ func (h *Handler) Reindex(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, jobID)
-}
-
-// Helper functions
-
-// getUserID safely extracts the user_id from the echo context.
-// Returns an error if user_id is missing or not a string.
-func getUserID(c echo.Context) (string, error) {
-	userID := c.Get("user_id")
-	if userID == nil {
-		return "", app.ErrUnauthorized
-	}
-
-	userIDStr, ok := userID.(string)
-	if !ok {
-		return "", app.ErrUnauthorized
-	}
-
-	if userIDStr == "" {
-		return "", app.ErrUnauthorized
-	}
-
-	return userIDStr, nil
 }
 
 func parseTime(timeStr string) (time.Time, error) {
@@ -390,15 +200,12 @@ func buildTimeWindow(c echo.Context) (app.TimeWindow, error) {
 	return timeRange, nil
 }
 
-// handleError handles API errors and returns standardized error responses
 func handleError(c echo.Context, err error) error {
 	var apiErr app.APIError
 
-	// Check if it's already an APIError
 	if e, ok := err.(app.APIError); ok {
 		apiErr = e
 	} else {
-		// Handle legacy errors and convert them
 		switch {
 		case stdErrors.Is(err, app.ErrNotFound):
 			apiErr = app.ErrNotFound
@@ -407,7 +214,6 @@ func handleError(c echo.Context, err error) error {
 		case stdErrors.Is(err, app.ErrUnauthorized):
 			apiErr = app.ErrUnauthorized
 		default:
-			// Check for custom domain errors (use errors.As to handle wrapped errors)
 			var invalidTelegram app.ErrInvalidTelegram
 			var invalidFilter app.ErrInvalidFilter
 			if stdErrors.As(err, &invalidTelegram) {
@@ -415,19 +221,16 @@ func handleError(c echo.Context, err error) error {
 			} else if stdErrors.As(err, &invalidFilter) {
 				apiErr = invalidFilter.ToAPIError()
 			} else {
-				// Default to internal error for unknown errors
 				apiErr = app.ErrInternalError
 			}
 		}
 	}
 
-	// Get HTTP status from error code
 	status := app.GetHTTPStatus(apiErr.Code)
 
 	return c.JSON(status, apiErr)
 }
 
-// parseSearchFilters parses search filter parameters from the request context
 func parseSearchFilters(c echo.Context) app.SearchFilters {
 	filters := app.SearchFilters{}
 
@@ -452,7 +255,6 @@ func parseSearchFilters(c echo.Context) app.SearchFilters {
 	return filters
 }
 
-// parsePagination parses pagination parameters from the request context
 func parsePagination(c echo.Context) app.Pagination {
 	pagination := app.Pagination{
 		Limit:  DefaultLimit,
@@ -481,7 +283,6 @@ func parsePagination(c echo.Context) app.Pagination {
 	return pagination
 }
 
-// parseTimeRange parses time range parameters from the request context
 func parseTimeRange(c echo.Context) (app.TimeWindow, error) {
 	return buildTimeWindow(c)
 }

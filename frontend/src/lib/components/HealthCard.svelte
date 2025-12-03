@@ -8,6 +8,7 @@
     if (["ok", "healthy", "connected"].includes(normalized)) return "pill--ok";
     if (["degraded", "warning"].includes(normalized)) return "pill--warn";
     if (["unhealthy", "error"].includes(normalized)) return "pill--error";
+    if (["not_configured"].includes(normalized)) return "pill--idle";
     return "pill--idle";
   };
 </script>
