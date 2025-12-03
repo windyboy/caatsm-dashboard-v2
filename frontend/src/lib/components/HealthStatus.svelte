@@ -11,7 +11,7 @@
 
 <script lang="ts">
   import type { ComponentHealth } from "$lib/services/api";
-  import { useHealthPolling } from "$lib/composables/useHealthPolling.svelte.ts";
+  import { useHealthPolling } from "$lib/composables/useHealthPolling.svelte";
   import { formatUptime } from "$lib/utils/health";
   import HealthStatusIndicator from "./HealthStatusIndicator.svelte";
   import ComponentHealthList from "./ComponentHealthList.svelte";

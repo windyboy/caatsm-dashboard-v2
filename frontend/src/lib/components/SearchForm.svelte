@@ -14,8 +14,8 @@
 
 <script lang="ts">
   import type { SearchParams } from "../services/api";
-  import { useSearchForm } from "../composables/useSearchForm.svelte.ts";
-  import { useAutocomplete } from "../composables/useAutocomplete.svelte.ts";
+  import { useSearchForm } from "../composables/useSearchForm.svelte";
+  import { useAutocomplete } from "../composables/useAutocomplete.svelte";
   import AutocompleteInput from "./SearchForm/AutocompleteInput.svelte";
   import FilterFields from "./SearchForm/FilterFields.svelte";
   import FormActions from "./SearchForm/FormActions.svelte";
