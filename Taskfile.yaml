@@ -106,12 +106,12 @@ tasks:
         fi
 
   frontend:install:
-    desc: "Install frontend dependencies (npm + Deno cache)"
+    desc: "Install frontend dependencies (bun + Deno cache)"
     dir: frontend
     cmds:
       - |
         echo "Installing frontend dependencies..."
-        npm install --no-save
+        bun install --no-save
         if command -v deno >/dev/null 2>&1; then
           echo "Caching TypeScript files with Deno..."
           deno cache vite.config.ts svelte.config.js vitest.config.ts playwright.config.ts src/**/*.ts 2>/dev/null || true
@@ -133,50 +133,40 @@ tasks:
 
   # Frontend
   frontend:dev:
-    desc: "Run frontend dev server (Deno, fallback to npm)"
+    desc: "Run frontend dev server (Deno, fallback to bun)"
     dir: frontend
     cmds:
       - |
         if command -v deno >/dev/null 2>&1; then
           deno task dev
         else
-          echo "deno not found, using npm"
-          npm run dev
+          echo "deno not found, using bun"
+          bun run dev
         fi
 
   frontend:build:
-    desc: "Build frontend for production (Deno, fallback to npm)"
+    desc: "Build frontend for production (Deno, fallback to bun)"
     dir: frontend
     cmds:
       - |
         if command -v deno >/dev/null 2>&1; then
           deno task build
         else
-          echo "deno not found, using npm"
-          npm run build
+          echo "deno not found, using bun"
+          bun run build
         fi
 
   frontend:test:
-    desc: "Run frontend E2E tests (Playwright via Deno, fallback to npm)"
+    desc: "Run frontend E2E tests (Playwright via bun)"
     dir: frontend
     cmds:
-      - |
-        if command -v deno >/dev/null 2>&1; then
-          deno task test
-        else
-          npm test
-        fi
+      - bun test
 
   frontend:test:unit:
-    desc: "Run frontend unit tests (Vitest via Deno, fallback to npm)"
+    desc: "Run frontend unit tests (Vitest via bun)"
     dir: frontend
     cmds:
-      - |
-        if command -v deno >/dev/null 2>&1; then
-          deno task test:unit
-        else
-          npm run test:unit
-        fi
+      - bun run test:unit
 
   # Environment
   dev:up:

@@ -63,8 +63,6 @@
 
   // Load statistics on page mount and when time range changes
   onMount(() => {
-    loadStats();
-    
     // Subscribe to time range changes
     const unsubscribe = timeRange.subscribe(() => {
       loadStats();

@@ -24,14 +24,50 @@
   // Track messages in a sliding window (last 10 seconds)
   const RATE_WINDOW_MS = 10000; // 10 seconds
   const messageTimestamps: number[] = [];
+  const seenKeys = new Set<string>();
+  const recentKeys: string[] = [];
+  const MAX_TRACKED_KEYS = 5000;
 
-  function calculateRate(): void {
-    const now = Date.now();
+  function getMessageKey(message: Telegram): string {
+    if (message.message_id && message.message_id !== "0") {
+      return `id:${message.message_id}`;
+    }
+    return [
+      "hash",
+      message.time ?? "",
+      message.flight_number ?? "",
+      message.source ?? "",
+      message.destination ?? "",
+      message.type ?? "",
+      message.priority ?? "",
+      message.content ?? "",
+    ].join("|");
+  }
+
+  function trackKey(key: string) {
+    seenKeys.add(key);
+    recentKeys.push(key);
+    if (recentKeys.length > MAX_TRACKED_KEYS) {
+      const oldest = recentKeys.shift();
+      if (oldest) {
+        seenKeys.delete(oldest);
+      }
+    }
+  }
+
+  function getMessageTimestamp(message: Telegram): number {
+    const parsed = message.time ? new Date(message.time).getTime() : NaN;
+    return Number.isNaN(parsed) ? Date.now() : parsed;
+  }
+
+  function calculateRate(now: number): void {
     const windowStart = now - RATE_WINDOW_MS;
 
-    // Remove timestamps outside the window
-    while (messageTimestamps.length > 0 && messageTimestamps[0] < windowStart) {
-      messageTimestamps.shift();
+    // Remove timestamps outside the window (array is not guaranteed sorted, so filter)
+    for (let i = messageTimestamps.length - 1; i >= 0; i--) {
+      if (messageTimestamps[i] < windowStart) {
+        messageTimestamps.splice(i, 1);
+      }
     }
 
     // Calculate rate (messages per second)
@@ -43,13 +79,27 @@
       peakRate = currentRate;
     }
 
-    lastUpdateTime = new Date();
+    lastUpdateTime = new Date(now);
   }
 
   function handleNewMessage(message: Telegram): void {
+    const key = getMessageKey(message);
+    if (seenKeys.has(key)) {
+      return; // Skip already processed messages (e.g., from resync batches)
+    }
+
+    trackKey(key);
     messageCount++;
-    messageTimestamps.push(Date.now());
-    calculateRate();
+
+    const timestamp = getMessageTimestamp(message);
+    const now = Date.now();
+
+    // Ignore old messages for rate calculations to avoid spikes from historical resync
+    if (timestamp >= now - RATE_WINDOW_MS) {
+      messageTimestamps.push(timestamp);
+    }
+
+    calculateRate(now);
   }
 
   let unsubscribe: (() => void) | null = null;
@@ -61,21 +111,20 @@
 
     // Subscribe to messages store
     unsubscribe = messages.subscribe((msgs: Telegram[]) => {
-      if (msgs.length > 0) {
-        // Get the most recent message (first in array)
-        const latestMessage = msgs[0];
-        if (latestMessage) {
-          handleNewMessage(latestMessage);
-        }
+      if (msgs.length === 0) return;
+
+      // Process all messages that have not been seen yet (handles batches)
+      for (const msg of msgs) {
+        handleNewMessage(msg);
       }
     });
 
     // Calculate initial rate
-    calculateRate();
+    calculateRate(Date.now());
 
     // Periodic rate recalculation (every second)
     const interval = setInterval(() => {
-      calculateRate();
+      calculateRate(Date.now());
     }, 1000);
 
     return () => {
@@ -240,4 +289,3 @@
     font-weight: 600;
   }
 </style>
-

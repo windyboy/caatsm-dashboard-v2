@@ -1,12 +1,12 @@
 # CAATSM Dashboard Frontend
 
-The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ (recommended) or Node.js 20+. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
+The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
 
 ---
 
 ## Prerequisites
 
-- Deno 2.x (preferred) or Node.js 20+
+- Deno 2.x (preferred) or Bun (recommended as fallback) or Node.js 20+
 - Make or Task (optional shortcuts)
 - Backend running on http://localhost:3002 (see project root README)
 
@@ -22,6 +22,7 @@ The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ 
    - `make frontend-dev` or `task frontend:dev`  
    - Or inside `frontend/`:
      - `deno task dev`
+     - `bun run dev` (if using Bun)
      - `npm run dev` (if using Node.js)
 
 3. Open http://localhost:5173 in your browser.
@@ -32,21 +33,21 @@ The dev server proxies API calls and WebSocket traffic to http://localhost:3002.
 
 ## Core Scripts
 
-| Task | Deno | Node.js |
-| --- | --- | --- |
-| Start dev server | `deno task dev` | `npm run dev` |
-| Build for production | `deno task build` | `npm run build` |
-| Preview build | `deno task preview` | `npm run preview` |
-| Type check | `deno task check` | `npm run check` |
-| Format | `deno fmt` | `npm run format` |
-| Lint | `deno lint` | `npm run lint` |
+| Task | Deno | Bun | Node.js |
+| --- | --- | --- | --- |
+| Start dev server | `deno task dev` | `bun run dev` | `npm run dev` |
+| Build for production | `deno task build` | `bun run build` | `npm run build` |
+| Preview build | `deno task preview` | `bun run preview` | `npm run preview` |
+| Type check | `deno task check` | `bun run check` | `npm run check` |
+| Format | `deno fmt` | `bun run format` | `npm run format` |
+| Lint | `deno lint` | `bun run lint` | `npm run lint` |
 
 ---
 
 ## Testing
 
-- Unit tests (Vitest): `deno task test:unit` or `npm run test:unit`
-- E2E tests (Playwright): `deno task test` or `npm run test`
+- Unit tests (Vitest): `deno task test:unit` or `bun run test:unit` or `npm run test:unit`
+- E2E tests (Playwright): `deno task test` or `bun test` or `npm test`
 
 ---
 
@@ -99,7 +100,7 @@ The frontend uses the following key dependencies:
 
 - **Dev server cannot reach backend**: ensure the backend listens on port 3002.
 - **WebSocket fails**: confirm `VITE_WS_URL` matches backend host and that `websocket.allowed_origins` in backend config includes the frontend origin.
-- **Type errors on fresh clone**: run `deno cache --reload` or `npm install` before starting dev.
+- **Type errors on fresh clone**: run `deno cache --reload` or `bun install` before starting dev.
 - **Live data missing**: ensure backend is running and publish sample messages (`task backend:publish-stream:fast`).
 
 Keep the backend running alongside the frontend for a complete experience.

@@ -274,9 +274,15 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		shutdownTracer: shutdownTracer,
 	}
 
-	// Store NATS connection for cleanup (if needed)
-	// The connection is managed by the ingestion service, but we keep a reference
-	_ = nc
+	// Set NATS connection in container for health checks
+	container.SetNATSConnection(nc)
+	
+	// Set version (can be overridden via build flags or environment variable)
+	version := os.Getenv("APP_VERSION")
+	if version == "" {
+		version = "dev"
+	}
+	container.SetVersion(version)
 
 	s.registerRoutes()
 	return s, nil

@@ -86,9 +86,9 @@ install-deno: ## Install Deno if not available
 		echo "Deno installed. Please add Deno to your PATH or restart your shell."; \
 	fi
 
-frontend-install: ## Install frontend dependencies (npm + Deno cache)
+frontend-install: ## Install frontend dependencies (bun + Deno cache)
 	@cd frontend && echo "Installing frontend dependencies..." && \
-		npm install --no-save && \
+		bun install --no-save && \
 		if command -v deno >/dev/null 2>&1; then \
 			echo "Caching TypeScript files with Deno..."; \
 			deno cache vite.config.ts svelte.config.js vitest.config.ts playwright.config.ts src/**/*.ts 2>/dev/null || true; \
@@ -106,39 +106,31 @@ frontend-setup: ## Full frontend setup (install Deno + cache dependencies)
 	@$(MAKE) frontend-install
 
 # Frontend
-frontend-dev: ## Run frontend dev server (Deno, fallback to npm)
+frontend-dev: ## Run frontend dev server (Deno, fallback to bun)
 	@cd frontend && if command -v deno >/dev/null 2>&1; then \
 		deno task dev; \
 	else \
-		echo "deno not found, using npm"; \
-		npm run dev; \
+		echo "deno not found, using bun"; \
+		bun run dev; \
 	fi
 
-frontend-build: ## Build frontend for production (Deno, fallback to npm)
+frontend-build: ## Build frontend for production (Deno, fallback to bun)
 	@cd frontend && if command -v deno >/dev/null 2>&1; then \
 		deno task build; \
 	else \
-		echo "deno not found, using npm"; \
-		npm run build; \
+		echo "deno not found, using bun"; \
+		bun run build; \
 	fi
 
 frontend-test: ## Run frontend E2E tests (Playwright)
-	@cd frontend && if command -v deno >/dev/null 2>&1; then \
-		deno task test; \
-	else \
-		npm test; \
-	fi
+	@cd frontend && bun test
 
-frontend-test-unit: ## Run frontend unit tests (Vitest via Deno, fallback to npm)
-	@cd frontend && if command -v deno >/dev/null 2>&1; then \
-		deno task test:unit; \
-	else \
-		npm run test:unit; \
-	fi
+frontend-test-unit: ## Run frontend unit tests (Vitest via bun)
+	@cd frontend && bun run test:unit
 
 frontend-generate-client: ## Generate TypeScript API client from OpenAPI spec
 	@echo "Generating TypeScript client from OpenAPI spec..."
-	@npm run generate:api-client
+	@bun run generate:api-client
 	@echo "TypeScript client generated at frontend/src/lib/api/generated"
 
 # Environment

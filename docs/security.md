@@ -141,11 +141,11 @@ Ensure the application can unwrap secrets before calling `cfg.Validate()`. Valid
 ## 8. Dependency and Patch Management
 
 - Pin Go modules in `go.mod` and confirm checksum integrity with `go.sum`.
-- Keep `deno.lock` or `package-lock.json` under version control for frontend reproducibility.
+- Keep `deno.lock`, `bun.lock`, or `package-lock.json` under version control for frontend reproducibility.
 - Monthly dependency update routine:
   1. Create an update branch.
   2. Run `go get -u ./...` and `go mod tidy`.
-  3. Refresh frontend dependencies (`deno cache --reload` or `npm update`).
+  3. Refresh frontend dependencies (`deno cache --reload`, `bun update`, or `npm update`).
   4. Run all automated tests (`make backend-test`, `make frontend-test-unit`, `make frontend-test`).
   5. Run security scanners.
 - Security scanning:

@@ -222,8 +222,6 @@
   let unsubscribe: (() => void) | null = null;
 
   onMount(() => {
-    loadChartData();
-
     // Subscribe to time range changes
     unsubscribe = timeRange.subscribe(() => {
       loadChartData();
@@ -379,4 +377,3 @@
     text-align: center;
   }
 </style>
-

@@ -19,7 +19,7 @@ This guide covers development setup, testing, debugging, and deployment testing 
 ### System Requirements
 
 - **Go**: 1.25.4+
-- **Deno**: 2.0+ (recommended) or Node.js 20+
+- **Deno**: 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+
 - **Docker**: 20.10+ with Docker Compose
 - **Git**: 2.30+
 
@@ -402,7 +402,9 @@ make frontend-test-unit
 # or
 cd frontend && deno task test:unit
 # or
-npm run test:unit
+cd frontend && bun run test:unit
+# or
+cd frontend && npm run test:unit
 ```
 
 #### E2E Tests (Playwright)
@@ -413,7 +415,9 @@ make frontend-test
 # or
 cd frontend && deno task test
 # or
-npm test
+cd frontend && bun test
+# or
+cd frontend && npm test
 ```
 
 #### Test Structure
@@ -486,6 +490,8 @@ golangci-lint run ./...
 
 # Run frontend linter
 cd frontend && deno lint
+# or
+cd frontend && bun run lint
 # or
 cd frontend && npm run lint
 ```
@@ -643,7 +649,8 @@ wrk -t12 -c400 -d30s http://localhost:3002/api/dashboard
 
 ```bash
 # Connect multiple WebSocket clients
-npm install -g artillery
+bun add -g artillery
+# or npm install -g artillery
 artillery quick --count 50 --num 10 ws://localhost:3002/ws
 ```
 
@@ -798,9 +805,10 @@ cd frontend && rm -rf .svelte-kit build node_modules
 # Reinstall dependencies
 make frontend-install
 
-# Check Node/Deno version
-node --version
+# Check runtime version
 deno --version
+bun --version
+node --version
 ```
 
 #### Tests Failing

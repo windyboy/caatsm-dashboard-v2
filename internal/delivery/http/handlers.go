@@ -266,25 +266,15 @@ func (h *Handler) Health(c echo.Context) error {
 		
 		// Determine HTTP status based on overall health
 		status := http.StatusOK
-		if result.Status == "degraded" {
+		switch result.Status {
+		case "degraded":
+			status = http.StatusServiceUnavailable
+		case "unhealthy":
 			status = http.StatusServiceUnavailable
 		}
 
-		response := map[string]interface{}{
-			"status":    result.Status,
-			"timestamp": time.Now().Format(time.RFC3339),
-			"checks": map[string]interface{}{
-				"postgresql":  result.PostgreSQL,
-				"meilisearch": result.Meilisearch,
-				"redis":       result.Redis,
-				"nats": app.ComponentHealth{
-					Status:  "not_configured",
-					Message: "NATS health check not yet implemented",
-				},
-			},
-		}
-
-		return c.JSON(status, response)
+		// Return the enhanced health check result directly
+		return c.JSON(status, result)
 	}
 
 	// Fallback to simple health check if service not available

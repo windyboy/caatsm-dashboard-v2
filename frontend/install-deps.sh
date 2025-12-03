@@ -114,6 +114,13 @@ if command_exists deno; then
         exit 1
     fi
     echo "Playwright browsers installed successfully."
+elif command_exists bun; then
+    echo "Installing Playwright browsers with bun..."
+    if ! bunx playwright install; then
+        echo "Error: Failed to install Playwright browsers with bun" >&2
+        exit 1
+    fi
+    echo "Playwright browsers installed successfully."
 elif command_exists npm; then
     echo "Installing Playwright browsers with npm..."
     if ! npx playwright install; then
@@ -122,7 +129,7 @@ elif command_exists npm; then
     fi
     echo "Playwright browsers installed successfully."
 else
-    echo "Error: Neither Deno nor npm available for Playwright browser installation" >&2
+    echo "Error: Neither Deno, bun, nor npm available for Playwright browser installation" >&2
     exit 1
 fi
 

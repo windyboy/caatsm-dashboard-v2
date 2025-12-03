@@ -30,7 +30,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.USE_DENO === "true" ? "deno task dev" : "npm run dev",
+    command: process.env.USE_DENO === "true" 
+      ? "deno task dev" 
+      : (process.env.USE_BUN === "true" ? "bun run dev" : "npm run dev"),
     url: process.env.BASE_URL || "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 60 * 1000,

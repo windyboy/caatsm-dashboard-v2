@@ -266,7 +266,7 @@
   }
 
   .status-badge.bg-yellow-500 {
-    color: #a16207;
+    color: #713f12;
     background: linear-gradient(to right, #fefce8, #fefce8);
     border-color: rgba(254, 240, 138, 0.6);
   }

@@ -39,7 +39,7 @@ Extra support packages:
 ## Requirements
 
 - Go 1.25.4+
-- Deno 2.0+ (recommended) or Node.js 20+
+- Deno 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+
 - Docker + Docker Compose (optional but recommended)
 - PostgreSQL 15+
 - Meilisearch 1.5+
@@ -148,7 +148,15 @@ task frontend:setup   # one time
 task frontend:dev
 ```
 
-Alternative (Node.js):
+Alternative (Bun):
+
+```
+cd frontend
+bun install
+bun run dev
+```
+
+Or with Node.js:
 
 ```
 cd frontend

@@ -37,34 +37,33 @@
     children,
   }: Props = $props();
 
-  // Base classes using Daisy UI
-  const baseClasses = "btn";
+  // Base classes using UnoCSS
+  const baseClasses = "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
-  // Variant classes using Daisy UI
+  // Variant classes using UnoCSS
   const variantClasses = {
-    primary: "btn-primary",
-    secondary: "btn-secondary",
-    outline: "btn-outline",
-    ghost: "btn-ghost",
-    success: "btn-success",
-    warning: "btn-warning",
-    danger: "btn-error",
+    primary: "bg-brand-500 text-white hover:bg-brand-600 focus:ring-brand-500",
+    secondary: "bg-slate-500 text-white hover:bg-slate-600 focus:ring-slate-500",
+    outline: "border-2 border-brand-500 text-brand-500 hover:bg-brand-50 focus:ring-brand-500",
+    ghost: "text-brand-600 hover:bg-brand-50 focus:ring-brand-500",
+    success: "bg-success-500 text-white hover:bg-success-600 focus:ring-success-500",
+    warning: "bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500",
+    danger: "bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500",
   };
 
-  // Size classes using Daisy UI
+  // Size classes using UnoCSS
   const sizeClasses = {
-    xs: "btn-xs",
-    sm: "btn-sm",
-    md: "btn-md",
-    lg: "btn-lg",
-    xl: "btn-xl",
+    xs: "px-2 py-1 text-xs",
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2 text-base",
+    lg: "px-5 py-2.5 text-lg",
+    xl: "px-6 py-3 text-xl",
   };
 
   // Computed values with $derived
-  const loadingClass = $derived(loading ? "loading" : "");
   const widthClass = $derived(fullWidth ? "w-full" : "");
   const classes = $derived(
-    `${baseClasses} ${variantClasses[variant!]} ${sizeClasses[size!]} ${loadingClass} ${widthClass} ${className}`.trim()
+    `${baseClasses} ${variantClasses[variant!]} ${sizeClasses[size!]} ${widthClass} ${className}`.trim()
   );
 
   function handleClick(event: Event) {
@@ -85,6 +84,9 @@
     role="button"
     onclick={handleClick}
   >
+    {#if loading}
+      <span class="inline-block w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+    {/if}
     {@render children?.()}
   </a>
 {:else}
@@ -95,6 +97,9 @@
     class={classes}
     onclick={handleClick}
   >
+    {#if loading}
+      <span class="inline-block w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+    {/if}
     {@render children?.()}
   </button>
 {/if}

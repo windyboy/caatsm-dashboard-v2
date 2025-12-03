@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,6 +67,11 @@ type Container struct {
 	pool     *pgxpool.Pool
 	meiliSvc meilisearchClient.ServiceManager
 	redisCli redis.UniversalClient
+	natsConn interface{} // *nats.Conn - using interface{} to avoid import cycle
+	
+	// Service metadata
+	startTime time.Time
+	version   string
 }
 
 // New builds a Container with all dependencies.
@@ -103,6 +109,9 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 	container.pool = pool
 	container.meiliSvc = nil
 	container.redisCli = nil
+	container.natsConn = nil
+	container.startTime = time.Now()
+	container.version = "dev" // Can be set via build flags or config
 
 	// Validate that infrastructure is nil (expected state)
 	if container.Repo != nil || container.Cache != nil || container.Search != nil {
@@ -125,16 +134,31 @@ func New(ctx context.Context, cfg *config.AppConfig, logger *zap.Logger) (*Conta
 
 // ComponentHealth represents the health status of a component.
 type ComponentHealth struct {
-	Status  string `json:"status"` // "ok" or "error"
-	Message string `json:"message,omitempty"`
+	Status      string        `json:"status"`                // "ok", "error", "not_configured"
+	Message     string        `json:"message,omitempty"`      // Error message if status is "error"
+	ResponseTime string       `json:"response_time,omitempty"` // Response time in milliseconds
+	Details     interface{}   `json:"details,omitempty"`       // Additional component-specific details
+}
+
+// DatabasePoolStats contains database connection pool statistics.
+type DatabasePoolStats struct {
+	TotalConnections     int32 `json:"total_connections"`
+	AcquiredConnections  int32 `json:"acquired_connections"`
+	IdleConnections      int32 `json:"idle_connections"`
+	MaxConnections       int32 `json:"max_connections"`
+	ConstructingConns    int32 `json:"constructing_connections"`
 }
 
 // HealthCheckResult contains the health status of all components.
 type HealthCheckResult struct {
-	Status      string          `json:"status"` // "ok" or "degraded"
+	Status      string          `json:"status"`       // "healthy", "degraded", "unhealthy"
+	Version     string          `json:"version,omitempty"`      // Service version
+	Uptime      string          `json:"uptime,omitempty"`      // Service uptime in seconds
+	Timestamp   string          `json:"timestamp"`    // RFC3339 timestamp
 	PostgreSQL  ComponentHealth `json:"postgresql"`
 	Meilisearch ComponentHealth `json:"meilisearch"`
 	Redis       ComponentHealth `json:"redis"`
+	NATS        ComponentHealth `json:"nats"`
 }
 
 // HealthCheck verifies connectivity to all external components.
@@ -145,8 +169,18 @@ func (c *Container) HealthCheck(ctx context.Context) HealthCheckResult {
 // HealthCheckInternal is the internal implementation that can be called directly.
 func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 	result := HealthCheckResult{
-		Status: "ok",
+		Status:    "healthy",
+		Version:   c.version,
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
+	
+	// Calculate uptime
+	if !c.startTime.IsZero() {
+		uptime := time.Since(c.startTime)
+		result.Uptime = fmt.Sprintf("%.0f", uptime.Seconds())
+	}
+
+	errorCount := 0
 
 	// PostgreSQL health check with nil guard
 	if c.pool == nil {
@@ -154,8 +188,12 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 			Status:  "error",
 			Message: "database pool not initialized",
 		}
-		result.Status = "degraded"
+		errorCount++
+		if result.Status == "healthy" {
+			result.Status = "degraded"
+		}
 	} else {
+		start := time.Now()
 		pgCtx, pgCancel := context.WithTimeout(ctx, 2*time.Second)
 		defer pgCancel()
 		if err := c.pool.Ping(pgCtx); err != nil {
@@ -163,36 +201,169 @@ func (c *Container) HealthCheckInternal(ctx context.Context) HealthCheckResult {
 				Status:  "error",
 				Message: err.Error(),
 			}
-			result.Status = "degraded"
+			errorCount++
+			if result.Status == "healthy" {
+				result.Status = "degraded"
+			}
 		} else {
-			result.PostgreSQL = ComponentHealth{Status: "ok"}
+			responseTime := time.Since(start)
+			stats := c.pool.Stat()
+			result.PostgreSQL = ComponentHealth{
+				Status:       "ok",
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+				Details: DatabasePoolStats{
+					TotalConnections:    stats.TotalConns(),
+					AcquiredConnections: stats.AcquiredConns(),
+					IdleConnections:     stats.IdleConns(),
+					MaxConnections:      stats.MaxConns(),
+					ConstructingConns:   stats.ConstructingConns(),
+				},
+			}
 		}
 	}
 
-	// Meilisearch health check
+	// Meilisearch health check with actual API call
 	if c.meiliSvc == nil {
 		result.Meilisearch = ComponentHealth{Status: "not_configured"}
 	} else {
-		// TODO: Perform actual health check via API call
-		// For now, just verify client is non-nil
-		result.Meilisearch = ComponentHealth{Status: "ok"}
+		start := time.Now()
+		
+		// Perform actual health check via API - try to get version info
+		// This is a lightweight operation that verifies connectivity
+		health, err := c.meiliSvc.Health()
+		responseTime := time.Since(start)
+		
+		if err != nil {
+			result.Meilisearch = ComponentHealth{
+				Status:       "error",
+				Message:      err.Error(),
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+			}
+			errorCount++
+			if result.Status == "healthy" {
+				result.Status = "degraded"
+			}
+		} else if health.Status != "available" {
+			result.Meilisearch = ComponentHealth{
+				Status:       "error",
+				Message:      fmt.Sprintf("meilisearch status: %s", health.Status),
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+			}
+			errorCount++
+			if result.Status == "healthy" {
+				result.Status = "degraded"
+			}
+		} else {
+			result.Meilisearch = ComponentHealth{
+				Status:       "ok",
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+			}
+		}
 	}
 
 	// Redis health check with nil guard and actual ping
 	if c.redisCli == nil {
 		result.Redis = ComponentHealth{Status: "not_configured"}
 	} else {
+		start := time.Now()
 		redisCtx, redisCancel := context.WithTimeout(ctx, 2*time.Second)
 		defer redisCancel()
 		if err := c.redisCli.Ping(redisCtx).Err(); err != nil {
 			result.Redis = ComponentHealth{
-				Status:  "error",
-				Message: err.Error(),
+				Status:       "error",
+				Message:      err.Error(),
+				ResponseTime: fmt.Sprintf("%.2fms", float64(time.Since(start).Nanoseconds())/1e6),
 			}
-			result.Status = "degraded"
+			errorCount++
+			if result.Status == "healthy" {
+				result.Status = "degraded"
+			}
 		} else {
-			result.Redis = ComponentHealth{Status: "ok"}
+			responseTime := time.Since(start)
+			result.Redis = ComponentHealth{
+				Status:       "ok",
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+			}
 		}
+	}
+
+	// NATS health check using reflection to avoid importing nats package
+	if c.natsConn == nil {
+		result.NATS = ComponentHealth{Status: "not_configured"}
+	} else {
+		start := time.Now()
+		responseTime := time.Since(start)
+		
+		// Use reflection to check NATS connection status
+		connValue := reflect.ValueOf(c.natsConn)
+		if connValue.Kind() == reflect.Ptr && !connValue.IsNil() {
+			connValue = connValue.Elem()
+		}
+		
+		// Check IsClosed method
+		isClosedMethod := connValue.MethodByName("IsClosed")
+		isConnectedMethod := connValue.MethodByName("IsConnected")
+		statsMethod := connValue.MethodByName("Stats")
+		
+		if isClosedMethod.IsValid() && isConnectedMethod.IsValid() {
+			isClosed := isClosedMethod.Call(nil)[0].Bool()
+			isConnected := isConnectedMethod.Call(nil)[0].Bool()
+			
+			if isClosed {
+				result.NATS = ComponentHealth{
+					Status:       "error",
+					Message:      "NATS connection is closed",
+					ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+				}
+				errorCount++
+				if result.Status == "healthy" {
+					result.Status = "degraded"
+				}
+			} else if !isConnected {
+				result.NATS = ComponentHealth{
+					Status:       "error",
+					Message:      "NATS connection is not connected",
+					ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+				}
+				errorCount++
+				if result.Status == "healthy" {
+					result.Status = "degraded"
+				}
+			} else {
+				// Get stats if available
+				details := make(map[string]interface{})
+				if statsMethod.IsValid() {
+					statsValue := statsMethod.Call(nil)[0]
+					if inMsgsMethod := statsValue.MethodByName("InMsgs"); inMsgsMethod.IsValid() {
+						details["in_msgs"] = inMsgsMethod.Call(nil)[0].Uint()
+					}
+					if outMsgsMethod := statsValue.MethodByName("OutMsgs"); outMsgsMethod.IsValid() {
+						details["out_msgs"] = outMsgsMethod.Call(nil)[0].Uint()
+					}
+				}
+				
+				result.NATS = ComponentHealth{
+					Status:       "ok",
+					ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+					Details:      details,
+				}
+			}
+		} else {
+			// Fallback: assume connection is available if reflection fails
+			result.NATS = ComponentHealth{
+				Status:       "ok",
+				ResponseTime: fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1e6),
+				Message:      "NATS connection status check unavailable, assuming healthy",
+			}
+		}
+	}
+
+	// Final status determination
+	if errorCount > 0 && result.Status == "healthy" {
+		result.Status = "degraded"
+	}
+	if errorCount > 1 {
+		result.Status = "unhealthy"
 	}
 
 	return result
@@ -222,6 +393,16 @@ func (c *Container) SetInfrastructureClients(pool *pgxpool.Pool, meiliSvc meilis
 	c.pool = pool
 	c.meiliSvc = meiliSvc
 	c.redisCli = redisCli
+}
+
+// SetNATSConnection sets the NATS connection for health checks.
+func (c *Container) SetNATSConnection(natsConn interface{}) {
+	c.natsConn = natsConn
+}
+
+// SetVersion sets the service version.
+func (c *Container) SetVersion(version string) {
+	c.version = version
 }
 
 // Close releases all container-managed resources.

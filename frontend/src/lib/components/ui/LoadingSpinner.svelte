@@ -24,46 +24,43 @@
     class: className = "",
   }: Props = $props();
 
-  // Size classes using Daisy UI
+  // Size classes using UnoCSS
   const sizeClasses = {
-    xs: "loading-xs",
-    sm: "loading-sm",
-    md: "loading-md",
-    lg: "loading-lg",
-    xl: "loading-xl",
+    xs: "w-3 h-3",
+    sm: "w-4 h-4",
+    md: "w-6 h-6",
+    lg: "w-8 h-8",
+    xl: "w-10 h-10",
   };
 
-  // Variant classes using Daisy UI
+  // Variant classes using UnoCSS
   const variantClasses = {
-    primary: "text-primary",
-    secondary: "text-secondary",
-    outline: "text-primary",
-    ghost: "text-base-content",
-    success: "text-success",
-    warning: "text-warning",
-    danger: "text-error",
-    gradient: "text-primary", // or appropriate gradient styling
+    primary: "text-brand-500",
+    secondary: "text-slate-500",
+    outline: "text-brand-500",
+    ghost: "text-slate-600",
+    success: "text-success-500",
+    warning: "text-warning-500",
+    danger: "text-danger-500",
+    gradient: "text-brand-500",
   };
 </script>
 
 <div class="loading-spinner-wrapper {className}" class:overlay>
   {#if overlay}
-    <div class="loading-overlay" style="background-color: {overlayColor}">
-      <div class="loading-content">
-        <span class="loading loading-spinner {sizeClasses[size!]} {variantClasses[variant!]}"
-        ></span>
-
+    <div class="fixed inset-0 flex items-center justify-center z-50" style="background-color: {overlayColor}">
+      <div class="flex flex-col items-center gap-2">
+        <span class="inline-block border-2 border-current border-t-transparent rounded-full animate-spin {sizeClasses[size!]} {variantClasses[variant!]}"></span>
         {#if message}
-          <p class="loading-message">{message}</p>
+          <p class="text-sm text-slate-600">{message}</p>
         {/if}
       </div>
     </div>
   {:else}
-    <div class="loading-inline">
-      <span class="loading loading-spinner {sizeClasses[size!]} {variantClasses[variant!]}"></span>
-
+    <div class="inline-flex items-center gap-2">
+      <span class="inline-block border-2 border-current border-t-transparent rounded-full animate-spin {sizeClasses[size!]} {variantClasses[variant!]}"></span>
       {#if message}
-        <p class="loading-message">{message}</p>
+        <p class="text-sm text-slate-600">{message}</p>
       {/if}
     </div>
   {/if}
