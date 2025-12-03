@@ -1,134 +1,106 @@
 <script lang="ts">
-  import LiveStream from "$lib/components/LiveStream.svelte";
-  import StatsCard from "$lib/components/StatsCard.svelte";
-  import HealthStatus from "$lib/components/HealthStatus.svelte";
-  import TimeRangeSelector from "$lib/components/TimeRangeSelector.svelte";
-  import MetricsCard from "$lib/components/MetricsCard.svelte";
-  import WebSocketMetrics from "$lib/components/WebSocketMetrics.svelte";
-  import MessageRateChart from "$lib/components/MessageRateChart.svelte";
-  import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
-  import { getStats } from "$lib/services/api";
-  import { stats } from "$lib/stores/data/stats";
-  import { timeRange } from "$lib/stores/data/timeRange";
-  import { createLogger } from "$lib/utils/logger";
-  import { isBrowser } from "$lib/utils/browser";
+  import { onMount } from "svelte";
+  import HealthCard from "$lib/components/HealthCard.svelte";
+  import MessageList from "$lib/components/MessageList.svelte";
+  import MetricCard from "$lib/components/MetricCard.svelte";
+  import { fetchHealth, fetchRecentMessages, fetchStats } from "$lib/api";
+  import type { HealthSnapshot, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
 
-  const logger = createLogger("Dashboard");
+  let stats = $state<TrafficSummary | null>(null);
+  let health = $state<HealthSnapshot | null>(null);
+  let messages = $state<Telegram[]>([]);
+  let loading = $state(true);
+  let error = $state<string | null>(null);
 
-  // Load statistics function
-  async function loadStats() {
-    // Only run in browser environment
-    if (!isBrowser) {
-      return;
-    }
+  const healthItems = $derived(
+    [
+      { label: "PostgreSQL", status: health?.postgresql?.status, detail: health?.postgresql?.message },
+      { label: "Redis", status: health?.redis?.status, detail: health?.redis?.message },
+      { label: "Meilisearch", status: health?.meilisearch?.status, detail: health?.meilisearch?.message },
+      { label: "NATS", status: health?.nats?.status, detail: health?.nats?.message },
+    ].filter((item) => item.status || item.detail)
+  );
+
+  const totalTypes = $derived(
+    stats?.byType ? Object.keys(stats.byType).length : 0
+  );
+  const totalPriorities = $derived(
+    stats?.byPriority ? Object.keys(stats.byPriority).length : 0
+  );
+
+  onMount(async () => {
+    loading = true;
+    error = null;
 
     try {
-      const currentRange = $timeRange;
-      const { start_time, end_time } = timeRange.getISOStrings(currentRange);
-      
-      logger.debug("Loading statistics from server", {
-        start_time,
-        end_time,
-        preset: currentRange.preset,
-      });
-      
-      const serverStats = await getStats(start_time, end_time);
-      
-      // Validate and normalize response structure
-      if (!serverStats || typeof serverStats !== 'object') {
-        logger.warn("Invalid statistics response", { serverStats });
-        return;
-      }
-      
-      // Ensure all required fields exist with defaults
-      const validatedStats = {
-        total: serverStats.total ?? 0,
-        byPriority: serverStats.byPriority ?? {},
-        byType: serverStats.byType ?? {},
-      };
-      
-      stats.setStats(validatedStats);
-      logger.info("Statistics loaded successfully", {
-        total: validatedStats.total,
-        byPriorityCount: Object.keys(validatedStats.byPriority).length,
-        byTypeCount: Object.keys(validatedStats.byType).length,
-        preset: currentRange.preset,
-      });
-    } catch (error) {
-      logger.error("Failed to load statistics", error);
-      // Don't throw - let WebSocket updates handle it
-    }
-  }
+      const [statsResponse, healthResponse, messagesResponse] = await Promise.all([
+        fetchStats().catch((err) => {
+          console.error("Failed to fetch stats from /api/stats:", err);
+          return null;
+        }),
+        fetchHealth().catch((err) => {
+          console.error("Failed to fetch health from /api/health:", err);
+          return null;
+        }),
+        fetchRecentMessages(12).catch((err) => {
+          console.error("Failed to fetch messages from /api/search:", err);
+          return { telegrams: [], total: 0 } as SearchResponse;
+        }),
+      ]);
 
-  // Load statistics when time range changes using $effect
-  // Access $timeRange to automatically subscribe to changes
-  $effect(() => {
-    // Access timeRange to create reactive dependency
-    const _ = $timeRange;
-    
-    // Load stats whenever time range changes
-    loadStats();
+      if (statsResponse) {
+        stats = statsResponse;
+      }
+      if (healthResponse) {
+        health = healthResponse;
+      }
+      if (messagesResponse) {
+        messages = messagesResponse.telegrams ?? [];
+      }
+
+      // If all requests failed, show error with helpful message
+      if (!statsResponse && !healthResponse && (!messagesResponse || messagesResponse.telegrams.length === 0)) {
+        error = "Unable to connect to backend API. Please ensure the backend server is running on port 3002. You can start it with: make backend-dev";
+      }
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+      error = err instanceof Error ? err.message : "Unable to load dashboard data.";
+    } finally {
+      loading = false;
+    }
   });
 </script>
 
-<main class="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10">
-  <section class="space-y-10">
-    <!-- Time Range Selector -->
-    <div class="w-full">
-      <ErrorBoundary context={{ component: "TimeRangeSelector" }}>
-        <TimeRangeSelector />
-      </ErrorBoundary>
-    </div>
-
-    <!-- Main content: Live Stream and Stats Cards -->
-    <div class="grid gap-8 lg:grid-cols-3">
-      <!-- Live Stream - Full width on mobile, 2/3 on desktop -->
-      <div class="lg:col-span-2">
-        <ErrorBoundary context={{ component: "LiveStream" }}>
-          <LiveStream />
-        </ErrorBoundary>
-      </div>
-
-      <!-- Stats Cards - Stack on mobile, sidebar on desktop -->
-      <div class="space-y-6">
-        <div>
-          <ErrorBoundary context={{ component: "HealthStatus" }}>
-            <HealthStatus />
-          </ErrorBoundary>
-        </div>
-        <div>
-          <ErrorBoundary context={{ component: "MetricsCard" }}>
-            <MetricsCard />
-          </ErrorBoundary>
-        </div>
-        <div>
-          <ErrorBoundary context={{ component: "WebSocketMetrics" }}>
-            <WebSocketMetrics />
-          </ErrorBoundary>
-        </div>
-        <div>
-          <ErrorBoundary context={{ component: "StatsCard", type: "total" }}>
-            <StatsCard title="Total Messages" type="total" />
-          </ErrorBoundary>
-        </div>
-        <div>
-          <ErrorBoundary context={{ component: "StatsCard", type: "priority" }}>
-            <StatsCard title="Priority Breakdown" type="priority" />
-          </ErrorBoundary>
-        </div>
-        <div>
-          <ErrorBoundary context={{ component: "StatsCard", type: "type" }}>
-            <StatsCard title="Type Breakdown" type="type" />
-          </ErrorBoundary>
-        </div>
-      </div>
-    </div>
-
-    <!-- Message Rate Chart - Moved to bottom -->
-    <div class="w-full">
-      <ErrorBoundary context={{ component: "MessageRateChart" }}>
-        <MessageRateChart />
-      </ErrorBoundary>
-    </div>
+<main class="page">
+  <section class="page__intro">
+    <p class="eyebrow">Live operational view</p>
+    <h1>Messaging health at a glance</h1>
+    <p class="muted">
+      Simplified dashboard that highlights the totals, health signals, and latest messages coming from
+      the backend.
+    </p>
   </section>
+
+  <section class="grid grid--metrics">
+    <MetricCard title="Messages (last window)" value={stats?.total ?? "—"} hint="From /api/stats" />
+    <MetricCard title="Priority buckets" value={totalPriorities > 0 ? totalPriorities : "—"} hint="Count of priority groups" />
+    <MetricCard title="Types tracked" value={totalTypes > 0 ? totalTypes : "—"} hint="By message type" />
+  </section>
+
+  {#if loading}
+    <div class="card">
+      <p class="eyebrow">Loading</p>
+      <p class="muted">Fetching the latest numbers...</p>
+    </div>
+  {:else if error}
+    <div class="card error-card">
+      <p class="eyebrow">Error</p>
+      <p class="muted">{error}</p>
+    </div>
+  {:else}
+    <section class="grid grid--two">
+      <HealthCard status={health?.status} items={healthItems} />
+      <MessageList {messages} />
+    </section>
+  {/if}
 </main>

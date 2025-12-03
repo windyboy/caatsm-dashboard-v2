@@ -13,12 +13,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write .",
-    "lint": "prettier --check .",
-    "test:e2e": "playwright test --reporter=list",
-    "test": "bun run test:e2e",
-    "test:unit": "vitest --run",
-    "test:unit:ui": "vitest --ui --run",
-    "test:unit:coverage": "vitest --coverage --run"
+    "lint": "prettier --check ."
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",

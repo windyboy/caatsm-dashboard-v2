@@ -13,26 +13,13 @@
     "@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@6.2.1",
     "svelte": "npm:svelte@5.45.4",
     "unocss": "npm:unocss@66.5.10",
-    "unocss/vite": "npm:unocss@66.5.10/vite",
-    "vitest": "npm:vitest@4.0.15",
-    "vitest/config": "npm:vitest@4.0.15/config",
-    "@vitest/ui": "npm:@vitest/ui@4.0.15",
-    "@testing-library/svelte": "npm:@testing-library/svelte@5",
-    "@testing-library/jest-dom": "npm:@testing-library/jest-dom@6",
-    "jsdom": "npm:jsdom@27.2.0",
-    "isomorphic-dompurify": "npm:isomorphic-dompurify@2.33.0",
-    "web-vitals": "npm:web-vitals@5.1.0"
+    "unocss/vite": "npm:unocss@66.5.10/vite"
   },
   "tasks": {
     "dev": "deno run -A deno-dev.ts",
     "build": "deno run -A npm:vite@7.2.6 build",
     "preview": "deno run -A npm:vite@7.2.6 preview",
     "check": "deno run -A npm:@sveltejs/kit@2.49.1 sync && deno check src/**/*.ts src/**/*.svelte",
-    "test": "bunx playwright test",
-    "test:e2e": "bunx playwright test",
-    "test:unit": "deno run -A npm:vitest@4.0.15 --run",
-    "test:unit:ui": "deno run -A npm:vitest@4.0.15 --ui --run",
-    "test:unit:coverage": "deno run -A npm:vitest@4.0.15 --coverage --run",
     "dev:npm": "npm run dev",
     "build:npm": "npm run build",
     "preview:npm": "npm run preview"

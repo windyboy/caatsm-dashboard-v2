@@ -10,13 +10,6 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
-    "baseUrl": ".",
-    "paths": {
-      "$lib": ["src/lib"],
-      "$lib/*": ["src/lib/*"],
-      "$routes": ["src/routes"],
-      "$routes/*": ["src/routes/*"]
-    },
     "plugins": [
       {
         "name": "@sveltejs/ts-plugin",
@@ -33,7 +26,6 @@
     "./src/**/*.d.ts",
     "./svelte.config.js",
     "./vite.config.ts",
-    "./vite-env.d.ts",
-    "./tests/**/*.ts"
+    "./vite-env.d.ts"
   ]
 }

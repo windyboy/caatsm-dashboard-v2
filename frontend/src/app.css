@@ -1,110 +1,353 @@
-/* UnoCSS 通过 virtual:uno.css 在 +layout.svelte 中导入 */
-/* PresetWind4 内置了 reset 样式，不需要单独导入 */
-
-/* Import design system theme variables */
-@import "./lib/theme.css";
-
-/* 自定义滚动条样式 - 适配浅色主题，提升视觉质感 */
-/* Webkit 浏览器 (Chrome, Safari, Edge) */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+:root {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  background: #f6f8fb;
+  line-height: 1.5;
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.5);
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 10% 20%, #e0edff 0, #f6f8fb 25%, #f6f8fb 60%);
+  color: #0f172a;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: linear-gradient(120deg, #f6f8fb 0%, #ecf2ff 50%, #f6f8fb 100%);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.topbar__brand {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+}
+
+.title {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.topbar__nav {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  padding: 0.5rem 0.75rem;
   border-radius: 10px;
+  color: #0f172a;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(203, 213, 225, 0.6);
+.nav-link:hover {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.page__intro {
+  margin-bottom: 1rem;
+}
+
+.page__intro h1 {
+  margin: 0.35rem 0 0.2rem;
+  font-size: 2rem;
+}
+
+.page--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid--metrics {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 1.5rem 0;
+}
+
+.grid--two {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.card--compact {
+  max-width: 520px;
+  text-align: center;
+}
+
+.card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: #475569;
+  margin: 0;
+}
+
+.muted {
+  color: #64748b;
+  margin: 0.25rem 0 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+}
+
+.pill--soft {
+  background: #e0f2fe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.pill--ghost {
+  background: transparent;
+  border-color: #e2e8f0;
+}
+
+.pill--ok {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.pill--warn {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #b45309;
+}
+
+.pill--error {
+  background: #fef2f2;
+  border-color: #fecdd3;
+  color: #b91c1c;
+}
+
+.pill--idle {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0.1rem 0;
+  letter-spacing: -0.02em;
+}
+
+.health-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.health-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.pill--ok {
+  background: #16a34a;
+}
+
+.status-dot.pill--warn {
+  background: #f59e0b;
+}
+
+.status-dot.pill--error {
+  background: #ef4444;
+}
+
+.status-dot.pill--idle {
+  background: #cbd5e1;
+}
+
+.health-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.message-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.message {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  transition: background 0.2s ease;
+  background: #f8fafc;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.8);
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
-/* Firefox */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(203, 213, 225, 0.6) rgba(241, 245, 249, 0.5);
+.message-body {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  color: #0f172a;
 }
 
-/* 平滑滚动 - 如果 UnoCSS 不支持 scroll-smooth */
-.scroll-smooth {
-  scroll-behavior: smooth;
+.message-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* 消息出现动画 */
-@layer utilities {
-  @keyframes messageSlideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-12px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
+.search-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
 
-  /* 消息项动画 - 应用到 live-stream 容器中的直接子元素（排除占位符） */
-  #live-stream > *:not(#waiting-placeholder) {
-    animation: messageSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+.search-field {
+  display: grid;
+  gap: 0.35rem;
+}
 
-  .skeleton {
-    border-radius: 0.25rem;
-    background: linear-gradient(
-      90deg,
-      rgba(226, 232, 240, 0.6) 0%,
-      rgba(241, 245, 249, 0.8) 20%,
-      rgba(59, 130, 246, 0.1) 40%,
-      rgba(241, 245, 249, 0.8) 60%,
-      rgba(168, 85, 247, 0.1) 80%,
-      rgba(226, 232, 240, 0.6) 100%
-    );
-    background-size: 300% 100%;
-    animation: skeleton-loading 2s ease-in-out infinite;
-    position: relative;
-    overflow: hidden;
-  }
+.search-field input {
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+}
 
-  .skeleton::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.4) 50%,
-      transparent 100%
-    );
-    animation: skeleton-shine 2s ease-in-out infinite;
-  }
+.search-field input:focus {
+  outline: 2px solid #93c5fd;
+  border-color: #60a5fa;
+}
 
-  @keyframes skeleton-loading {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
+.search-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
-  @keyframes skeleton-shine {
-    0% {
-      left: -100%;
-    }
-    100% {
-      left: 100%;
-    }
-  }
+.button {
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.15);
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.button--ghost {
+  background: #fff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
+.error-card {
+  border-color: #fecdd3;
+  background: #fff1f2;
 }
