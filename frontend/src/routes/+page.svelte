@@ -15,20 +15,55 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
 
-  const mergedStats = $derived(() => {
+  const mergedStats = $derived.by(() => {
     const wsStats = wsStore.stats;
     return wsStats
       ? ({ total: wsStats.total, byPriority: wsStats.byPriority, byType: wsStats.byType } as TrafficSummary)
       : stats;
   });
 
-  const mergedMessages = $derived(() => {
+  const mergedMessages = $derived.by(() => {
     const wsMessages = wsStore.newMessages;
-    if (wsMessages.length === 0) return messages;
+    const httpMessages = messages;
 
-    const existingIds = new Set(messages.map((m) => m.message_id).filter(Boolean));
-    const newUnique = wsMessages.filter((m) => !m.message_id || !existingIds.has(m.message_id));
-    return [...newUnique, ...messages].slice(0, 50);
+    // If both sources are empty, return empty array
+    if (wsMessages.length === 0 && httpMessages.length === 0) {
+      return [];
+    }
+
+    // If only one source has messages, return those
+    if (wsMessages.length === 0) return httpMessages;
+    if (httpMessages.length === 0) return wsMessages.slice(0, 50);
+
+    // Build a set of existing message IDs from HTTP messages
+    const existingIds = new Set(
+      httpMessages.map((m) => m.message_id).filter((id): id is string => Boolean(id))
+    );
+
+    // Create a helper to check if a message matches an HTTP message by content+time
+    const isDuplicateByContent = (wsMsg: Telegram): boolean => {
+      return httpMessages.some(
+        (httpMsg) =>
+          httpMsg.content === wsMsg.content &&
+          httpMsg.time === wsMsg.time &&
+          httpMsg.type === wsMsg.type
+      );
+    };
+
+    // Filter WebSocket messages: keep only those that are truly new
+    const newUnique = wsMessages.filter((m) => {
+      // If message has an ID, check against existing IDs
+      if (m.message_id) {
+        return !existingIds.has(m.message_id);
+      }
+      // If message has no ID, check by content+time+type to avoid duplicates
+      return !isDuplicateByContent(m);
+    });
+
+    // Combine: new WebSocket messages first (newest), then HTTP messages
+    // This preserves "newest first" order
+    const merged = [...newUnique, ...httpMessages];
+    return merged.slice(0, 50);
   });
 
   const healthItems = $derived.by(() => {
