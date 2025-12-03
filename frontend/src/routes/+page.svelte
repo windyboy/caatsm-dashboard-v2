@@ -2,24 +2,38 @@
   import { onMount } from "svelte";
   import LiveStream from "$lib/components/LiveStream.svelte";
   import StatsCard from "$lib/components/StatsCard.svelte";
+  import HealthStatus from "$lib/components/HealthStatus.svelte";
+  import TimeRangeSelector from "$lib/components/TimeRangeSelector.svelte";
+  import MetricsCard from "$lib/components/MetricsCard.svelte";
+  import WebSocketMetrics from "$lib/components/WebSocketMetrics.svelte";
+  import MessageRateChart from "$lib/components/MessageRateChart.svelte";
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { getStats } from "$lib/services/api";
   import { stats } from "$lib/stores/data/stats";
+  import { timeRange } from "$lib/stores/data/timeRange";
   import { createLogger } from "$lib/utils/logger";
 
   const logger = createLogger("Dashboard");
 
-  // Load statistics on page mount
-  onMount(async () => {
+  // Load statistics function
+  async function loadStats() {
     // Only run in browser environment
     if (typeof window === "undefined") {
       return;
     }
 
     try {
-      logger.debug("Loading statistics from server");
-      const serverStats = await getStats();
+      const currentRange = $timeRange;
+      const { start_time, end_time } = timeRange.getISOStrings(currentRange);
+      
+      logger.debug("Loading statistics from server", {
+        start_time,
+        end_time,
+        preset: currentRange.preset,
+      });
+      
+      const serverStats = await getStats(start_time, end_time);
       
       // Validate and normalize response structure
       if (!serverStats || typeof serverStats !== 'object') {
@@ -39,11 +53,26 @@
         total: validatedStats.total,
         byPriorityCount: Object.keys(validatedStats.byPriority).length,
         byTypeCount: Object.keys(validatedStats.byType).length,
+        preset: currentRange.preset,
       });
     } catch (error) {
       logger.error("Failed to load statistics", error);
       // Don't throw - let WebSocket updates handle it
     }
+  }
+
+  // Load statistics on page mount and when time range changes
+  onMount(() => {
+    loadStats();
+    
+    // Subscribe to time range changes
+    const unsubscribe = timeRange.subscribe(() => {
+      loadStats();
+    });
+    
+    return () => {
+      unsubscribe();
+    };
   });
 </script>
 
@@ -129,6 +158,20 @@
 
   <main class="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
     <section class="space-y-8">
+      <!-- Time Range Selector -->
+      <div class="w-full">
+        <ErrorBoundary context={{ component: "TimeRangeSelector" }}>
+          <TimeRangeSelector />
+        </ErrorBoundary>
+      </div>
+
+      <!-- Message Rate Chart -->
+      <div class="w-full">
+        <ErrorBoundary context={{ component: "MessageRateChart" }}>
+          <MessageRateChart />
+        </ErrorBoundary>
+      </div>
+
       <div class="grid gap-6 lg:grid-cols-3">
         <!-- Live Stream - Full width on mobile, 2/3 on desktop -->
         <div class="lg:col-span-2 order-2 lg:order-1">
@@ -141,8 +184,23 @@
         <div class="space-y-4 order-1 lg:order-2">
           <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-3 lg:grid-cols-1">
             <div class="md:col-span-1 lg:col-span-1">
+              <ErrorBoundary context={{ component: "HealthStatus" }}>
+                <HealthStatus />
+              </ErrorBoundary>
+            </div>
+            <div class="md:col-span-1 lg:col-span-1">
+              <ErrorBoundary context={{ component: "MetricsCard" }}>
+                <MetricsCard />
+              </ErrorBoundary>
+            </div>
+            <div class="md:col-span-1 lg:col-span-1">
+              <ErrorBoundary context={{ component: "WebSocketMetrics" }}>
+                <WebSocketMetrics />
+              </ErrorBoundary>
+            </div>
+            <div class="md:col-span-1 lg:col-span-1">
               <ErrorBoundary context={{ component: "StatsCard", type: "total" }}>
-                <StatsCard title="Total Messages (24h)" type="total" />
+                <StatsCard title="Total Messages" type="total" />
               </ErrorBoundary>
             </div>
             <div class="md:col-span-1 lg:col-span-1">

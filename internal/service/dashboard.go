@@ -118,6 +118,11 @@ func (ds *DashboardService) GetStats(ctx context.Context, timeRange domain.TimeW
 	return ds.statsSvc.GetStats(ctx, timeRange)
 }
 
+// GetHistoricalStats retrieves time-series statistics
+func (ds *DashboardService) GetHistoricalStats(ctx context.Context, timeRange domain.TimeWindow, interval string) (*domain.HistoricalStats, error) {
+	return ds.statsSvc.GetHistoricalStats(ctx, timeRange, interval)
+}
+
 // Export exports data in the specified format
 func (ds *DashboardService) Export(ctx context.Context, filters domain.SearchFilters, format domain.ExportFormat) ([]byte, error) {
 	return ds.exportSvc.Export(ctx, filters, format)

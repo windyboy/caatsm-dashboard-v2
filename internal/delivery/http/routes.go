@@ -24,6 +24,7 @@ func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Log
 
 	// Stats routes
 	api.GET("/stats", handler.Stats)
+	api.GET("/stats/historical", handler.HistoricalStats)
 
 	// Export routes
 	api.GET("/export", handler.Export)

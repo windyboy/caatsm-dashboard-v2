@@ -109,10 +109,9 @@
     };
   });
 
-  // Cleanup WebSocket only on component destroy
-  onDestroy(() => {
-    websocket.cleanup();
-  });
+  // Note: WebSocket is a singleton and should persist across component mounts/unmounts
+  // We don't cleanup here to avoid disconnecting when the component unmounts
+  // The WebSocket connection is managed at the application level
 </script>
 
 <div class="live-stream">
@@ -156,7 +155,6 @@
     aria-live="polite"
     aria-atomic="false"
     aria-relevant="additions"
-    tabindex="0"
     role="region"
     aria-label="Live telegram messages"
   >

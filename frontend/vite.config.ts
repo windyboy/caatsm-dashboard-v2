@@ -14,9 +14,14 @@ export default defineConfig({
   server: {
     port: 5173,
     // HMR settings for Svelte 5 - ensure proper hot module replacement
-    hmr: {
-      overlay: true, // Show error overlay in development
-    },
+    // Note: HMR is disabled when USE_DENO=true to avoid WebSocket broken pipe errors (os error 32)
+    // This is a known compatibility issue between Vite 7 and Deno
+    hmr: process.env.USE_DENO === "true"
+      ? false // Disable HMR in Deno to avoid WebSocket broken pipe errors
+      : {
+          overlay: true, // Show error overlay in development
+          clientPort: 5173,
+        },
     proxy: {
       "/api": {
         target: "http://localhost:3002",

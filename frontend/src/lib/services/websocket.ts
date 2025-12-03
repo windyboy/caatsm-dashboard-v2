@@ -66,11 +66,13 @@ export class WebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private pongTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentStatus: WebSocketStatus = "disconnected";
   private visibilityHandler: (() => void) | null = null;
   private isPaused = false;
   private messageQueue: WebSocketMessage[] = [];
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly CONNECT_TIMEOUT_MS = 10000; // 10 seconds
 
   constructor() {
     this.setupVisibilityHandling();
@@ -113,9 +115,25 @@ export class WebSocketClient {
    * If already connected, this is a no-op.
    */
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
+    // Check if already connected or connecting
+    if (this.ws?.readyState === WebSocket.OPEN) {
       logger.debug("Already connected, skipping connection attempt");
       return; // Already connected
+    }
+    
+    // If there's a stale connecting state, clean it up first
+    if (this.ws?.readyState === WebSocket.CONNECTING) {
+      logger.debug("Connection already in progress, waiting...");
+      // Don't return - allow the existing connection attempt to complete
+      // But set shouldReconnect in case it fails
+      this.shouldReconnect = true;
+      return;
+    }
+
+    // Clean up any stale WebSocket instance
+    if (this.ws && this.ws.readyState === WebSocket.CLOSED) {
+      logger.debug("Cleaning up stale WebSocket instance");
+      this.ws = null;
     }
 
     const wsUrl = this.getWebSocketUrl();
@@ -131,7 +149,30 @@ export class WebSocketClient {
       this.setStatus("connecting");
       this.ws = new WebSocket(wsUrl);
 
+      // Set connection timeout to prevent getting stuck in connecting state
+      this.connectTimeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+          logger.warn("Connection timeout, closing and retrying", {
+            url: wsUrl,
+            readyState: this.ws.readyState,
+          });
+          this.ws.close();
+          this.ws = null;
+          this.setStatus("error");
+          // Schedule reconnect if should reconnect
+          if (this.shouldReconnect && !this.isPaused) {
+            this.scheduleReconnect();
+          }
+        }
+        this.connectTimeout = null;
+      }, this.CONNECT_TIMEOUT_MS);
+
       this.ws.onopen = () => {
+        // Clear connection timeout
+        if (this.connectTimeout) {
+          clearTimeout(this.connectTimeout);
+          this.connectTimeout = null;
+        }
         logger.info("Connection established", {
           url: wsUrl,
           readyState: this.ws?.readyState,
@@ -217,6 +258,11 @@ export class WebSocketClient {
       };
 
       this.ws.onclose = (event) => {
+        // Clear connection timeout if still set
+        if (this.connectTimeout) {
+          clearTimeout(this.connectTimeout);
+          this.connectTimeout = null;
+        }
         logger.info("Connection closed", {
           code: event.code,
           reason: event.reason || "No reason provided",
@@ -481,6 +527,10 @@ export class WebSocketClient {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.connectTimeout !== null) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
     }
     if (this.batchTimer !== null) {
       // Process any remaining queued messages before cleanup

@@ -13,15 +13,16 @@ func GetHTTPStatus(code string) int {
 
 // Type re-exports for backward compatibility with handlers and other packages
 type (
-	Telegram       = domain.Telegram
-	SearchFilters  = domain.SearchFilters
-	SearchResult   = domain.SearchResult
-	TimeWindow     = domain.TimeWindow
-	TrafficSummary = domain.TrafficSummary
-	RouteStat      = domain.RouteStat
-	ExportFormat   = domain.ExportFormat
-	Pagination     = domain.Pagination
-	Event          = domain.Event
+	Telegram         = domain.Telegram
+	SearchFilters    = domain.SearchFilters
+	SearchResult     = domain.SearchResult
+	TimeWindow       = domain.TimeWindow
+	TrafficSummary   = domain.TrafficSummary
+	HistoricalStats  = domain.HistoricalStats
+	RouteStat        = domain.RouteStat
+	ExportFormat     = domain.ExportFormat
+	Pagination       = domain.Pagination
+	Event            = domain.Event
 )
 
 // Re-export domain constants
@@ -63,6 +64,7 @@ type TelegramRepository interface {
 type StatsRepository interface {
 	TrafficSummary(ctx context.Context, window domain.TimeWindow) (*domain.TrafficSummary, error)
 	RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, error)
+	HistoricalStats(ctx context.Context, window domain.TimeWindow, interval string) (*domain.HistoricalStats, error)
 }
 
 // Repository combines telegram and stats operations for backward compatibility.

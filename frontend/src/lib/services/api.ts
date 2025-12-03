@@ -93,6 +93,22 @@ export interface AutocompleteResult {
   suggestions: AutocompleteSuggestion[] | string[];
 }
 
+export interface ComponentHealth {
+  status: string; // "ok", "error", "not_configured"
+  message?: string;
+}
+
+export interface HealthCheckResult {
+  status: string; // "ok" or "degraded"
+  timestamp: string;
+  checks: {
+    postgresql: ComponentHealth;
+    meilisearch: ComponentHealth;
+    redis: ComponentHealth;
+    nats: ComponentHealth;
+  };
+}
+
 function buildSearchParamsFromParams(params: SearchParams): URLSearchParams {
   const searchParams = new URLSearchParams();
 
@@ -111,7 +127,7 @@ function buildSearchParamsFromParams(params: SearchParams): URLSearchParams {
   return searchParams;
 }
 
-async function request<T>(
+export async function request<T>(
   endpoint: string,
   options?: RequestInit & { signal?: AbortSignal; retries?: number }
 ): Promise<T> {
@@ -353,6 +369,14 @@ export async function getStatsPriority(): Promise<StatsPriority> {
 
 export async function getStatsType(): Promise<StatsType> {
   return request<StatsType>("/api/stats/type");
+}
+
+/**
+ * Get system health status from the server.
+ * Returns health status of all components (PostgreSQL, Redis, Meilisearch, NATS).
+ */
+export async function getHealthStatus(): Promise<HealthCheckResult> {
+  return request<HealthCheckResult>("/api/health");
 }
 
 export async function exportData(

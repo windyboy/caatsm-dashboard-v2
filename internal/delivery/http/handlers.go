@@ -27,6 +27,7 @@ type DashboardService interface {
 	GetDashboardData(ctx context.Context, req *app.DashboardRequest) (*app.DashboardResponse, error)
 	Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error)
 	GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
+	GetHistoricalStats(ctx context.Context, timeRange app.TimeWindow, interval string) (*app.HistoricalStats, error)
 	Export(ctx context.Context, filters app.SearchFilters, format app.ExportFormat) ([]byte, error)
 	ExportStream(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error, error)
 	Autocomplete(ctx context.Context, query string, size int) ([]string, error)
@@ -38,10 +39,16 @@ type AdminService interface {
 	Reindex(ctx context.Context, from, to time.Time) (interface{}, error)
 }
 
+// HealthCheckService defines the interface for health check operations.
+type HealthCheckService interface {
+	HealthCheck(ctx context.Context) app.HealthCheckResult
+}
+
 // Handler handles HTTP requests for the dashboard
 type Handler struct {
 	dashboardSvc DashboardService
 	adminSvc     AdminService
+	healthSvc    HealthCheckService
 	logger       *zap.Logger
 }
 
@@ -56,6 +63,11 @@ func NewHandler(dashboardSvc DashboardService, logger *zap.Logger) *Handler {
 // SetAdminService sets the admin service for the handler.
 func (h *Handler) SetAdminService(adminSvc AdminService) {
 	h.adminSvc = adminSvc
+}
+
+// SetHealthCheckService sets the health check service for the handler.
+func (h *Handler) SetHealthCheckService(healthSvc HealthCheckService) {
+	h.healthSvc = healthSvc
 }
 
 // Dashboard handles GET /api/dashboard - unified dashboard data endpoint
@@ -171,6 +183,33 @@ func (h *Handler) Stats(c echo.Context) error {
 	return c.JSON(http.StatusOK, stats)
 }
 
+// HistoricalStats handles GET /api/stats/historical - historical time-series statistics
+func (h *Handler) HistoricalStats(c echo.Context) error {
+	timeRange, err := buildTimeWindow(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, app.ErrInvalidInput)
+	}
+
+	interval := c.QueryParam("interval")
+	if interval == "" {
+		interval = "hour" // default
+	}
+	if interval != "hour" && interval != "day" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid interval. supported: hour, day",
+		})
+	}
+
+	stats, err := h.dashboardSvc.GetHistoricalStats(c.Request().Context(), timeRange, interval)
+	if err != nil {
+		h.logger.Error("historical stats retrieval failed", zap.Error(err))
+		return handleError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, stats)
+}
+
 // Export handles GET /api/export - data export
 func (h *Handler) Export(c echo.Context) error {
 	filters := parseSearchFilters(c)
@@ -218,8 +257,37 @@ func (h *Handler) Export(c echo.Context) error {
 
 // Health handles GET /api/health - health check
 func (h *Handler) Health(c echo.Context) error {
-	// For now, simple health check
-	// In production, this would check all dependencies
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
+	defer cancel()
+
+	// If health check service is available, use it for detailed health status
+	if h.healthSvc != nil {
+		result := h.healthSvc.HealthCheck(ctx)
+		
+		// Determine HTTP status based on overall health
+		status := http.StatusOK
+		if result.Status == "degraded" {
+			status = http.StatusServiceUnavailable
+		}
+
+		response := map[string]interface{}{
+			"status":    result.Status,
+			"timestamp": time.Now().Format(time.RFC3339),
+			"checks": map[string]interface{}{
+				"postgresql":  result.PostgreSQL,
+				"meilisearch": result.Meilisearch,
+				"redis":       result.Redis,
+				"nats": app.ComponentHealth{
+					Status:  "not_configured",
+					Message: "NATS health check not yet implemented",
+				},
+			},
+		}
+
+		return c.JSON(status, response)
+	}
+
+	// Fallback to simple health check if service not available
 	return c.JSON(http.StatusOK, map[string]string{
 		"status":  "ok",
 		"service": "dashboard",

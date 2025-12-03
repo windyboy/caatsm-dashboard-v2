@@ -82,7 +82,7 @@
     border-color: rgba(0, 0, 0, 0.1);
   }
 
-  .dark .theme-toggle:hover {
+  :global(html.dark) .theme-toggle:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
   }

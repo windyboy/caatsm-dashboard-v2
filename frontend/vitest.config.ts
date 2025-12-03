@@ -67,6 +67,7 @@ export default defineConfig({
     setupFiles: ["./tests/unit/setup.ts"],
     include: ["tests/unit/**/*.test.ts"],
     exclude: ["node_modules", "tests/**/*.spec.ts"],
+    watch: false,
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

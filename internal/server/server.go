@@ -458,6 +458,8 @@ func (s *Server) registerRoutes() {
 	dashboardSvc := s.container.DashboardService.(deliveryhttp.DashboardService)
 	handler := deliveryhttp.NewHandler(dashboardSvc, s.logger)
 	handler.SetAdminService(s.adminSvc)
+	// Set health check service (Container implements HealthCheck method)
+	handler.SetHealthCheckService(s.container)
 	deliveryhttp.RegisterRoutes(s.e, dashboardSvc, s.logger)
 	// Register admin routes separately since handler is already created
 	adminGroup := s.e.Group("/api/admin")

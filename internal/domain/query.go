@@ -33,6 +33,18 @@ type RouteStat struct {
 	Count       int64
 }
 
+// HistoricalDataPoint represents a single data point in historical statistics.
+type HistoricalDataPoint struct {
+	Time  string `json:"time"`  // ISO 8601 timestamp
+	Count int64  `json:"count"` // Message count for this time period
+}
+
+// HistoricalStats contains time-series data for message counts.
+type HistoricalStats struct {
+	Interval string                `json:"interval"` // "hour", "day", etc.
+	Data     []HistoricalDataPoint `json:"data"`
+}
+
 // ExportFormat enumerates supported export formats.
 type ExportFormat string
 

@@ -546,6 +546,79 @@ func (s *Store) RouteStats(ctx context.Context, limit int) ([]domain.RouteStat, 
 	return stats, nil
 }
 
+// HistoricalStats returns time-series data for message counts aggregated by time interval.
+// interval can be "hour" or "day"
+func (s *Store) HistoricalStats(ctx context.Context, window domain.TimeWindow, interval string) (*domain.HistoricalStats, error) {
+	if interval != "hour" && interval != "day" {
+		interval = "hour" // default
+	}
+
+	var timeBucket string
+	switch interval {
+	case "hour":
+		timeBucket = "date_trunc('hour', time)"
+	case "day":
+		timeBucket = "date_trunc('day', time)"
+	default:
+		timeBucket = "date_trunc('hour', time)"
+	}
+
+	var whereClause string
+	var args []any
+
+	if !window.Start.IsZero() || !window.End.IsZero() {
+		var conditions []string
+		if !window.Start.IsZero() {
+			conditions = append(conditions, "time >= $1")
+			args = append(args, window.Start)
+		}
+		if !window.End.IsZero() {
+			argPos := len(args) + 1
+			conditions = append(conditions, fmt.Sprintf("time <= $%d", argPos))
+			args = append(args, window.End)
+		}
+		if len(conditions) > 0 {
+			whereClause = "WHERE " + strings.Join(conditions, " AND ")
+		}
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s as time_bucket, COUNT(*) as count
+		FROM telegrams
+		%s
+		GROUP BY time_bucket
+		ORDER BY time_bucket ASC
+	`, timeBucket, whereClause)
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query historical stats: %w", err)
+	}
+	defer rows.Close()
+
+	var dataPoints []domain.HistoricalDataPoint
+	for rows.Next() {
+		var timeBucket time.Time
+		var count int64
+		if err := rows.Scan(&timeBucket, &count); err != nil {
+			return nil, fmt.Errorf("scan historical stat: %w", err)
+		}
+		dataPoints = append(dataPoints, domain.HistoricalDataPoint{
+			Time:  timeBucket.Format(time.RFC3339),
+			Count: count,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return &domain.HistoricalStats{
+		Interval: interval,
+		Data:      dataPoints,
+	}, nil
+}
+
 // FindByID retrieves a single telegram by message ID.
 func (s *Store) FindByID(ctx context.Context, messageID string) (*domain.Telegram, error) {
 	query := `SELECT message_id, type, time, flight_number, source, destination, content, priority, raw_data
