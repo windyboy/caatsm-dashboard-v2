@@ -6,6 +6,7 @@
   - Real-time health status updates (polling every 30 seconds)
   - Color-coded status indicators (green=ok, yellow=warning, red=error)
   - Last check timestamp
+  - Version and uptime information
 -->
 
 <script lang="ts">
@@ -26,10 +27,13 @@
   function getStatusColor(status: string): string {
     switch (status) {
       case "ok":
+      case "healthy":
         return "text-green-600 bg-green-50 border-green-200";
       case "error":
+      case "unhealthy":
         return "text-red-600 bg-red-50 border-red-200";
       case "not_configured":
+      case "degraded":
         return "text-yellow-800 bg-yellow-50 border-yellow-200";
       default:
         return "text-gray-600 bg-gray-50 border-gray-200";
@@ -39,10 +43,13 @@
   function getStatusIcon(status: string): string {
     switch (status) {
       case "ok":
+      case "healthy":
         return "✓";
       case "error":
+      case "unhealthy":
         return "✗";
       case "not_configured":
+      case "degraded":
         return "○";
       default:
         return "?";
@@ -52,13 +59,35 @@
   function getStatusLabel(status: string): string {
     switch (status) {
       case "ok":
+      case "healthy":
         return "Healthy";
       case "error":
+      case "unhealthy":
         return "Error";
       case "not_configured":
         return "Not Configured";
+      case "degraded":
+        return "Degraded";
       default:
         return "Unknown";
+    }
+  }
+
+  function formatUptime(uptime?: string): string {
+    if (!uptime) return "";
+    const seconds = parseInt(uptime, 10);
+    if (isNaN(seconds)) return "";
+    
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
     }
   }
 
@@ -139,40 +168,62 @@
       <!-- Overall Status -->
       <div class="overall-status">
         <span class="status-badge {getStatusColor(healthData.status)}">
-          {getStatusIcon(healthData.status)} {healthData.status === "ok" ? "All Systems Operational" : "System Degraded"}
+          {getStatusIcon(healthData.status)} {getStatusLabel(healthData.status)}
         </span>
       </div>
 
-      <!-- Component Status List -->
-      {#if healthData.checks && typeof healthData.checks === 'object'}
-        <div class="component-list">
-          {#each Object.entries(healthData.checks) as [name, component]}
-            {@const componentHealth = component as ComponentHealth}
-            <div class="component-item">
-              <div class="component-name">
-                <span class="component-icon {getStatusColor(componentHealth.status)}">
-                  {getStatusIcon(componentHealth.status)}
-                </span>
-                <span class="component-label">{name.charAt(0).toUpperCase() + name.slice(1)}</span>
-              </div>
-              <div class="component-status">
-                <span class="status-text {getStatusColor(componentHealth.status)}">
-                  {getStatusLabel(componentHealth.status)}
-                </span>
-                {#if componentHealth.message}
-                  <span class="component-message" title={componentHealth.message}>
-                    ⓘ
-                  </span>
-                {/if}
-              </div>
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="component-list">
-          <p class="text-xs text-slate-500">No component health data available</p>
+      <!-- Version and Uptime Info -->
+      {#if healthData.version || healthData.uptime}
+        <div class="system-info">
+          {#if healthData.version}
+            <span class="info-item">
+              <span class="info-label">Version:</span>
+              <span class="info-value">{healthData.version}</span>
+            </span>
+          {/if}
+          {#if healthData.uptime}
+            <span class="info-item">
+              <span class="info-label">Uptime:</span>
+              <span class="info-value">{formatUptime(healthData.uptime)}</span>
+            </span>
+          {/if}
         </div>
       {/if}
+
+      <!-- Component Status List -->
+      <div class="component-list">
+        {#each [
+          { name: "PostgreSQL", key: "postgresql", health: healthData.postgresql },
+          { name: "Meilisearch", key: "meilisearch", health: healthData.meilisearch },
+          { name: "Redis", key: "redis", health: healthData.redis },
+          { name: "NATS", key: "nats", health: healthData.nats }
+        ] as { name, key, health }}
+          {@const componentHealth = health || { status: "not_configured" } as ComponentHealth}
+          <div class="component-item">
+            <div class="component-name">
+              <span class="component-icon {getStatusColor(componentHealth.status)}">
+                {getStatusIcon(componentHealth.status)}
+              </span>
+              <span class="component-label">{name}</span>
+            </div>
+            <div class="component-status">
+              <span class="status-text {getStatusColor(componentHealth.status)}">
+                {getStatusLabel(componentHealth.status)}
+              </span>
+              {#if componentHealth.response_time}
+                <span class="response-time" title="Response time">
+                  {componentHealth.response_time}
+                </span>
+              {/if}
+              {#if componentHealth.message}
+                <span class="component-message" title={componentHealth.message}>
+                  ⓘ
+                </span>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
 
       <!-- Last Check Time -->
       {#if lastCheckTime}
@@ -261,6 +312,33 @@
     border: 1px solid;
   }
 
+  .system-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    background: rgba(248, 250, 252, 0.5);
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .info-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .info-value {
+    color: #334155;
+    font-weight: 600;
+  }
+
   .component-list {
     display: flex;
     flex-direction: column;
@@ -304,7 +382,7 @@
   .component-status {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.5rem;
   }
 
   .status-text {
@@ -313,6 +391,12 @@
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
     border: 1px solid;
+  }
+
+  .response-time {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-family: monospace;
   }
 
   .component-message {
@@ -328,4 +412,5 @@
     text-align: center;
   }
 </style>
+
 

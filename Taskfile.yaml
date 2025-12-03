@@ -160,7 +160,7 @@ tasks:
     desc: "Run frontend E2E tests (Playwright via bun)"
     dir: frontend
     cmds:
-      - bun test
+      - bun run test
 
   frontend:test:unit:
     desc: "Run frontend unit tests (Vitest via bun)"

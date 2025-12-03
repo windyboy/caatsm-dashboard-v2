@@ -9,8 +9,11 @@ import (
 )
 
 // RegisterRoutes registers all HTTP routes
-func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Logger) {
-	handler := NewHandler(dashboardSvc, logger)
+// If handler is nil, a new handler will be created from dashboardSvc
+func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Logger, handler *Handler) {
+	if handler == nil {
+		handler = NewHandler(dashboardSvc, logger)
+	}
 
 	// API v1 routes
 	api := e.Group("/api")

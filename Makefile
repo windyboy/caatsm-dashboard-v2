@@ -123,7 +123,7 @@ frontend-build: ## Build frontend for production (Deno, fallback to bun)
 	fi
 
 frontend-test: ## Run frontend E2E tests (Playwright)
-	@cd frontend && bun test
+	@cd frontend && bun run test
 
 frontend-test-unit: ## Run frontend unit tests (Vitest via bun)
 	@cd frontend && bun run test:unit

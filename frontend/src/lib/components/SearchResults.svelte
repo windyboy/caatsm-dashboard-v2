@@ -94,16 +94,6 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .search-results-container {
-    height: 600px;
-    overflow-y: auto;
-  }
-
-  .virtual-list {
-    width: 100%;
-    height: 100%;
-  }
-
   .result-item {
     margin-bottom: 1rem;
   }

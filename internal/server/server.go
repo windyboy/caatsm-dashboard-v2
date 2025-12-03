@@ -466,7 +466,8 @@ func (s *Server) registerRoutes() {
 	handler.SetAdminService(s.adminSvc)
 	// Set health check service (Container implements HealthCheck method)
 	handler.SetHealthCheckService(s.container)
-	deliveryhttp.RegisterRoutes(s.e, dashboardSvc, s.logger)
+	// Pass the configured handler to RegisterRoutes so health check service is available
+	deliveryhttp.RegisterRoutes(s.e, dashboardSvc, s.logger, handler)
 	// Register admin routes separately since handler is already created
 	adminGroup := s.e.Group("/api/admin")
 	adminGroup.POST("/reindex", handler.Reindex)

@@ -75,7 +75,7 @@ func TestFullDataFlowIntegration(t *testing.T) {
 
 	// Setup HTTP routes with real service
 	e := echo.New()
-	deliveryhttp.RegisterRoutes(e, dashboardSvc, zaptest.NewLogger(t))
+	deliveryhttp.RegisterRoutes(e, dashboardSvc, zaptest.NewLogger(t), nil)
 
 	// Setup WebSocket route (using stubs for WS-specific services)
 	hub := ws.NewHub(ws.DefaultConfig(), zaptest.NewLogger(t))
@@ -176,7 +176,7 @@ func TestAPIErrorScenarios(t *testing.T) {
 
 	// Setup HTTP routes
 	e := echo.New()
-	deliveryhttp.RegisterRoutes(e, dashboardSvc, zaptest.NewLogger(t))
+	deliveryhttp.RegisterRoutes(e, dashboardSvc, zaptest.NewLogger(t), nil)
 
 	// Start test server
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")

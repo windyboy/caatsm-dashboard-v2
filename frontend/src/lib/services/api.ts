@@ -96,17 +96,20 @@ export interface AutocompleteResult {
 export interface ComponentHealth {
   status: string; // "ok", "error", "not_configured"
   message?: string;
+  response_time?: string; // Response time in milliseconds
+  details?: unknown; // Additional component-specific details (e.g., DatabasePoolStats)
 }
 
 export interface HealthCheckResult {
-  status: string; // "ok" or "degraded"
-  timestamp: string;
-  checks: {
-    postgresql: ComponentHealth;
-    meilisearch: ComponentHealth;
-    redis: ComponentHealth;
-    nats: ComponentHealth;
-  };
+  status: string; // "healthy", "degraded", "unhealthy", "ok"
+  version?: string; // Service version
+  uptime?: string; // Service uptime in seconds
+  timestamp?: string; // RFC3339 timestamp
+  service?: string; // Service name (for fallback response)
+  postgresql?: ComponentHealth;
+  meilisearch?: ComponentHealth;
+  redis?: ComponentHealth;
+  nats?: ComponentHealth;
 }
 
 function buildSearchParamsFromParams(params: SearchParams): URLSearchParams {

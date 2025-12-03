@@ -35,11 +35,22 @@
 
   let { onsearch, onreset, initialParams }: Props = $props();
 
-  let query = $state(initialParams?.query || "");
-  let type = $state(initialParams?.type || "");
-  let priority = $state(initialParams?.priority || "");
-  let start_time = $state(initialParams?.start_time || "");
-  let end_time = $state(initialParams?.end_time || "");
+  let query = $state("");
+  let type = $state("");
+  let priority = $state("");
+  let start_time = $state("");
+  let end_time = $state("");
+
+  // Sync state when initialParams changes (including initial mount)
+  $effect(() => {
+    if (initialParams) {
+      query = initialParams.query || "";
+      type = initialParams.type || "";
+      priority = initialParams.priority || "";
+      start_time = initialParams.start_time || "";
+      end_time = initialParams.end_time || "";
+    }
+  });
   let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
   let autocompleteTimeout = $state<ReturnType<typeof setTimeout> | null>(null);
