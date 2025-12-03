@@ -3,8 +3,9 @@
   import LiveStream from "$lib/components/LiveStream.svelte";
   import StatsCard from "$lib/components/StatsCard.svelte";
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
+  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { getStats } from "$lib/services/api";
-  import { stats } from "$lib/stores/stats";
+  import { stats } from "$lib/stores/data/stats";
   import { createLogger } from "$lib/utils/logger";
 
   const logger = createLogger("Dashboard");
@@ -47,11 +48,11 @@
 </script>
 
 <div
-  class="min-h-screen text-slate-900 antialiased"
-  style="background: linear-gradient(135deg, rgb(239, 246, 255) 0%, rgb(219, 234, 254) 25%, rgb(191, 219, 254) 50%, rgb(147, 197, 253) 75%, rgb(96, 165, 250) 100%); background-attachment: fixed;"
+  class="min-h-screen text-slate-900 dark:text-slate-100 antialiased bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+  style="background-attachment: fixed;"
 >
   <header
-    class="bg-white/95 backdrop-blur-lg shadow-lg border-b border-brand-200/30 sticky top-0 z-50"
+    class="bg-white/95 dark:bg-slate-800/95 backdrop-blur-lg shadow-lg border-b border-brand-200/30 dark:border-slate-700/50 sticky top-0 z-50"
   >
     <div class="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-5">
       <div class="flex items-center justify-between">
@@ -74,7 +75,7 @@
             </svg>
           </div>
           <h1
-            class="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent"
+            class="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight bg-gradient-to-r from-brand-600 to-accent-600 dark:from-brand-400 dark:to-accent-400 bg-clip-text text-transparent"
           >
             CAATSM Dashboard
           </h1>
@@ -82,7 +83,7 @@
         <nav class="flex items-center gap-1 sm:gap-2">
           <a
             href="/"
-            class="px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 hover:shadow-md hover:scale-105 flex items-center gap-1 sm:gap-2"
+            class="px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50/80 dark:hover:bg-slate-700/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 dark:hover:border-slate-600/60 hover:shadow-md hover:scale-105 flex items-center gap-1 sm:gap-2"
             aria-label="Dashboard"
           >
             <svg
@@ -102,7 +103,7 @@
           </a>
           <a
             href="/search"
-            class="px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-brand-50/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 hover:shadow-md hover:scale-105 flex items-center gap-1 sm:gap-2"
+            class="px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50/80 dark:hover:bg-slate-700/80 rounded-lg transition-all duration-300 border border-transparent hover:border-brand-200/60 dark:hover:border-slate-600/60 hover:shadow-md hover:scale-105 flex items-center gap-1 sm:gap-2"
             aria-label="Search"
           >
             <svg
@@ -120,6 +121,7 @@
             </svg>
             <span class="hidden xs:inline">Search</span>
           </a>
+          <ThemeToggle />
         </nav>
       </div>
     </div>

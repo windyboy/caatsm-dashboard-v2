@@ -69,6 +69,8 @@ export class WebSocketClient {
   private currentStatus: WebSocketStatus = "disconnected";
   private visibilityHandler: (() => void) | null = null;
   private isPaused = false;
+  private messageQueue: WebSocketMessage[] = [];
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.setupVisibilityHandling();
@@ -181,16 +183,16 @@ export class WebSocketClient {
             type: message.type,
             dataSize: message.data !== undefined ? JSON.stringify(message.data).length : 0,
           });
-          this.handlers.forEach((handler) => {
-            try {
-              handler(message);
-            } catch (error) {
-              logger.error("Handler error", error, {
-                messageType: message.type,
-                handlerCount: this.handlers.size,
-              });
-            }
-          });
+          
+          // Add to queue for batching instead of processing immediately
+          this.messageQueue.push(message);
+          
+          // Schedule batch processing if not already scheduled
+          if (!this.batchTimer) {
+            this.batchTimer = setTimeout(() => {
+              this.processMessageQueue();
+            }, WEBSOCKET_CONFIG.BATCH_DELAY_MS);
+          }
         } catch (error) {
           logger.error("Failed to parse message", error, {
             dataLength:
@@ -328,6 +330,45 @@ export class WebSocketClient {
     }
   }
 
+  /**
+   * Processes queued messages in a batch to prevent UI thrashing.
+   * Called after BATCH_DELAY_MS timeout or when queue is flushed.
+   */
+  private processMessageQueue(): void {
+    if (this.messageQueue.length === 0) {
+      this.batchTimer = null;
+      return;
+    }
+
+    // Create a copy of the queue and clear it
+    const batch = [...this.messageQueue];
+    this.messageQueue = [];
+    this.batchTimer = null;
+
+    logger.debug("Processing message batch", {
+      batchSize: batch.length,
+      handlerCount: this.handlers.size,
+    });
+
+    // Process entire batch - handlers receive individual messages
+    // This allows handlers to process batches efficiently if they support it
+    this.handlers.forEach((handler) => {
+      try {
+        // Call handler for each message in the batch
+        // Most handlers expect single messages, so we call them individually
+        // but within the same batch processing cycle
+        batch.forEach((message) => {
+          handler(message);
+        });
+      } catch (error) {
+        logger.error("Batch handler error", error, {
+          batchSize: batch.length,
+          handlerCount: this.handlers.size,
+        });
+      }
+    });
+  }
+
   private scheduleReconnect(): void {
     if (this.reconnectTimer !== null) {
       return; // Already scheduled
@@ -440,6 +481,10 @@ export class WebSocketClient {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.batchTimer !== null) {
+      // Process any remaining queued messages before cleanup
+      this.processMessageQueue();
     }
     if (this.ws) {
       this.ws.close();

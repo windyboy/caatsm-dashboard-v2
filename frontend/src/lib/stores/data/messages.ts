@@ -1,8 +1,8 @@
 // Svelte store for managing message list
 
 import { writable } from "svelte/store";
-import type { Telegram } from "../utils/types";
-import { UI_CONFIG } from "../constants";
+import type { Telegram } from "../../utils/types";
+import { UI_CONFIG } from "../../constants";
 
 /**
  * Checks if two messages are duplicates.

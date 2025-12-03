@@ -9,6 +9,7 @@
 <script lang="ts">
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
+  import VirtualList from "@sveltejs/svelte-virtual-list";
 
   interface Props {
     telegrams?: Telegram[] | null;
@@ -57,13 +58,17 @@
           >{total.toLocaleString()}</span
         > results
       </p>
-      <div class="space-y-4">
-        {#each safeTelegrams as telegram (getTelegramKey(telegram))}
-          <div>
-            <MessageItem {telegram} />
-          </div>
-        {/each}
-      </div>
+      <VirtualList
+        items={safeTelegrams}
+        itemHeight={150}
+        height="600px"
+        class="virtual-list-container"
+        let:item={telegram}
+      >
+        <div class="result-item">
+          <MessageItem {telegram} />
+        </div>
+      </VirtualList>
     </div>
   {:else}
     <div class="flex flex-col items-center justify-center gap-2 text-slate-400 py-12">
@@ -87,5 +92,23 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
     border: 0.5px solid rgba(226, 232, 240, 0.5);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .search-results-container {
+    height: 600px;
+    overflow-y: auto;
+  }
+
+  .virtual-list {
+    width: 100%;
+    height: 100%;
+  }
+
+  .result-item {
+    margin-bottom: 1rem;
+  }
+
+  .result-item:last-child {
+    margin-bottom: 0;
   }
 </style>

@@ -76,6 +76,15 @@ func (i *Index) EnsureIndex(ctx context.Context) error {
 		return fmt.Errorf("update sortable attributes: %w", err)
 	}
 
+	// Configure stop words: remove common aviation/telegram words from stop list
+	// This allows searching for short words like "from", "to", "at", etc. that are common in telegrams
+	// Empty array means no stop words - all words are searchable
+	stopWords := []string{}
+	_, err = idx.UpdateStopWordsWithContext(ctx, &stopWords)
+	if err != nil {
+		return fmt.Errorf("update stop words: %w", err)
+	}
+
 	primaryKey := "message_id"
 	_, err = idx.UpdateIndexWithContext(ctx, &meilisearchClient.UpdateIndexRequestParams{
 		PrimaryKey: primaryKey,

@@ -10,12 +10,13 @@
 -->
 
 <script lang="ts">
-  import { messages } from "../stores/messages";
+  import { messages } from "../stores/data/messages";
   import { websocket } from "../stores/websocket";
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
   import { onMount, onDestroy } from "svelte";
   import type { WebSocketStatus } from "../services/websocket";
+  import VirtualList from "@sveltejs/svelte-virtual-list";
 
   let container = $state<HTMLDivElement>();
   let mounted = $state(false);
@@ -174,15 +175,21 @@
         <p class="empty-state-subtitle">Real-time messages will appear here</p>
       </div>
     {:else}
-      {#each typedMessages as message, index (getMessageKey(message, index))}
+      <VirtualList
+        items={typedMessages}
+        itemHeight={150}
+        height="600px"
+        class="virtual-list-container"
+        let:item={message}
+      >
         <div
           class="message-wrapper"
           role="article"
-          aria-label="Telegram message {message.message_id || index}"
+          aria-label="Telegram message {message.message_id || 'N/A'}"
         >
           <MessageItem telegram={message} />
         </div>
-      {/each}
+      </VirtualList>
     {/if}
   </div>
 </div>
@@ -285,11 +292,9 @@
   }
 
   .messages-container {
-    overflow-y: auto;
     border-radius: 0.5rem;
     padding: 0.75rem;
     border: 0;
-    scroll-behavior: smooth;
     background: linear-gradient(
       to bottom right,
       rgba(248, 250, 252, 0.4),
@@ -299,12 +304,15 @@
     height: 600px;
     max-height: 600px;
     min-height: 600px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
   }
 
-  .messages-container > * + * {
-    margin-top: 0.75rem;
+  .virtual-list-container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .virtual-list-container :global(.message-wrapper) {
+    margin-bottom: 0.75rem;
   }
 
   .messages-container::-webkit-scrollbar {
@@ -362,6 +370,10 @@
       height: 800px;
       max-height: 800px;
       min-height: 800px;
+    }
+
+    .virtual-list-container {
+      height: 800px !important;
     }
   }
 </style>

@@ -24,15 +24,22 @@
   interface Props {
     onsearch?: (detail: SearchParams) => void;
     onreset?: () => void;
+    initialParams?: {
+      query?: string;
+      type?: string;
+      priority?: string;
+      start_time?: string;
+      end_time?: string;
+    };
   }
 
-  let { onsearch, onreset }: Props = $props();
+  let { onsearch, onreset, initialParams }: Props = $props();
 
-  let query = $state("");
-  let type = $state("");
-  let priority = $state("");
-  let start_time = $state("");
-  let end_time = $state("");
+  let query = $state(initialParams?.query || "");
+  let type = $state(initialParams?.type || "");
+  let priority = $state(initialParams?.priority || "");
+  let start_time = $state(initialParams?.start_time || "");
+  let end_time = $state(initialParams?.end_time || "");
   let suggestions = $state<Array<{ value: string; type: string; label: string } | string>>([]);
   let showSuggestions = $state(false);
   let autocompleteTimeout = $state<ReturnType<typeof setTimeout> | null>(null);

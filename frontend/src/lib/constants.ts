@@ -16,6 +16,7 @@ export const WEBSOCKET_CONFIG = {
   INITIAL_RECONNECT_DELAY_MS: 1000, // 1 second
   MAX_RECONNECT_DELAY_MS: 30000, // 30 seconds
   MAX_RECONNECT_ATTEMPTS: 10,
+  BATCH_DELAY_MS: 100, // 100ms batching window to prevent UI thrashing
 } as const;
 
 // API configuration

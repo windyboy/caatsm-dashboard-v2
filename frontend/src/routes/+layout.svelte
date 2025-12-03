@@ -6,6 +6,7 @@
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
   import ConnectionStatus from "$lib/components/ConnectionStatus.svelte";
   import { initPerformanceMonitoring } from "$lib/utils/performance";
+  import { theme } from "$lib/stores/theme";
 
   interface Props {
     children?: Snippet;
@@ -15,6 +16,8 @@
 
   onMount(() => {
     initPerformanceMonitoring();
+    // Initialize theme (store handles initialization, but ensure it's applied)
+    theme.subscribe(() => {}); // Subscribe to ensure theme is applied
   });
 </script>
 

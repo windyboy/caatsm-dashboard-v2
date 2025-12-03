@@ -22,6 +22,7 @@ type SearchFilters struct {
 	Priorities   []int
 	TimeRange    TimeWindow
 	Pagination   Pagination
+	MessageIDs   []string // Used for filtering by message IDs (e.g., from Meilisearch results)
 }
 
 // TimeWindow defines a time range for filtering telegrams.

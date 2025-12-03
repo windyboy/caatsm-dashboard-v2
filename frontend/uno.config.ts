@@ -24,6 +24,9 @@ export default defineConfig({
     filesystem: ["src/**/*.{html,js,svelte,ts}"],
   },
 
+  // 启用暗色模式（使用 class 策略）
+  darkMode: "class",
+
   // 主题配置
   theme: {
     // PresetWind4 使用 font 而不是 fontFamily

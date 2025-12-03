@@ -165,7 +165,17 @@ func (s *Store) buildSearchConditions(filter domain.SearchFilters) (whereClause 
 	var conditions []string
 	argPos := 1
 
-	if filter.Query != "" {
+	// If MessageIDs are provided, use them for filtering (from Meilisearch results)
+	if len(filter.MessageIDs) > 0 {
+		placeholders := make([]string, len(filter.MessageIDs))
+		for i, msgID := range filter.MessageIDs {
+			placeholders[i] = fmt.Sprintf("$%d", argPos)
+			args = append(args, msgID)
+			argPos++
+		}
+		conditions = append(conditions, fmt.Sprintf("message_id IN (%s)", strings.Join(placeholders, ",")))
+	} else if filter.Query != "" {
+		// Only use ILIKE if no MessageIDs (Meilisearch handles full-text search)
 		conditions = append(conditions, fmt.Sprintf("(content ILIKE $%d OR flight_number ILIKE $%d OR message_id ILIKE $%d)", argPos, argPos, argPos))
 		args = append(args, "%"+filter.Query+"%")
 		argPos++

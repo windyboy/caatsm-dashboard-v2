@@ -7,8 +7,8 @@
 -->
 
 <script lang="ts">
-  import { stats } from "../stores/stats";
-  import type { StatsState } from "../stores/stats";
+  import { stats } from "../stores/data/stats";
+  import type { StatsState } from "../stores/data/stats";
 
   interface Props {
     title: string;

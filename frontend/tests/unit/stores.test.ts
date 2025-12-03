@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { get } from "svelte/store";
-import { messages } from "$lib/stores/messages";
-import { stats } from "$lib/stores/stats";
+import { messages } from "$lib/stores/data/messages";
+import { stats } from "$lib/stores/data/stats";
 import type { Telegram } from "$lib/utils/types";
 
 describe("messages store", () => {

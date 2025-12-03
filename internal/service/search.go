@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -81,7 +82,19 @@ func (s *SearchService) Search(ctx context.Context, filters SearchFilters) (*Sea
 
 	// Perform search
 	start := time.Now()
-	result, err := s.repo.Search(ctx, filters)
+	
+	var result *SearchResult
+	var err error
+	
+	// If there's a query string, use Meilisearch for full-text search first
+	// Then fetch full data from PostgreSQL with filters applied
+	if filters.Query != "" && s.search != nil {
+		result, err = s.searchWithMeilisearch(ctx, filters)
+	} else {
+		// No query string or Meilisearch unavailable - use PostgreSQL only
+		result, err = s.repo.Search(ctx, filters)
+	}
+	
 	duration := time.Since(start)
 
 	if err != nil {
@@ -225,6 +238,175 @@ func (s *SearchService) AutocompleteWithTypes(ctx context.Context, query string,
 	}
 
 	return suggestions, nil
+}
+
+// searchWithMeilisearch performs a hybrid search: Meilisearch for full-text, PostgreSQL for filters
+func (s *SearchService) searchWithMeilisearch(ctx context.Context, filters SearchFilters) (*SearchResult, error) {
+	// Build Meilisearch request parameters
+	meiliFilter := s.buildMeilisearchFilter(filters)
+	
+	sortArray := s.buildSortArray(filters.Pagination)
+	limit := int64(filters.Pagination.Limit)
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := int64(filters.Pagination.Offset)
+	if offset < 0 {
+		offset = 0
+	}
+	
+	// Search Meilisearch to get message IDs
+	meiliResult, err := s.search.Search(ctx, filters.Query, meiliFilter, limit, offset, sortArray)
+	if err != nil {
+		s.logger.Warn("meilisearch failed, falling back to PostgreSQL",
+			zap.Error(err),
+			zap.String("query", filters.Query),
+		)
+		return s.repo.Search(ctx, filters)
+	}
+	
+	// Extract message IDs from Meilisearch results
+	messageIDs, total, err := s.extractMessageIDsFromMeilisearch(meiliResult)
+	if err != nil {
+		s.logger.Warn("failed to extract message IDs from meilisearch, falling back to PostgreSQL",
+			zap.Error(err),
+		)
+		return s.repo.Search(ctx, filters)
+	}
+	
+	if len(messageIDs) == 0 {
+		return &SearchResult{
+			Telegrams: []domain.Telegram{},
+			Total:     0,
+			Page:      filters.Pagination,
+		}, nil
+	}
+	
+	// Fetch full telegram data from PostgreSQL using message IDs
+	pgFilters := filters
+	pgFilters.Query = ""
+	pgFilters.MessageIDs = messageIDs
+	
+	result, err := s.repo.Search(ctx, pgFilters)
+	if err != nil {
+		return nil, fmt.Errorf("fetch telegrams from PostgreSQL: %w", err)
+	}
+	
+	result.Total = total
+	return result, nil
+}
+
+// buildSortArray builds Meilisearch sort array from pagination
+func (s *SearchService) buildSortArray(pagination domain.Pagination) []string {
+	if pagination.SortBy == "" {
+		return nil
+	}
+	order := "asc"
+	if pagination.Order == "desc" {
+		order = "desc"
+	}
+	return []string{fmt.Sprintf("%s:%s", pagination.SortBy, order)}
+}
+
+// buildMeilisearchFilter builds a Meilisearch filter string from SearchFilters
+func (s *SearchService) buildMeilisearchFilter(filters SearchFilters) string {
+	var conditions []string
+	
+	// Helper to build IN clause or equality
+	buildFilter := func(field string, values []string) string {
+		if len(values) == 0 {
+			return ""
+		}
+		if len(values) == 1 {
+			return fmt.Sprintf("%s = '%s'", field, values[0])
+		}
+		quoted := make([]string, len(values))
+		for i, v := range values {
+			quoted[i] = fmt.Sprintf("'%s'", v)
+		}
+		return fmt.Sprintf("%s IN [%s]", field, strings.Join(quoted, ", "))
+	}
+	
+	buildIntFilter := func(field string, values []int) string {
+		if len(values) == 0 {
+			return ""
+		}
+		if len(values) == 1 {
+			return fmt.Sprintf("%s = %d", field, values[0])
+		}
+		strs := make([]string, len(values))
+		for i, v := range values {
+			strs[i] = fmt.Sprintf("%d", v)
+		}
+		return fmt.Sprintf("%s IN [%s]", field, strings.Join(strs, ", "))
+	}
+	
+	if filter := buildFilter("type", filters.Types); filter != "" {
+		conditions = append(conditions, filter)
+	}
+	if filter := buildFilter("source", filters.Sources); filter != "" {
+		conditions = append(conditions, filter)
+	}
+	if filter := buildFilter("destination", filters.Destinations); filter != "" {
+		conditions = append(conditions, filter)
+	}
+	if filter := buildIntFilter("priority", filters.Priorities); filter != "" {
+		conditions = append(conditions, filter)
+	}
+	
+	if !filters.TimeRange.Start.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("time >= %d", filters.TimeRange.Start.Unix()))
+	}
+	if !filters.TimeRange.End.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("time <= %d", filters.TimeRange.End.Unix()))
+	}
+	
+	if len(conditions) == 0 {
+		return ""
+	}
+	return strings.Join(conditions, " AND ")
+}
+
+// extractMessageIDsFromMeilisearch extracts message IDs and total from Meilisearch result
+func (s *SearchService) extractMessageIDsFromMeilisearch(meiliResult interface{}) ([]string, int64, error) {
+	resultMap, ok := meiliResult.(map[string]interface{})
+	if !ok {
+		// Fallback to JSON marshaling if type assertion fails
+		resultBytes, err := json.Marshal(meiliResult)
+		if err != nil {
+			return nil, 0, fmt.Errorf("marshal meilisearch result: %w", err)
+		}
+		if err := json.Unmarshal(resultBytes, &resultMap); err != nil {
+			return nil, 0, fmt.Errorf("unmarshal meilisearch result: %w", err)
+		}
+	}
+	
+	// Extract total
+	var total int64
+	if estimatedTotal, ok := resultMap["estimatedTotalHits"].(float64); ok {
+		total = int64(estimatedTotal)
+	} else if totalHits, ok := resultMap["totalHits"].(float64); ok {
+		total = int64(totalHits)
+	}
+	
+	// Extract hits
+	hits, ok := resultMap["hits"].([]interface{})
+	if !ok || len(hits) == 0 {
+		return []string{}, total, nil
+	}
+	
+	messageIDs := make([]string, 0, len(hits))
+	for _, hit := range hits {
+		hitMap, ok := hit.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if messageID, ok := hitMap["message_id"].(string); ok && messageID != "" {
+			messageIDs = append(messageIDs, messageID)
+		}
+	}
+	
+	return messageIDs, total, nil
 }
 
 // buildCacheKey creates a deterministic cache key for search filters

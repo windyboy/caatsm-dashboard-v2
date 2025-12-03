@@ -120,18 +120,46 @@ async function request<T>(
   const maxRetries = options?.retries ?? API_CONFIG.MAX_RETRIES;
   let lastError: Error | null = null;
 
+  // Create abort controller for timeout (30 seconds)
+  const timeoutController = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  // Combine signals if both exist
+  const createCombinedSignal = (): AbortSignal => {
+    if (!options?.signal) {
+      return timeoutController.signal;
+    }
+    const combined = new AbortController();
+    options.signal.addEventListener('abort', () => combined.abort());
+    timeoutController.signal.addEventListener('abort', () => combined.abort());
+    return combined.signal;
+  };
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      // Set timeout for this attempt (30 seconds)
+      timeoutId = setTimeout(() => {
+        timeoutController.abort();
+      }, 30000);
+
+      const combinedSignal = createCombinedSignal();
+
       logger.debug("API request", { url, method, attempt });
 
       const response = await fetch(url, {
         ...options,
-        signal: options?.signal,
+        signal: combinedSignal,
         headers: {
           "Content-Type": "application/json",
           ...options?.headers,
         },
       });
+
+      // Clear timeout on successful response
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
 
       if (!response.ok) {
         // Try to parse error response, but preserve original error information
@@ -164,6 +192,23 @@ async function request<T>(
         // Attach additional error context if available
         if (errorData && Object.keys(errorData).length > 1) {
           (lastError as Error & { context?: Record<string, unknown> }).context = errorData;
+        }
+
+        // Handle 401 Unauthorized - redirect to login
+        if (response.status === 401) {
+          logger.warn("Authentication required", {
+            url,
+            method,
+          });
+          
+          if (typeof window !== "undefined") {
+            // Store current URL for redirect after login
+            sessionStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.search);
+            // Redirect to login page
+            window.location.href = "/login";
+          }
+          
+          throw lastError;
         }
 
         // Don't retry client errors (4xx except 429)
@@ -205,7 +250,26 @@ async function request<T>(
       logger.info("API response success", { url, method, status: response.status, attempt });
       return response.json();
     } catch (error) {
+      // Clear timeout on error
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
       lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry if request was aborted (timeout or manual abort)
+      if (lastError.name === "AbortError") {
+        if (timeoutController.signal.aborted) {
+          lastError = new Error("Request timeout: The server did not respond in time");
+        }
+        logger.error("API request aborted", lastError, {
+          url,
+          method,
+          attempt,
+        });
+        throw lastError;
+      }
 
       // Don't retry TypeError (CORS, network, etc.) beyond max attempts
       if (attempt >= maxRetries) {
@@ -214,11 +278,6 @@ async function request<T>(
           method,
           attempts: maxRetries + 1,
         });
-        throw lastError;
-      }
-
-      // Don't retry if request was aborted
-      if (lastError.name === "AbortError") {
         throw lastError;
       }
 
@@ -232,6 +291,11 @@ async function request<T>(
       });
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
+  }
+
+  // Clean up timeout if still set
+  if (timeoutId) {
+    clearTimeout(timeoutId);
   }
 
   throw lastError || new Error("Request failed");

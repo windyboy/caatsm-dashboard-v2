@@ -5,9 +5,10 @@
 import { derived, writable } from "svelte/store";
 import { type WebSocketStatus, wsClient } from "../services/websocket";
 import type { WebSocketMessage } from "../utils/types";
-import { messages } from "./messages";
-import { stats } from "./stats";
+import { messages } from "./data/messages";
+import { stats } from "./data/stats";
 import { createLogger } from "../utils/logger";
+import { search } from "../services/api";
 
 const logger = createLogger("WebSocketStore");
 
@@ -23,6 +24,44 @@ function createWebSocketStore() {
   // Store the unsubscribe functions to prevent memory leaks
   let messageUnsubscribe: (() => void) | null = null;
   let statusUnsubscribe: (() => void) | null = null;
+  
+  // Track last message timestamp for resync after reconnect
+  let lastMessageTime: string | null = null;
+  let previousStatus: WebSocketStatus = "disconnected";
+  
+  /**
+   * Resyncs messages after reconnection by fetching missed messages.
+   * Uses the last message timestamp to fetch messages since disconnection.
+   */
+  async function resyncAfterReconnect(): Promise<void> {
+    if (!lastMessageTime) {
+      logger.debug("No last message time, skipping resync");
+      return; // No messages yet, nothing to resync
+    }
+
+    try {
+      logger.info("Resyncing messages after reconnect", { after: lastMessageTime });
+      const result = await search({
+        start_time: lastMessageTime,
+        limit: 100, // Limit to last 100 messages to avoid overwhelming UI
+        sort_by: "time",
+        order: "desc",
+      });
+
+      if (result.telegrams && result.telegrams.length > 0) {
+        // Messages are fetched with order: "desc" (newest first)
+        // Since UI displays newest first (at top), we keep them in desc order
+        // addMultiple will handle deduplication and add them at the beginning
+        messages.addMultiple(result.telegrams);
+        logger.info("Resync complete", { count: result.telegrams.length });
+      } else {
+        logger.debug("No messages found during resync");
+      }
+    } catch (error) {
+      logger.error("Resync failed", error);
+      // Don't throw - resync failure shouldn't break the connection
+    }
+  }
 
   return {
     status: { subscribe: status.subscribe },
@@ -40,11 +79,17 @@ function createWebSocketStore() {
         // Subscribe to status changes (event-driven, no polling)
         if (statusUnsubscribe === null) {
           statusUnsubscribe = wsClient.onStatusChange((newStatus) => {
-            logger.debug("WebSocket status changed", { status: newStatus });
+            logger.debug("WebSocket status changed", { status: newStatus, previousStatus });
             status.set(newStatus);
 
             // Update reconnect attempts
             reconnectAttempts.set(wsClient.getReconnectAttempts());
+
+            // Trigger resync when reconnecting after a disconnect
+            if (newStatus === "connected" && previousStatus !== "connected") {
+              // Just reconnected - trigger resync
+              resyncAfterReconnect();
+            }
 
             // Clear error on successful connection
             if (newStatus === "connected") {
@@ -66,6 +111,9 @@ function createWebSocketStore() {
             } else if (newStatus === "disconnected") {
               error.set("Disconnected from live stream.");
             }
+            
+            // Update previous status for next comparison
+            previousStatus = newStatus;
           });
         }
 
@@ -79,6 +127,10 @@ function createWebSocketStore() {
             // Use discriminated union for type-safe handling
             switch (message.type) {
               case "message":
+                // Track timestamp for resync
+                if (message.data.time) {
+                  lastMessageTime = message.data.time;
+                }
                 messages.add(message.data);
                 break;
               case "stats":

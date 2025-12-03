@@ -10,6 +10,16 @@
     />
     <meta name="theme-color" content="#3b82f6" />
     <title>CAATSM Dashboard</title>
+    <script>
+      // Apply theme synchronously before first render to prevent flash
+      (function() {
+        const theme = localStorage.getItem('caatsm-theme') || 
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
