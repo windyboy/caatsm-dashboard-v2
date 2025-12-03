@@ -346,9 +346,10 @@
   }
 
   .component-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    justify-content: space-between;
+    gap: 1rem;
     padding: 0.5rem;
     border-radius: 0.375rem;
     background: rgba(248, 250, 252, 0.5);
@@ -358,6 +359,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    min-width: 0;
   }
 
   .component-icon {

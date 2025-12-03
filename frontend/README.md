@@ -1,12 +1,12 @@
 # CAATSM Dashboard Frontend
 
-The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
+The frontend is a SvelteKit 2.x app with Svelte 5, Vite 7, and UnoCSS. It runs on Deno 2.0+ by default, with Bun as the fast fallback and Node.js 18+ (20+ recommended) supported. It talks to the Go backend at http://localhost:3002 and streams live data over WebSocket.
 
 ---
 
 ## Prerequisites
 
-- Deno 2.x (preferred) or Bun (recommended as fallback) or Node.js 20+
+- Deno 2.x (preferred) or Bun (fallback) or Node.js 18+ (20+ recommended)
 - Make or Task (optional shortcuts)
 - Backend running on http://localhost:3002 (see project root README)
 
@@ -21,9 +21,9 @@ The frontend is a SvelteKit 2.x app with Svelte 5 that runs on top of Deno 2.0+ 
 2. Start the dev server:
    - `make frontend-dev` or `task frontend:dev`  
    - Or inside `frontend/`:
-     - `deno task dev`
-     - `bun run dev` (if using Bun)
-     - `npm run dev` (if using Node.js)
+     - `deno task dev` (HMR disabled in Deno to avoid Vite 7 WebSocket issues)
+     - `bun run dev` (full HMR)
+     - `npm run dev`
 
 3. Open http://localhost:5173 in your browser.
 
@@ -47,7 +47,7 @@ The dev server proxies API calls and WebSocket traffic to http://localhost:3002.
 ## Testing
 
 - Unit tests (Vitest): `deno task test:unit` or `bun run test:unit` or `npm run test:unit`
-- E2E tests (Playwright): `deno task test` or `bun test` or `npm test`
+- E2E tests (Playwright): `deno task test:e2e` (requires Bun for the Playwright runner) or `bun run test` or `npm run test:e2e`
 
 ---
 
@@ -86,13 +86,14 @@ frontend/
 
 ## Dependency Versions
 
-The frontend uses the following key dependencies:
-- **Svelte 5** - Latest Svelte with runes and improved reactivity
-- **@sveltejs/kit**: `^2.49.0` - Latest stable SvelteKit 2.x
-- **@sveltejs/vite-plugin-svelte**: `^4.0.4` - Latest vite-plugin-svelte 4.x (compatible with vite 5.x)
-- **vite**: `^5.4.21` - Latest vite 5.x
+Key dependencies:
+- **Svelte 5** - Runes-first reactivity (currently `^5.45.4`)
+- **@sveltejs/kit**: `^2.49.1` - Latest SvelteKit 2.x
+- **@sveltejs/vite-plugin-svelte**: `^6.2.1` - Plugin for Vite 7
+- **vite**: `^7.2.6` - Bundler
+- **unocss**: `^66.5.10` - Utility-first styling
 
-**Version Strategy**: We stay on vite 5.x and vite-plugin-svelte 4.x for stability. SvelteKit 2.49.0 supports vite 6/7 and vite-plugin-svelte 5/6, but upgrading to these major versions requires testing for breaking changes. The `deno.json` also pins to major versions 4 and 5 for consistency. The frontend uses Svelte 5 with runes for reactive state management.
+**Version Strategy**: We track Vite 7 + vite-plugin-svelte 6 and keep SvelteKit on the latest 2.x line. `deno.json` pins the matching major versions for Deno tasks. Upgrading to future Vite or SvelteKit majors should include a compatibility pass for Svelte 5 runes and UnoCSS.
 
 ---
 
@@ -102,5 +103,6 @@ The frontend uses the following key dependencies:
 - **WebSocket fails**: confirm `VITE_WS_URL` matches backend host and that `websocket.allowed_origins` in backend config includes the frontend origin.
 - **Type errors on fresh clone**: run `deno cache --reload` or `bun install` before starting dev.
 - **Live data missing**: ensure backend is running and publish sample messages (`task backend:publish-stream:fast`).
+- **Deno dev HMR disabled**: when `deno task dev` sets `USE_DENO=true`, Vite 7 HMR is turned off to avoid WebSocket broken pipe errors. Use `bun run dev` for hot reload.
 
 Keep the backend running alongside the frontend for a complete experience.

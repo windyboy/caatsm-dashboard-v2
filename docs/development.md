@@ -19,7 +19,7 @@ This guide covers development setup, testing, debugging, and deployment testing 
 ### System Requirements
 
 - **Go**: 1.25.4+
-- **Deno**: 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+
+- **Deno**: 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 18+ (20+ recommended)
 - **Docker**: 20.10+ with Docker Compose
 - **Git**: 2.30+
 
@@ -248,6 +248,8 @@ pkg/
 
 ### Frontend Development (SvelteKit)
 
+The frontend runs SvelteKit 2.x with Svelte 5 runes, Vite 7, and UnoCSS. Development defaults to Deno 2.x; Bun is the preferred fallback when you need full HMR (Deno dev disables Vite 7 HMR to avoid WebSocket issues).
+
 #### Project Structure
 
 ```
@@ -413,11 +415,11 @@ cd frontend && npm run test:unit
 # Run E2E tests
 make frontend-test
 # or
-cd frontend && deno task test
+cd frontend && deno task test:e2e   # requires Bun for the Playwright runner
 # or
-cd frontend && bun test
+cd frontend && bun run test
 # or
-cd frontend && npm test
+cd frontend && npm run test:e2e
 ```
 
 #### Test Structure
@@ -504,7 +506,9 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 
 # Frontend coverage
-cd frontend && deno task test:coverage
+cd frontend && deno task test:unit:coverage
+# or
+cd frontend && bun run test:unit:coverage
 ```
 
 ### Pre-commit Hooks

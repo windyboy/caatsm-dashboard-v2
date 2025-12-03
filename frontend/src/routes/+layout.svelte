@@ -5,9 +5,10 @@
   import "../app.css";
   import ErrorBoundary from "$lib/components/ErrorBoundary.svelte";
   import ConnectionStatus from "$lib/components/ConnectionStatus.svelte";
+  import Header from "$lib/components/Header.svelte";
   import { initPerformanceMonitoring } from "$lib/utils/performance";
-  import { theme } from "$lib/stores/theme";
   import { websocket } from "$lib/stores/websocket";
+  import { page } from "$app/stores";
 
   interface Props {
     children?: Snippet;
@@ -15,10 +16,11 @@
 
   let { children }: Props = $props();
 
+  const isLoginPage = $derived($page.url.pathname === "/login");
+
   onMount(() => {
     initPerformanceMonitoring();
-    // Initialize theme (store handles initialization, but ensure it's applied)
-    theme.subscribe(() => {}); // Subscribe to ensure theme is applied
+    // Theme store already applies theme on initialization (see theme.ts)
     
     // Connect WebSocket at the layout level so it persists across page navigations
     // Only connect if not already connected
@@ -37,6 +39,16 @@
 </script>
 
 <ErrorBoundary context={{ component: "layout" }}>
-  {@render children?.()}
+  {#if isLoginPage}
+    {@render children?.()}
+  {:else}
+    <div
+      class="min-h-screen text-slate-900 dark:text-slate-100 antialiased bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
+      style="background-attachment: fixed;"
+    >
+      <Header />
+      {@render children?.()}
+    </div>
+  {/if}
   <ConnectionStatus />
 </ErrorBoundary>

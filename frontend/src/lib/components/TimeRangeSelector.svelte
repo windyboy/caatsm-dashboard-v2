@@ -17,9 +17,33 @@
   // Use derived to get current range from store (reactive, no loop)
   const currentRange = $derived($timeRange);
   
-  // Local state for custom picker inputs (only for editing, not synced back)
-  let customStart = $state(new Date($timeRange.start));
-  let customEnd = $state(new Date($timeRange.end));
+  // Helper functions to convert between Date and datetime-local string format
+  function dateToLocalString(date: Date): string {
+    // Convert Date to YYYY-MM-DDTHH:mm format for datetime-local input
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  function localStringToDate(str: string): Date {
+    // Convert datetime-local string (YYYY-MM-DDTHH:mm) to Date object
+    // datetime-local inputs provide local time, so we parse it as local time
+    if (!str) {
+      return new Date();
+    }
+    const date = new Date(str);
+    if (Number.isNaN(date.getTime())) {
+      return new Date();
+    }
+    return date;
+  }
+  
+  // Local state for custom picker inputs (strings for datetime-local binding)
+  let customStart = $state(dateToLocalString(new Date($timeRange.start)));
+  let customEnd = $state(dateToLocalString(new Date($timeRange.end)));
   
   // Show custom picker based on current preset
   const showCustomPicker = $derived(currentRange.preset === "custom");
@@ -27,14 +51,14 @@
   // Sync custom dates when store changes (only if preset is custom and dates actually changed)
   $effect(() => {
     if (currentRange.preset === "custom") {
-      const newStart = new Date(currentRange.start);
-      const newEnd = new Date(currentRange.end);
+      const newStartStr = dateToLocalString(new Date(currentRange.start));
+      const newEndStr = dateToLocalString(new Date(currentRange.end));
       // Only update if dates actually changed (avoid unnecessary updates)
-      if (customStart.getTime() !== newStart.getTime()) {
-        customStart = newStart;
+      if (customStart !== newStartStr) {
+        customStart = newStartStr;
       }
-      if (customEnd.getTime() !== newEnd.getTime()) {
-        customEnd = newEnd;
+      if (customEnd !== newEndStr) {
+        customEnd = newEndStr;
       }
     }
   });
@@ -52,11 +76,13 @@
     if (preset === "custom") {
       // If already on custom, keep current dates; otherwise initialize from current range
       if (currentRange.preset !== "custom") {
-        customStart = new Date(currentRange.start);
-        customEnd = new Date(currentRange.end);
+        customStart = dateToLocalString(new Date(currentRange.start));
+        customEnd = dateToLocalString(new Date(currentRange.end));
       }
-      // setCustomRange already sets preset to "custom", so we don't need setPreset
-      timeRange.setCustomRange(customStart, customEnd);
+      // Convert strings to Date objects before setting in store
+      const startDate = localStringToDate(customStart);
+      const endDate = localStringToDate(customEnd);
+      timeRange.setCustomRange(startDate, endDate);
       logger.debug("Time range preset selected", { preset });
     } else {
       timeRange.setPreset(preset);
@@ -65,22 +91,28 @@
   }
 
   function handleCustomRangeApply() {
-    // Validate dates
-    if (customStart >= customEnd) {
+    // Convert strings to Date objects for validation
+    const startDate = localStringToDate(customStart);
+    const endDate = localStringToDate(customEnd);
+
+    // Validate dates (use Date comparison, not string)
+    if (startDate >= endDate) {
       logger.warn("Invalid time range: start must be before end");
       return;
     }
 
     // Ensure end is not in the future
     const now = new Date();
-    if (customEnd > now) {
-      customEnd = new Date(now);
+    if (endDate > now) {
+      customEnd = dateToLocalString(now);
+      timeRange.setCustomRange(startDate, now);
+    } else {
+      timeRange.setCustomRange(startDate, endDate);
     }
 
-    timeRange.setCustomRange(customStart, customEnd);
     logger.debug("Custom time range applied", {
-      start: customStart.toISOString(),
-      end: customEnd.toISOString(),
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
     });
   }
 
@@ -131,7 +163,7 @@
           type="datetime-local"
           bind:value={customStart}
           class="picker-input"
-          max={customEnd.toISOString().slice(0, 16)}
+          max={customEnd}
         />
       </div>
       <div class="picker-row">
@@ -141,14 +173,14 @@
           type="datetime-local"
           bind:value={customEnd}
           class="picker-input"
-          max={new Date().toISOString().slice(0, 16)}
+          max={dateToLocalString(new Date())}
         />
       </div>
       <button
         type="button"
         class="apply-button"
         onclick={handleCustomRangeApply}
-        disabled={customStart >= customEnd}
+        disabled={localStringToDate(customStart) >= localStringToDate(customEnd)}
       >
         Apply
       </button>

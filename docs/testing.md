@@ -328,17 +328,14 @@ See `frontend/README.md` for frontend-specific testing:
 
 ```bash
 cd frontend
-deno task test        # Run all tests
-deno task test:unit   # Unit tests only
-deno task test:e2e    # E2E tests
+deno task test:unit   # Unit tests
+deno task test:e2e    # E2E tests (uses Bun for Playwright runner)
 
 # Or using Bun:
-bun test              # Run all tests
-bun run test:unit     # Unit tests only
-bun test              # E2E tests (Playwright)
+bun run test          # E2E tests (default)
+bun run test:unit     # Unit tests
 
 # Or using npm:
-npm test              # Run all tests
-npm run test:unit     # Unit tests only
+npm run test:e2e      # E2E tests
+npm run test:unit     # Unit tests
 ```
-

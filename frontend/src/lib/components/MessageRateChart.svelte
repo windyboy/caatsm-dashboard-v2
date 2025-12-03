@@ -11,6 +11,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { timeRange } from "$lib/stores/data/timeRange";
+  import { theme } from "$lib/stores/theme";
   import { createLogger } from "$lib/utils/logger";
   import { request } from "$lib/services/api";
 
@@ -247,6 +248,18 @@
 
   // Redraw when chartData or chartContainer changes
   $effect(() => {
+    if (chartData.length > 0 && chartContainer && !loading) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        drawChart();
+      });
+    }
+  });
+
+  // Redraw when theme changes
+  $effect(() => {
+    // Access theme to trigger reactivity
+    const _ = $theme;
     if (chartData.length > 0 && chartContainer && !loading) {
       // Use requestAnimationFrame to ensure DOM is ready
       requestAnimationFrame(() => {

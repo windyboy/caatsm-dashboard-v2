@@ -175,7 +175,7 @@
     {:else}
       <VirtualList
         items={typedMessages}
-        itemHeight={150}
+        itemHeight={200}
         height="600px"
         class="virtual-list-container"
         let:item={message}

@@ -1,9 +1,9 @@
 {
-  // Vite 5 + Svelte 5 migration: Requires Node.js >=18
+  // Vite 7 + Svelte 5 config: Requires Node.js >=18
   // Migration guides:
-  // - Vite 5: https://vite.dev/blog/announcing-vite5
+  // - Vite 7: https://vite.dev/blog/announcing-vite7
   // - Svelte 5: https://svelte.dev/docs/svelte/v5-migration-guide
-  // - Plugin v4: https://github.com/sveltejs/vite-plugin-svelte/blob/main/docs/config.md
+  // - Plugin v6: https://github.com/sveltejs/vite-plugin-svelte/blob/main/docs/config.md
   "nodeModulesDir": "manual",
   "imports": {
     "$lib": "./src/lib",

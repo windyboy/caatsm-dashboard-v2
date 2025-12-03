@@ -68,6 +68,7 @@
     }
   });
 
+  // Convert datetime-local (local time) to ISO string (UTC) - API expects UTC timestamps
   function toIsoString(value: string): string | undefined {
     if (!value) {
       return undefined;

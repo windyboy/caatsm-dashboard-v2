@@ -6,6 +6,10 @@
 
   const logger = createLogger("ErrorBoundary");
 
+  // Module-level flag to track if global handlers are registered (singleton pattern)
+  // Global handlers are registered once and shared across all instances
+  let globalHandlersRegistered = false;
+
   interface Props {
     fallbackMessage?: string;
     showRetry?: boolean;
@@ -49,53 +53,53 @@
   }
 
   onMount(() => {
-    // Catch unhandled errors in this component tree
-    errorHandler = (event: ErrorEvent) => {
-      // Only handle if we don't already have an error
-      if (!error) {
-        event.preventDefault();
-        handleError(event.error || new Error(event.message), {
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno,
-        });
-      }
-    };
+    // Only register global handlers once (singleton pattern)
+    // Each instance creates its own handler functions, but only the first instance registers them
+    if (typeof window !== "undefined" && !globalHandlersRegistered) {
+      // Create handler functions for this instance
+      errorHandler = (event: ErrorEvent) => {
+        // Only handle if we don't already have an error in this instance
+        if (!error) {
+          event.preventDefault();
+          handleError(event.error || new Error(event.message), {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+          });
+        }
+      };
 
-    // Catch unhandled Promise rejections
-    rejectionHandler = (event: PromiseRejectionEvent) => {
-      // Only handle if we don't already have an error
-      if (!error) {
-        event.preventDefault();
-        handleError(event.reason || new Error("Unhandled promise rejection"), {
-          type: "promise_rejection",
-          reason: event.reason instanceof Error
-            ? {
-                name: event.reason.name,
-                message: event.reason.message,
-                stack: event.reason.stack,
-              }
-            : event.reason,
-        });
-      }
-    };
+      rejectionHandler = (event: PromiseRejectionEvent) => {
+        // Only handle if we don't already have an error in this instance
+        if (!error) {
+          event.preventDefault();
+          handleError(event.reason || new Error("Unhandled promise rejection"), {
+            type: "promise_rejection",
+            reason: event.reason instanceof Error
+              ? {
+                  name: event.reason.name,
+                  message: event.reason.message,
+                  stack: event.reason.stack,
+                }
+              : event.reason,
+          });
+        }
+      };
 
-    if (typeof window !== "undefined") {
       window.addEventListener("error", errorHandler);
       window.addEventListener("unhandledrejection", rejectionHandler);
+      globalHandlersRegistered = true;
     }
   });
 
   onDestroy(() => {
-    if (typeof window !== "undefined") {
-      if (errorHandler) {
-        window.removeEventListener("error", errorHandler);
-        errorHandler = null;
-      }
-      if (rejectionHandler) {
-        window.removeEventListener("unhandledrejection", rejectionHandler);
-        rejectionHandler = null;
-      }
+    // Only remove listeners if this instance registered them
+    if (typeof window !== "undefined" && globalHandlersRegistered && errorHandler && rejectionHandler) {
+      window.removeEventListener("error", errorHandler);
+      window.removeEventListener("unhandledrejection", rejectionHandler);
+      errorHandler = null;
+      rejectionHandler = null;
+      globalHandlersRegistered = false;
     }
   });
 </script>

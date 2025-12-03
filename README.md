@@ -39,7 +39,7 @@ Extra support packages:
 ## Requirements
 
 - Go 1.25.4+
-- Deno 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 20+
+- Deno 2.0+ (recommended) or Bun (recommended as fallback) or Node.js 18+ (20+ recommended)
 - Docker + Docker Compose (optional but recommended)
 - PostgreSQL 15+
 - Meilisearch 1.5+
@@ -165,6 +165,8 @@ npm run dev
 ```
 
 The dev server proxies API calls to `http://localhost:3002`.
+
+HMR is disabled when running the dev server with Deno (to avoid Vite 7 WebSocket issues). Use Bun if you need hot reload.
 
 ## Configuration
 

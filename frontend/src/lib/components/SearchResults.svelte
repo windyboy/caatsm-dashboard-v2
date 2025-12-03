@@ -60,7 +60,7 @@
       </p>
       <VirtualList
         items={safeTelegrams}
-        itemHeight={150}
+        itemHeight={200}
         height="600px"
         class="virtual-list-container"
         let:item={telegram}
