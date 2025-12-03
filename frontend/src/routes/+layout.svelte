@@ -9,6 +9,7 @@
   import { initPerformanceMonitoring } from "$lib/utils/performance";
   import { websocket } from "$lib/stores/websocket";
   import { page } from "$app/stores";
+  import { isBrowser } from "$lib/utils/browser";
 
   interface Props {
     children?: Snippet;
@@ -27,7 +28,7 @@
     
     // Connect WebSocket at the layout level so it persists across page navigations
     // Only connect if not on login page and not already connected
-    if (typeof window !== "undefined" && !isLoginPage && !websocket.checkIsConnected()) {
+    if (isBrowser && !isLoginPage && !websocket.checkIsConnected()) {
       websocket.connect();
     }
   });
@@ -36,7 +37,7 @@
     // Cleanup WebSocket when the entire app is destroyed (e.g., page unload)
     // This ensures proper cleanup on navigation away from the app
     // Only cleanup if not on login page
-    if (typeof window !== "undefined" && !isLoginPage) {
+    if (isBrowser && !isLoginPage) {
       websocket.cleanup();
     }
   });

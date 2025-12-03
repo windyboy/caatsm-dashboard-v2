@@ -14,12 +14,11 @@
   import { websocket } from "../stores/websocket";
   import MessageItem from "./MessageItem.svelte";
   import type { Telegram } from "../utils/types";
-  import { onMount, onDestroy } from "svelte";
   import type { WebSocketStatus } from "../services/websocket";
   import VirtualList from "@sveltejs/svelte-virtual-list";
+  import { isBrowser } from "../utils/browser";
 
   let container = $state<HTMLDivElement>();
-  let mounted = $state(false);
 
   // Use local state instead of direct store subscriptions to avoid SSR issues
   let currentStatus = $state<WebSocketStatus>("disconnected");
@@ -66,14 +65,12 @@
     }
   });
 
-  // Subscribe to stores only in browser (onMount)
-  onMount(() => {
+  // Subscribe to stores and connect WebSocket using $effect
+  $effect(() => {
     // Guard against SSR - only run in browser environment
-    if (typeof window === "undefined") {
+    if (!isBrowser) {
       return;
     }
-
-    mounted = true;
 
     // Connect WebSocket (idempotent - only connects if not already connected)
     if (!websocket.checkIsConnected()) {
@@ -102,6 +99,7 @@
       }
     });
 
+    // Cleanup subscriptions
     return () => {
       statusUnsubscribe();
       reconnectUnsubscribe();
@@ -260,7 +258,7 @@
   }
 
   .status-badge.bg-green-500 {
-    color: #15803d;
+    color: #166534;
     background: linear-gradient(to right, #f0fdf4, #dcfce7);
     border-color: #bbf7d0;
   }

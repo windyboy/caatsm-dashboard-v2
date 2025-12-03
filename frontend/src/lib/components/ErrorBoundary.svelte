@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from "svelte";
   import { createLogger } from "$lib/utils/logger";
   import Button from "./ui/Button.svelte";
+  import { isBrowser, getWindow } from "$lib/utils/browser";
 
   const logger = createLogger("ErrorBoundary");
 
@@ -55,7 +56,8 @@
   onMount(() => {
     // Only register global handlers once (singleton pattern)
     // Each instance creates its own handler functions, but only the first instance registers them
-    if (typeof window !== "undefined" && !globalHandlersRegistered) {
+    const win = getWindow();
+    if (win && !globalHandlersRegistered) {
       // Create handler functions for this instance
       errorHandler = (event: ErrorEvent) => {
         // Only handle if we don't already have an error in this instance
@@ -86,17 +88,18 @@
         }
       };
 
-      window.addEventListener("error", errorHandler);
-      window.addEventListener("unhandledrejection", rejectionHandler);
+      win.addEventListener("error", errorHandler);
+      win.addEventListener("unhandledrejection", rejectionHandler);
       globalHandlersRegistered = true;
     }
   });
 
   onDestroy(() => {
     // Only remove listeners if this instance registered them
-    if (typeof window !== "undefined" && globalHandlersRegistered && errorHandler && rejectionHandler) {
-      window.removeEventListener("error", errorHandler);
-      window.removeEventListener("unhandledrejection", rejectionHandler);
+    const win = getWindow();
+    if (win && globalHandlersRegistered && errorHandler && rejectionHandler) {
+      win.removeEventListener("error", errorHandler);
+      win.removeEventListener("unhandledrejection", rejectionHandler);
       errorHandler = null;
       rejectionHandler = null;
       globalHandlersRegistered = false;

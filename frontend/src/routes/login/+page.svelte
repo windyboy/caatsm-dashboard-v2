@@ -6,6 +6,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { getWindow } from "$lib/utils/browser";
 
   let mounted = $state(false);
   let redirectPath = $state<string | null>(null);
@@ -13,8 +14,9 @@
   onMount(() => {
     mounted = true;
     // Get redirect path from sessionStorage
-    if (typeof window !== "undefined") {
-      redirectPath = sessionStorage.getItem("redirectAfterLogin");
+    const win = getWindow();
+    if (win) {
+      redirectPath = win.sessionStorage.getItem("redirectAfterLogin");
     }
   });
 
@@ -22,8 +24,9 @@
     // TODO: Implement actual authentication
     // For now, just redirect back
     const target = redirectPath || "/";
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("redirectAfterLogin");
+    const win = getWindow();
+    if (win) {
+      win.sessionStorage.removeItem("redirectAfterLogin");
     }
     goto(target);
   }

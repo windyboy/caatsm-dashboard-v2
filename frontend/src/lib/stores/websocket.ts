@@ -9,6 +9,7 @@ import { messages } from "./data/messages";
 import { stats } from "./data/stats";
 import { createLogger } from "../utils/logger";
 import { search } from "../services/api";
+import { isBrowser } from "../utils/browser";
 
 const logger = createLogger("WebSocketStore");
 
@@ -28,39 +29,82 @@ function createWebSocketStore() {
   // Track last message timestamp for resync after reconnect
   let lastMessageTime: string | null = null;
   let previousStatus: WebSocketStatus = "disconnected";
+  let resyncInProgress = false;
+  let resyncAbortController: AbortController | null = null;
+  let resyncTimeout: ReturnType<typeof setTimeout> | null = null;
   
   /**
    * Resyncs messages after reconnection by fetching missed messages.
    * Uses the last message timestamp to fetch messages since disconnection.
+   * Includes debounce and cancellation to prevent race conditions.
    */
   async function resyncAfterReconnect(): Promise<void> {
-    if (!lastMessageTime) {
-      logger.debug("No last message time, skipping resync");
-      return; // No messages yet, nothing to resync
+    // Debounce rapid reconnects (wait 500ms before resync)
+    if (resyncTimeout) {
+      clearTimeout(resyncTimeout);
     }
 
-    try {
-      logger.info("Resyncing messages after reconnect", { after: lastMessageTime });
-      const result = await search({
-        start_time: lastMessageTime,
-        limit: 100, // Limit to last 100 messages to avoid overwhelming UI
-        sort_by: "time",
-        order: "desc",
-      });
-
-      if (result.telegrams && result.telegrams.length > 0) {
-        // Messages are fetched with order: "desc" (newest first)
-        // Since UI displays newest first (at top), we keep them in desc order
-        // addMultiple will handle deduplication and add them at the beginning
-        messages.addMultiple(result.telegrams);
-        logger.info("Resync complete", { count: result.telegrams.length });
-      } else {
-        logger.debug("No messages found during resync");
+    resyncTimeout = setTimeout(async () => {
+      // Prevent concurrent resyncs
+      if (resyncInProgress) {
+        logger.debug("Resync already in progress, skipping");
+        return;
       }
-    } catch (error) {
-      logger.error("Resync failed", error);
-      // Don't throw - resync failure shouldn't break the connection
-    }
+      
+      if (!lastMessageTime) {
+        logger.debug("No last message time, skipping resync");
+        return;
+      }
+
+      // Cancel any in-flight resync if connection drops again
+      if (resyncAbortController) {
+        resyncAbortController.abort();
+      }
+
+      resyncInProgress = true;
+      resyncAbortController = new AbortController();
+      const timestamp = lastMessageTime; // Capture before async operation
+      
+      try {
+        logger.info("Resyncing messages after reconnect", { after: timestamp });
+        const result = await search(
+          {
+            start_time: timestamp,
+            limit: 100, // Limit to last 100 messages to avoid overwhelming UI
+            sort_by: "time",
+            order: "desc",
+          },
+          resyncAbortController.signal
+        );
+
+        // Check if resync was aborted (connection dropped again)
+        if (resyncAbortController.signal.aborted) {
+          logger.debug("Resync aborted due to connection change");
+          return;
+        }
+
+        if (result.telegrams && result.telegrams.length > 0) {
+          // Messages are fetched with order: "desc" (newest first)
+          // Since UI displays newest first (at top), we keep them in desc order
+          // addMultiple will handle deduplication and add them at the beginning
+          messages.addMultiple(result.telegrams);
+          logger.info("Resync complete", { count: result.telegrams.length });
+        } else {
+          logger.debug("No messages found during resync");
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          logger.debug("Resync aborted");
+          return;
+        }
+        logger.error("Resync failed", error);
+        // Don't throw - resync failure shouldn't break the connection
+      } finally {
+        resyncInProgress = false;
+        resyncAbortController = null;
+        resyncTimeout = null;
+      }
+    }, 500); // 500ms debounce
   }
 
   return {
@@ -75,7 +119,7 @@ function createWebSocketStore() {
       });
 
       // Only subscribe if we're in a browser environment and not already subscribed
-      if (typeof window !== "undefined") {
+      if (isBrowser) {
         // Subscribe to status changes (event-driven, no polling)
         if (statusUnsubscribe === null) {
           statusUnsubscribe = wsClient.onStatusChange((newStatus) => {
@@ -87,7 +131,16 @@ function createWebSocketStore() {
 
             // Trigger resync when reconnecting after a disconnect
             if (newStatus === "connected" && previousStatus !== "connected") {
-              // Just reconnected - trigger resync
+              // Cancel any pending resync from previous reconnect
+              if (resyncAbortController) {
+                resyncAbortController.abort();
+                resyncAbortController = null;
+              }
+              if (resyncTimeout) {
+                clearTimeout(resyncTimeout);
+                resyncTimeout = null;
+              }
+              // Just reconnected - trigger debounced resync
               resyncAfterReconnect();
             }
 
@@ -154,6 +207,18 @@ function createWebSocketStore() {
 
     disconnect: () => {
       logger.info("Disconnecting WebSocket store");
+      
+      // Cancel any in-flight resync
+      if (resyncAbortController) {
+        resyncAbortController.abort();
+        resyncAbortController = null;
+      }
+      if (resyncTimeout) {
+        clearTimeout(resyncTimeout);
+        resyncTimeout = null;
+      }
+      resyncInProgress = false;
+      
       wsClient.disconnect();
       status.set("disconnected");
       error.set(null);
@@ -178,6 +243,18 @@ function createWebSocketStore() {
 
     cleanup: () => {
       logger.info("Cleaning up WebSocket store");
+      
+      // Cancel any in-flight resync
+      if (resyncAbortController) {
+        resyncAbortController.abort();
+        resyncAbortController = null;
+      }
+      if (resyncTimeout) {
+        clearTimeout(resyncTimeout);
+        resyncTimeout = null;
+      }
+      resyncInProgress = false;
+      
       wsClient.disconnect();
       status.set("disconnected");
       error.set(null);

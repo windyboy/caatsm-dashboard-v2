@@ -3,6 +3,7 @@
 import { createLogger } from "../utils/logger";
 import type { SearchResult } from "../utils/types";
 import { API_CONFIG } from "../constants";
+import { isBrowser, getWindow } from "../utils/browser";
 
 const logger = createLogger("API");
 
@@ -16,8 +17,9 @@ function getApiBaseUrl(): string {
     return "http://localhost:3002";
   }
 
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin;
+  const win = getWindow();
+  if (win?.location?.origin) {
+    return win.location.origin;
   }
 
   return "http://localhost:3002";
@@ -220,11 +222,12 @@ export async function request<T>(
             method,
           });
           
-          if (typeof window !== "undefined") {
+          const win = getWindow();
+          if (win) {
             // Store current URL for redirect after login
-            sessionStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.search);
+            win.sessionStorage.setItem("redirectAfterLogin", win.location.pathname + win.location.search);
             // Redirect to login page
-            window.location.href = "/login";
+            win.location.href = "/login";
           }
           
           throw lastError;
@@ -320,10 +323,13 @@ export async function request<T>(
   throw lastError || new Error("Request failed");
 }
 
-export async function search(params: SearchParams): Promise<SearchResult> {
+export async function search(
+  params: SearchParams,
+  signal?: AbortSignal
+): Promise<SearchResult> {
   const searchParams = buildSearchParamsFromParams(params);
 
-  return request<SearchResult>(`/api/search?${searchParams.toString()}`);
+  return request<SearchResult>(`/api/search?${searchParams.toString()}`, { signal });
 }
 
 export async function autocomplete(

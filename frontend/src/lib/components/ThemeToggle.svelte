@@ -5,28 +5,18 @@
 
 <script lang="ts">
   import { theme } from "../stores/theme";
-  import { onMount } from "svelte";
 
-  let mounted = $state(false);
-  let currentTheme = $state<"light" | "dark">("light");
-
-  onMount(() => {
-    mounted = true;
-    const unsubscribe = theme.subscribe((t) => {
-      currentTheme = t;
-    });
-    return unsubscribe;
-  });
+  // Subscribe to theme using $effect and reactive store access
+  const currentTheme = $derived($theme);
 </script>
 
-{#if mounted}
-  <button
-    type="button"
-    onclick={() => theme.toggle()}
-    class="theme-toggle"
-    aria-label="Toggle theme"
-    title={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-  >
+<button
+  type="button"
+  onclick={() => theme.toggle()}
+  class="theme-toggle"
+  aria-label="Toggle theme"
+  title={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+>
     {#if currentTheme === "dark"}
       <!-- Sun icon for light mode -->
       <svg
@@ -60,8 +50,7 @@
         ></path>
       </svg>
     {/if}
-  </button>
-{/if}
+</button>
 
 <style>
   .theme-toggle {

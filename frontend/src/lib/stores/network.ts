@@ -1,30 +1,35 @@
 // Network status store for offline detection
 
 import { writable } from "svelte/store";
+import { isBrowser, getWindow } from "../utils/browser";
 
 function createNetworkStore() {
-  const { subscribe, set } = writable(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const { subscribe, set } = writable(
+    isBrowser && typeof navigator !== "undefined" ? navigator.onLine : true
+  );
 
   let onlineHandler: (() => void) | null = null;
   let offlineHandler: (() => void) | null = null;
 
-  if (typeof window !== "undefined") {
+  const win = getWindow();
+  if (win) {
     onlineHandler = () => set(true);
     offlineHandler = () => set(false);
-    window.addEventListener("online", onlineHandler);
-    window.addEventListener("offline", offlineHandler);
+    win.addEventListener("online", onlineHandler);
+    win.addEventListener("offline", offlineHandler);
   }
 
   return {
     subscribe,
     cleanup: () => {
-      if (typeof window !== "undefined") {
+      const win = getWindow();
+      if (win) {
         if (onlineHandler) {
-          window.removeEventListener("online", onlineHandler);
+          win.removeEventListener("online", onlineHandler);
           onlineHandler = null;
         }
         if (offlineHandler) {
-          window.removeEventListener("offline", offlineHandler);
+          win.removeEventListener("offline", offlineHandler);
           offlineHandler = null;
         }
       }

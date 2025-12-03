@@ -151,15 +151,15 @@
     color: #60a5fa;
   }
 
-  .virtual-list-container::-webkit-scrollbar {
+  :global(.virtual-list-container::-webkit-scrollbar) {
     width: 6px;
   }
 
-  .virtual-list-container::-webkit-scrollbar-track {
+  :global(.virtual-list-container::-webkit-scrollbar-track) {
     background: transparent;
   }
 
-  .virtual-list-container::-webkit-scrollbar-thumb {
+  :global(.virtual-list-container::-webkit-scrollbar-thumb) {
     background-color: rgba(148, 163, 184, 0.5);
     border-radius: 9999px;
   }

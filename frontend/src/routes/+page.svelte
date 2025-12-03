@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import LiveStream from "$lib/components/LiveStream.svelte";
   import StatsCard from "$lib/components/StatsCard.svelte";
   import HealthStatus from "$lib/components/HealthStatus.svelte";
@@ -12,13 +11,14 @@
   import { stats } from "$lib/stores/data/stats";
   import { timeRange } from "$lib/stores/data/timeRange";
   import { createLogger } from "$lib/utils/logger";
+  import { isBrowser } from "$lib/utils/browser";
 
   const logger = createLogger("Dashboard");
 
   // Load statistics function
   async function loadStats() {
     // Only run in browser environment
-    if (typeof window === "undefined") {
+    if (!isBrowser) {
       return;
     }
 
@@ -60,26 +60,14 @@
     }
   }
 
-  // Load statistics on page mount and when time range changes
-  onMount(() => {
-    let isInitialLoad = true;
+  // Load statistics when time range changes using $effect
+  // Access $timeRange to automatically subscribe to changes
+  $effect(() => {
+    // Access timeRange to create reactive dependency
+    const _ = $timeRange;
     
-    // Subscribe to time range changes
-    const unsubscribe = timeRange.subscribe(() => {
-      // Skip the initial callback to avoid duplicate API call
-      if (isInitialLoad) {
-        isInitialLoad = false;
-        return;
-      }
-      loadStats();
-    });
-    
-    // Load initial stats after subscription is set up
+    // Load stats whenever time range changes
     loadStats();
-    
-    return () => {
-      unsubscribe();
-    };
   });
 </script>
 

@@ -9,10 +9,10 @@
 -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { websocket } from "$lib/stores/websocket";
   import type { WebSocketStatus } from "$lib/services/websocket";
   import { createLogger } from "$lib/utils/logger";
+  import { isBrowser } from "$lib/utils/browser";
 
   const logger = createLogger("WebSocketMetrics");
 
@@ -24,7 +24,7 @@
   function getStatusColor(status: WebSocketStatus): string {
     switch (status) {
       case "connected":
-        return "text-green-600 bg-green-50 border-green-200";
+        return "text-green-800 bg-green-50 border-green-200";
       case "connecting":
       case "reconnecting":
         return "text-yellow-800 bg-yellow-50 border-yellow-200";
@@ -80,17 +80,14 @@
     }
   }
 
-  let statusUnsubscribe: (() => void) | null = null;
-  let attemptsUnsubscribe: (() => void) | null = null;
-  let errorUnsubscribe: (() => void) | null = null;
-
-  onMount(() => {
-    if (typeof window === "undefined") {
+  // Subscribe to stores using $effect
+  $effect(() => {
+    if (!isBrowser) {
       return;
     }
 
     // Subscribe to status changes
-    statusUnsubscribe = websocket.status.subscribe((newStatus) => {
+    const statusUnsubscribe = websocket.status.subscribe((newStatus) => {
       status = newStatus;
       
       // Track connection start time
@@ -102,26 +99,21 @@
     });
 
     // Subscribe to reconnect attempts
-    attemptsUnsubscribe = websocket.reconnectAttempts.subscribe((attempts) => {
+    const attemptsUnsubscribe = websocket.reconnectAttempts.subscribe((attempts) => {
       reconnectAttempts = attempts;
     });
 
     // Subscribe to errors
-    errorUnsubscribe = websocket.error.subscribe((err) => {
+    const errorUnsubscribe = websocket.error.subscribe((err) => {
       error = err;
     });
 
+    // Cleanup subscriptions
     return () => {
-      if (statusUnsubscribe) statusUnsubscribe();
-      if (attemptsUnsubscribe) attemptsUnsubscribe();
-      if (errorUnsubscribe) errorUnsubscribe();
+      statusUnsubscribe();
+      attemptsUnsubscribe();
+      errorUnsubscribe();
     };
-  });
-
-  onDestroy(() => {
-    if (statusUnsubscribe) statusUnsubscribe();
-    if (attemptsUnsubscribe) attemptsUnsubscribe();
-    if (errorUnsubscribe) errorUnsubscribe();
   });
 </script>
 

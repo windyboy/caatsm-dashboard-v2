@@ -1,24 +1,28 @@
 // Theme store for dark/light mode management
 
 import { writable } from "svelte/store";
+import { isBrowser, getWindow, getDocument } from "../utils/browser";
 
 export type Theme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "caatsm-theme";
 
 function getInitialTheme(): Theme {
-  if (typeof window === "undefined") {
+  if (!isBrowser) {
     return "light"; // SSR default
   }
 
+  const win = getWindow();
+  if (!win) return "light";
+
   // Check localStorage first
-  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  const stored = win.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === "dark" || stored === "light") {
     return stored;
   }
 
   // Fall back to system preference
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+  if (win.matchMedia("(prefers-color-scheme: dark)").matches) {
     return "dark";
   }
 
@@ -30,9 +34,13 @@ function createThemeStore() {
 
   // Apply theme to document
   function applyTheme(theme: Theme) {
-    if (typeof document === "undefined") return;
+    const doc = getDocument();
+    if (!doc) return;
 
-    const root = document.documentElement;
+    const win = getWindow();
+    if (!win) return;
+
+    const root = doc.documentElement;
     if (theme === "dark") {
       root.classList.add("dark");
     } else {
@@ -40,11 +48,11 @@ function createThemeStore() {
     }
 
     // Persist to localStorage
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    win.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }
 
   // Initialize theme on store creation
-  if (typeof window !== "undefined") {
+  if (isBrowser) {
     applyTheme(getInitialTheme());
   }
 

@@ -230,7 +230,7 @@
 
   .route-tag {
     background: linear-gradient(to right, #f0fdf4, #dcfce7);
-    color: #15803d;
+    color: #166534;
     border-color: rgba(187, 247, 208, 0.5);
   }
 
@@ -261,7 +261,7 @@
 
   .bg-gradient-to-r.from-success-50.to-brand-50 {
     background: linear-gradient(to right, #f0fdf4, #eff6ff);
-    color: #15803d;
+    color: #166534;
     border-color: rgba(187, 247, 208, 0.5);
   }
 

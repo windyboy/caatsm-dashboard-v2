@@ -9,11 +9,11 @@
 -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { timeRange } from "$lib/stores/data/timeRange";
   import { theme } from "$lib/stores/theme";
   import { createLogger } from "$lib/utils/logger";
   import { request } from "$lib/services/api";
+  import { isBrowser, getWindow, getDocument } from "$lib/utils/browser";
 
   const logger = createLogger("MessageRateChart");
 
@@ -28,7 +28,7 @@
   }
 
   async function loadChartData() {
-    if (typeof window === "undefined") {
+    if (!isBrowser) {
       return;
     }
 
@@ -75,7 +75,8 @@
 
     // Set canvas size
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const win = getWindow();
+    const dpr = win?.devicePixelRatio || 1;
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
@@ -85,7 +86,8 @@
     const padding = { top: 20, right: 20, bottom: 30, left: 50 };
 
     // Check theme once for the entire function
-    const isDark = document.documentElement.classList.contains("dark");
+    const doc = getDocument();
+    const isDark = doc?.documentElement.classList.contains("dark") ?? false;
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
@@ -220,62 +222,53 @@
     }
   }
 
-  let unsubscribe: (() => void) | null = null;
+  // Subscribe to time range changes and handle chart updates using $effect
+  $effect(() => {
+    if (!isBrowser) {
+      return;
+    }
 
-  onMount(() => {
-    let isInitialLoad = true;
+    // Access timeRange to create reactive dependency
+    const _ = $timeRange;
     
-    // Subscribe to time range changes
-    unsubscribe = timeRange.subscribe(() => {
-      // Skip the initial callback to avoid duplicate API call
-      if (isInitialLoad) {
-        isInitialLoad = false;
-        return;
-      }
-      loadChartData();
-    });
-    
-    // Load initial chart data after subscription is set up
+    // Load chart data whenever time range changes
     loadChartData();
+  });
+
+  // Handle window resize and chart redraws using $effect
+  $effect(() => {
+    if (!isBrowser) {
+      return;
+    }
+
+    const win = getWindow();
+    if (!win) return;
+
+    // Access theme and chartData to create reactive dependencies
+    const _theme = $theme;
+    const _chartData = chartData;
+    const _container = chartContainer;
+
+    // Redraw when chartData, chartContainer, or theme changes
+    if (_chartData.length > 0 && _container && !loading) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        drawChart();
+      });
+    }
 
     // Redraw on window resize
     const handleResize = () => {
-      if (chartData.length > 0) {
+      if (_chartData.length > 0 && _container) {
         drawChart();
       }
     };
-    window.addEventListener("resize", handleResize);
+    win.addEventListener("resize", handleResize);
 
+    // Cleanup resize listener
     return () => {
-      if (unsubscribe) unsubscribe();
-      window.removeEventListener("resize", handleResize);
+      win.removeEventListener("resize", handleResize);
     };
-  });
-
-  onDestroy(() => {
-    if (unsubscribe) unsubscribe();
-  });
-
-  // Redraw when chartData or chartContainer changes
-  $effect(() => {
-    if (chartData.length > 0 && chartContainer && !loading) {
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        drawChart();
-      });
-    }
-  });
-
-  // Redraw when theme changes
-  $effect(() => {
-    // Access theme to trigger reactivity
-    const _ = $theme;
-    if (chartData.length > 0 && chartContainer && !loading) {
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        drawChart();
-      });
-    }
   });
 </script>
 

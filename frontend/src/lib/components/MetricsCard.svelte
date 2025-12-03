@@ -9,10 +9,10 @@
 -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
   import { messages } from "$lib/stores/data/messages";
   import type { Telegram } from "$lib/utils/types";
   import { createLogger } from "$lib/utils/logger";
+  import { isBrowser } from "$lib/utils/browser";
 
   const logger = createLogger("MetricsCard");
 
@@ -102,15 +102,14 @@
     calculateRate(now);
   }
 
-  let unsubscribe: (() => void) | null = null;
-
-  onMount(() => {
-    if (typeof window === "undefined") {
+  // Subscribe to messages and set up rate calculation using $effect
+  $effect(() => {
+    if (!isBrowser) {
       return;
     }
 
     // Subscribe to messages store
-    unsubscribe = messages.subscribe((msgs: Telegram[]) => {
+    const unsubscribe = messages.subscribe((msgs: Telegram[]) => {
       if (msgs.length === 0) return;
 
       // Process all messages that have not been seen yet (handles batches)
@@ -127,18 +126,11 @@
       calculateRate(Date.now());
     }, 1000);
 
+    // Cleanup subscriptions and interval
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
       clearInterval(interval);
     };
-  });
-
-  onDestroy(() => {
-    if (unsubscribe) {
-      unsubscribe();
-    }
   });
 
   function formatRate(rate: number): string {

@@ -2,6 +2,7 @@
 
 import { onCLS, onINP, onLCP, onFCP, onTTFB, type Metric } from "web-vitals";
 import { createLogger } from "./logger";
+import { isBrowser } from "./browser";
 
 const logger = createLogger("Performance");
 
@@ -36,7 +37,7 @@ function reportMetric(metric: Metric) {
  * Only runs in the browser (not during SSR).
  */
 export function initPerformanceMonitoring() {
-  if (typeof window === "undefined") {
+  if (!isBrowser) {
     return;
   }
 

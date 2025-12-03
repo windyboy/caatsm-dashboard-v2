@@ -1,7 +1,6 @@
 <script lang="ts">
   import { websocket } from '../stores/websocket';
   import type { WebSocketStatus } from '../services/websocket';
-  import { onMount } from 'svelte';
 
   let status = $state<WebSocketStatus>('disconnected');
   let error = $state<string | null>(null);
@@ -9,8 +8,8 @@
   let isVisible = $state(false);
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // Subscribe to stores
-  onMount(() => {
+  // Subscribe to stores using $effect
+  $effect(() => {
     const unsubscribeStatus = websocket.status.subscribe(value => {
       status = value;
       isVisible = true;
@@ -33,6 +32,7 @@
       reconnectAttempts = value;
     });
 
+    // Cleanup subscriptions and timeout
     return () => {
       if (hideTimeout) clearTimeout(hideTimeout);
       unsubscribeStatus();

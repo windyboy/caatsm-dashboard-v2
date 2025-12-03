@@ -4,6 +4,7 @@ import { createLogger } from "../utils/logger";
 import { hashString } from "../utils/hash";
 import type { WebSocketMessage } from "../utils/types";
 import { WEBSOCKET_CONFIG } from "../constants";
+import { isBrowser, getWindow } from "../utils/browser";
 
 function resolveWebSocketUrl(): string {
   if (import.meta.env.VITE_WS_URL) {
@@ -15,9 +16,10 @@ function resolveWebSocketUrl(): string {
     return "ws://localhost:3002/ws";
   }
 
-  if (typeof window !== "undefined" && window.location) {
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${window.location.host}/ws`;
+  const win = getWindow();
+  if (win?.location) {
+    const protocol = win.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${win.location.host}/ws`;
   }
 
   return "ws://localhost:3002/ws";
@@ -83,7 +85,7 @@ export class WebSocketClient {
   }
 
   private setupVisibilityHandling(): void {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!isBrowser) return;
 
     this.visibilityHandler = () => {
       if (document.hidden) {
