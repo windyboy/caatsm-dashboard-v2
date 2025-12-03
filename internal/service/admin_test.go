@@ -44,10 +44,10 @@ func (m *mockRepositoryForAdmin) StreamSearch(ctx context.Context, filter domain
 	// Handle both chan and <-chan types
 	tgChan := args.Get(0)
 	errChan := args.Get(1)
-	
+
 	var telegramChan <-chan *domain.Telegram
 	var errorChan <-chan error
-	
+
 	if ch, ok := tgChan.(<-chan *domain.Telegram); ok {
 		telegramChan = ch
 	} else if ch, ok := tgChan.(chan *domain.Telegram); ok {
@@ -55,7 +55,7 @@ func (m *mockRepositoryForAdmin) StreamSearch(ctx context.Context, filter domain
 	} else {
 		return nil, nil
 	}
-	
+
 	if ch, ok := errChan.(<-chan error); ok {
 		errorChan = ch
 	} else if ch, ok := errChan.(chan error); ok {
@@ -63,7 +63,7 @@ func (m *mockRepositoryForAdmin) StreamSearch(ctx context.Context, filter domain
 	} else {
 		return nil, nil
 	}
-	
+
 	return telegramChan, errorChan
 }
 
@@ -89,6 +89,14 @@ func (m *mockRepositoryForAdmin) RouteStats(ctx context.Context, limit int) ([]d
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]domain.RouteStat), args.Error(1)
+}
+
+func (m *mockRepositoryForAdmin) HistoricalStats(ctx context.Context, window domain.TimeWindow, interval string) (*domain.HistoricalStats, error) {
+	args := m.Called(ctx, window, interval)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.HistoricalStats), args.Error(1)
 }
 
 func (m *mockRepositoryForAdmin) Delete(ctx context.Context, messageID string) error {
@@ -193,12 +201,12 @@ func TestAdminService_Reindex_Concurrent(t *testing.T) {
 	// Create channels that won't be closed immediately, so the first call stays in the loop
 	telegramChan1 := make(chan *domain.Telegram) // Unbuffered, will block
 	errChan1 := make(chan error, 1)
-	
+
 	telegramChan2 := make(chan *domain.Telegram)
 	errChan2 := make(chan error, 1)
 	close(telegramChan2)
 	close(errChan2)
-	
+
 	// First call gets a blocking channel, second gets an empty closed channel
 	repo.On("StreamSearch", mock.Anything, mock.AnythingOfType("domain.SearchFilters")).Return(telegramChan1, errChan1).Once()
 	repo.On("StreamSearch", mock.Anything, mock.AnythingOfType("domain.SearchFilters")).Return(telegramChan2, errChan2).Maybe()
@@ -222,14 +230,14 @@ func TestAdminService_Reindex_Concurrent(t *testing.T) {
 
 	// Try to start second reindex (should fail due to mutex)
 	_, err2 := svc.Reindex(ctx, from, to)
-	
+
 	// Close the first channel to unblock the first goroutine
 	close(telegramChan1)
 	close(errChan1)
-	
+
 	// Wait for first to complete
 	<-done1
-	
+
 	// Verify that exactly one succeeded and one failed
 	successCount := 0
 	if err1 == nil && jobID1 != nil {
@@ -238,13 +246,12 @@ func TestAdminService_Reindex_Concurrent(t *testing.T) {
 	if err2 == nil {
 		successCount++
 	}
-	
+
 	// The second call should have failed with "already in progress"
 	require.Error(t, err2, "second concurrent call should fail")
 	assert.Contains(t, err2.Error(), "already in progress", "error should indicate reindex already in progress")
-	
+
 	// Exactly one should succeed
 	assert.Equal(t, 1, successCount, "exactly one reindex should succeed")
 	require.NoError(t, err1, "first reindex should succeed")
 }
-

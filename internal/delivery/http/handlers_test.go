@@ -66,6 +66,10 @@ func (m *mockDashboardService) AutocompleteWithTypes(ctx context.Context, query 
 	return []app.AutocompleteSuggestion{}, nil
 }
 
+func (m *mockDashboardService) GetHistoricalStats(ctx context.Context, timeRange app.TimeWindow, interval string) (*app.HistoricalStats, error) {
+	return &app.HistoricalStats{}, nil
+}
+
 // Note: Full handler tests would require integration tests with real app.
 // These are simplified tests that verify basic functionality without mocking
 // the entire DashboardService.
@@ -190,7 +194,6 @@ func TestHandler_Export_ParsesFiltersAndFormat(t *testing.T) {
 	assert.Equal(t, "text/csv", rec.Header().Get(echo.HeaderContentType))
 	assert.Equal(t, "attachment; filename=telegrams.csv", rec.Header().Get("Content-Disposition"))
 }
-
 
 // TODO: Add integration tests with full service stack for:
 // - Dashboard endpoint

@@ -38,7 +38,7 @@ backend-check-layers: ## Check architecture layer import boundaries
 	@./scripts/check-layer-imports.sh
 
 backend-lint: backend-check-layers ## Run golangci-lint and layer checks
-	@golangci-lint run ./...
+	@GOFLAGS="-buildvcs=false" golangci-lint run ./...
 
 # Backend - Development
 backend-dev: ## Run backend with hot reload (air if available, else go run)

@@ -97,6 +97,14 @@ func (m *mockRepository) RouteStats(ctx context.Context, limit int) ([]domain.Ro
 	return args.Get(0).([]domain.RouteStat), args.Error(1)
 }
 
+func (m *mockRepository) HistoricalStats(ctx context.Context, window domain.TimeWindow, interval string) (*domain.HistoricalStats, error) {
+	args := m.Called(ctx, window, interval)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.HistoricalStats), args.Error(1)
+}
+
 func (m *mockRepository) Delete(ctx context.Context, messageID string) error {
 	args := m.Called(ctx, messageID)
 	return args.Error(0)
@@ -125,11 +133,11 @@ func TestIngestionService_Handle(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name           string
-		telegram       *app.Telegram
-		setupMocks     func(*mockRepository, *mockEventPublisher, *mockStreamPublisher)
-		expectedError  bool
-		errorContains  string
+		name          string
+		telegram      *app.Telegram
+		setupMocks    func(*mockRepository, *mockEventPublisher, *mockStreamPublisher)
+		expectedError bool
+		errorContains string
 	}{
 		{
 			name: "successful ingestion",
@@ -320,4 +328,3 @@ func TestIngestionService_Handle_Normalize(t *testing.T) {
 
 	repo.AssertExpectations(t)
 }
-

@@ -54,6 +54,15 @@ func (m *RepositoryMock) RouteStats(ctx context.Context, limit int) ([]app.Route
 	return args.Get(0).([]app.RouteStat), args.Error(1)
 }
 
+// HistoricalStats mocks the HistoricalStats method
+func (m *RepositoryMock) HistoricalStats(ctx context.Context, window app.TimeWindow, interval string) (*app.HistoricalStats, error) {
+	args := m.Called(ctx, window, interval)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*app.HistoricalStats), args.Error(1)
+}
+
 // StreamSearch mocks the StreamSearch method
 func (m *RepositoryMock) StreamSearch(ctx context.Context, filters app.SearchFilters) (<-chan *app.Telegram, <-chan error) {
 	args := m.Called(ctx, filters)

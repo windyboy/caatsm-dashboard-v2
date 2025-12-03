@@ -18,35 +18,35 @@ import (
 	deliveryws "github.com/windy/caatsm-dashboard/internal/delivery/ws"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/cache"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/event"
-	"github.com/windy/caatsm-dashboard/internal/infrastructure/streaming"
-	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/search"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/streaming"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"github.com/windy/caatsm-dashboard/internal/observability"
+	"github.com/windy/caatsm-dashboard/internal/repository"
 	"github.com/windy/caatsm-dashboard/internal/service"
 	"go.uber.org/zap"
 )
 
 // Server wraps echo.Echo with configuration and shared dependencies.
 type Server struct {
-	e                *echo.Echo
-	cfg              *config.AppConfig
-	logger           *zap.Logger
-	container        *app.Container
-	metrics          *observability.MetricsExporter
-	broadcaster      *deliveryws.EventBroadcaster
-	hub              *ws.Hub
-	ingestionSvc     *service.IngestionService
-	indexerSvc       *service.IndexerService
-	realtimeSvc      *service.RealtimeService
-	adminSvc         *service.AdminService
-	shutdownTracer   func(context.Context) error
-	ingestionCtx     context.Context
-	ingestionCancel  context.CancelFunc
-	indexerCtx       context.Context
-	indexerCancel    context.CancelFunc
-	realtimeCtx      context.Context
-	realtimeCancel   context.CancelFunc
+	e               *echo.Echo
+	cfg             *config.AppConfig
+	logger          *zap.Logger
+	container       *app.Container
+	metrics         *observability.MetricsExporter
+	broadcaster     *deliveryws.EventBroadcaster
+	hub             *ws.Hub
+	ingestionSvc    *service.IngestionService
+	indexerSvc      *service.IndexerService
+	realtimeSvc     *service.RealtimeService
+	adminSvc        *service.AdminService
+	shutdownTracer  func(context.Context) error
+	ingestionCtx    context.Context
+	ingestionCancel context.CancelFunc
+	indexerCtx      context.Context
+	indexerCancel   context.CancelFunc
+	realtimeCtx     context.Context
+	realtimeCancel  context.CancelFunc
 }
 
 // New constructs a Server instance and wires base middleware/routes.
@@ -205,9 +205,9 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	container.DashboardService = dashboardSvc
 
 	// Initialize NATS connection for ingestion
-	// Pass nil context to avoid premature connection closure
+	// Pass context.TODO() to avoid premature connection closure
 	// Connection lifecycle is managed by the ingestion service, not initCtx
-	nc, js, err := streaming.Connect(nil, cfg.NATS)
+	nc, js, err := streaming.Connect(context.TODO(), cfg.NATS)
 	if err != nil {
 		cleanup()
 		return nil, fmt.Errorf("connect nats: %w", err)
@@ -273,7 +273,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		adminSvc:       adminSvc,
 		shutdownTracer: shutdownTracer,
 	}
-	
+
 	// Store NATS connection for cleanup (if needed)
 	// The connection is managed by the ingestion service, but we keep a reference
 	_ = nc
