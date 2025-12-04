@@ -315,7 +315,7 @@ Full schemas live in `api/openapi.yaml`.
 - `GET /ws`
 - Message types:
   - `message` - Individual telegram messages
-  - `stats` - Unified stats update containing total, byPriority, and byType
+  - `stats` - Unified stats update containing total, byType, activeRoutes, messagesPerSec, and timeWindow
 - Ping/pong heartbeat
 - Slow clients auto-disconnect when buffers fill
 

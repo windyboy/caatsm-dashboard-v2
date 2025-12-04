@@ -25,7 +25,7 @@
   {:else}
     <div class="message-list-container">
       <ul class="message-list">
-        {#each messages as message, index (message.message_id ?? `${message.time}-${index}`)}
+        {#each messages as message, index (`${message.message_id || 'no-id'}-${index}`)}
           <li class="message">
             <div class="message-meta">
               <span class="pill pill--soft">{message.type || "Unknown"}</span>

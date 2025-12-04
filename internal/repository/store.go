@@ -476,36 +476,29 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 		return nil, fmt.Errorf("type rows error: %w", err)
 	}
 
-	priorityQuery := fmt.Sprintf(`
-		SELECT priority, COUNT(*) as count
+	// Build active routes query - combine time window conditions with NULL checks
+	routeWhereClause := whereClause
+	if routeWhereClause == "" {
+		routeWhereClause = "WHERE source IS NOT NULL AND destination IS NOT NULL"
+	} else {
+		routeWhereClause = routeWhereClause + " AND source IS NOT NULL AND destination IS NOT NULL"
+	}
+	
+	activeRoutesQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT (source, destination))
 		FROM telegrams
 		%s
-		GROUP BY priority
-	`, whereClause)
-
-	priorityRows, err := s.pool.Query(ctx, priorityQuery, args...)
+	`, routeWhereClause)
+	var activeRoutes int64
+	err = s.pool.QueryRow(ctx, activeRoutesQuery, args...).Scan(&activeRoutes)
 	if err != nil {
-		return nil, fmt.Errorf("query by priority: %w", err)
-	}
-	defer priorityRows.Close()
-
-	byPriority := make(map[int]int64)
-	for priorityRows.Next() {
-		var p int
-		var count int64
-		if err := priorityRows.Scan(&p, &count); err != nil {
-			return nil, fmt.Errorf("scan priority: %w", err)
-		}
-		byPriority[p] = count
-	}
-	if err := priorityRows.Err(); err != nil {
-		return nil, fmt.Errorf("priority rows error: %w", err)
+		activeRoutes = 0
 	}
 
 	return &domain.TrafficSummary{
 		TotalMessages: total,
 		ByType:        byType,
-		ByPriority:    byPriority,
+		ActiveRoutes:  activeRoutes,
 	}, nil
 }
 

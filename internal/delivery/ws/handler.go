@@ -232,7 +232,11 @@ func (h *Handler) sendInitialData(ctx context.Context, client *ws.Client) error 
 
 // sendInitialStats sends initial statistics.
 func (h *Handler) sendInitialStats(ctx context.Context, client *ws.Client) error {
-	window := app.TimeWindow{}
+	// Use last 24 hours as default time window to match frontend expectation
+	window := app.TimeWindow{
+		Start: time.Now().Add(-24 * time.Hour),
+		End:   time.Now(),
+	}
 	summaryResult, err := h.statsService.TrafficSummary(ctx, window)
 	if err != nil {
 		return fmt.Errorf("get traffic summary: %w", err)
@@ -244,11 +248,23 @@ func (h *Handler) sendInitialStats(ctx context.Context, client *ws.Client) error
 		return fmt.Errorf("unexpected summary type")
 	}
 
+	// Get messages per second (try to get from adapter if it supports it)
+	var messagesPerSec float64
+	if rateService, ok := h.statsService.(interface {
+		GetMessagesPerSec(ctx context.Context) (float64, error)
+	}); ok {
+		if rate, err := rateService.GetMessagesPerSec(ctx); err == nil {
+			messagesPerSec = rate
+		}
+	}
+
 	// Send unified stats message
 	statsData := &ws.StatsData{
-		Total:      summary.TotalMessages,
-		ByPriority: summary.ByPriority,
-		ByType:     summary.ByType,
+		Total:         summary.TotalMessages,
+		ByType:        summary.ByType,
+		ActiveRoutes:  summary.ActiveRoutes,
+		MessagesPerSec: messagesPerSec,
+		TimeWindow:    summary.TimeWindow,
 	}
 	msg := &ws.Message{
 		Type: ws.MessageTypeStats,

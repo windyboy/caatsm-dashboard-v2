@@ -4,29 +4,39 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/domain"
+	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap"
 )
 
 // RealtimeService handles real-time message broadcasting to WebSocket clients.
 type RealtimeService struct {
-	subscriber app.EventSubscriber
-	hub        app.WebSocketHubPort
-	logger     *zap.Logger
+	subscriber          app.EventSubscriber
+	hub                 app.WebSocketHubPort
+	statsSvc            *StatsService
+	logger              *zap.Logger
+	lastStatsUpdate     time.Time
+	statsUpdateMu       sync.Mutex
+	statsUpdateDebounce time.Duration
 }
 
 // NewRealtimeService creates a new real-time service.
 func NewRealtimeService(
 	subscriber app.EventSubscriber,
 	hub app.WebSocketHubPort,
+	statsSvc *StatsService,
 	logger *zap.Logger,
 ) *RealtimeService {
 	return &RealtimeService{
-		subscriber: subscriber,
-		hub:        hub,
-		logger:     logger,
+		subscriber:          subscriber,
+		hub:                 hub,
+		statsSvc:            statsSvc,
+		logger:              logger,
+		statsUpdateDebounce: 500 * time.Millisecond, // Debounce updates to avoid too frequent refreshes
 	}
 }
 
@@ -41,11 +51,39 @@ func (s *RealtimeService) Start(ctx context.Context) error {
 		return fmt.Errorf("subscribe to msg:broadcast: %w", err)
 	}
 
+	// Start periodic stats update goroutine
+	go s.startPeriodicStatsUpdate(ctx)
+
 	s.logger.Info("realtime service started",
 		zap.String("channel", "msg:broadcast"),
 	)
 
 	return nil
+}
+
+// startPeriodicStatsUpdate starts a goroutine that periodically updates and broadcasts statistics.
+func (s *RealtimeService) startPeriodicStatsUpdate(ctx context.Context) {
+	// Update stats immediately on startup
+	if s.statsSvc != nil {
+		s.updateStatsAsync(ctx)
+	}
+
+	// Then update every 1 second for more real-time updates
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.logger.Debug("periodic stats update stopped", zap.Error(ctx.Err()))
+			return
+		case <-ticker.C:
+			// Only update if there are active WebSocket connections
+			if s.hub.GetActiveConnections() > 0 && s.statsSvc != nil {
+				s.requestStatsUpdate(ctx)
+			}
+		}
+	}
 }
 
 // handleMessage handles a received message event.
@@ -94,7 +132,76 @@ func (s *RealtimeService) handleMessage(ctx context.Context, event app.Event) er
 		zap.Int("active_connections", s.hub.GetActiveConnections()),
 	)
 
+	// Asynchronously update statistics with debouncing
+	if s.statsSvc != nil {
+		s.requestStatsUpdate(context.Background())
+	}
+
 	return nil
+}
+
+// requestStatsUpdate requests a stats update with debouncing to avoid too frequent updates
+func (s *RealtimeService) requestStatsUpdate(ctx context.Context) {
+	s.statsUpdateMu.Lock()
+	now := time.Now()
+	lastUpdate := s.lastStatsUpdate
+	s.statsUpdateMu.Unlock()
+
+	// If last update was too recent, skip this update request
+	if now.Sub(lastUpdate) < s.statsUpdateDebounce {
+		return
+	}
+
+	// Update last update time
+	s.statsUpdateMu.Lock()
+	s.lastStatsUpdate = now
+	s.statsUpdateMu.Unlock()
+
+	go s.updateStatsAsync(ctx)
+}
+
+// updateStatsAsync asynchronously updates and broadcasts statistics
+func (s *RealtimeService) updateStatsAsync(ctx context.Context) {
+	// Use last 24 hours as time window to match frontend expectation
+	window := TimeWindow{
+		Start: time.Now().Add(-24 * time.Hour),
+		End:   time.Now(),
+	}
+
+	stats, err := s.statsSvc.GetStats(ctx, window)
+	if err != nil {
+		s.logger.Warn("failed to get stats for update",
+			zap.Error(err),
+		)
+		return
+	}
+
+	// Get messages per second
+	messagesPerSec, err := s.statsSvc.GetMessagesPerSec(ctx)
+	if err != nil {
+		s.logger.Debug("failed to get messages per sec, using 0",
+			zap.Error(err),
+		)
+		messagesPerSec = 0.0
+	}
+
+	// Broadcast stats update
+	statsData := &ws.StatsData{
+		Total:         stats.TotalMessages,
+		ByType:        stats.ByType,
+		ActiveRoutes:  stats.ActiveRoutes,
+		MessagesPerSec: messagesPerSec,
+		TimeWindow:    stats.TimeWindow,
+	}
+	wsMsg := app.WSMessage{
+		Type: "stats",
+		Data: statsData,
+	}
+	if err := s.hub.Broadcast(wsMsg); err != nil {
+		s.logger.Warn("failed to broadcast stats update",
+			zap.Error(err),
+		)
+	}
 }
 
 // extractTelegramFromGenericEvent extracts telegram from a generic event (from Redis Pub/Sub).

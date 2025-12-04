@@ -8,9 +8,11 @@ type Message struct {
 
 // StatsData represents the unified stats message data
 type StatsData struct {
-	Total      int64            `json:"total"`
-	ByPriority map[int]int64    `json:"byPriority"`
-	ByType     map[string]int64 `json:"byType"`
+	Total         int64            `json:"total"`
+	ByType        map[string]int64 `json:"byType"`
+	ActiveRoutes int64            `json:"activeRoutes"`
+	MessagesPerSec float64        `json:"messagesPerSec"`
+	TimeWindow    string           `json:"timeWindow"`
 }
 
 // Message types

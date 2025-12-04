@@ -193,6 +193,13 @@ func buildTimeWindow(c echo.Context) (app.TimeWindow, error) {
 		timeRange.End = end
 	}
 
+	// If no time parameters provided, default to last 24 hours
+	if timeRange.Start.IsZero() && timeRange.End.IsZero() {
+		now := time.Now()
+		timeRange.End = now
+		timeRange.Start = now.Add(-24 * time.Hour)
+	}
+
 	if !timeRange.Start.IsZero() && !timeRange.End.IsZero() && timeRange.Start.After(timeRange.End) {
 		return app.TimeWindow{}, fmt.Errorf("start_time must be before end_time")
 	}

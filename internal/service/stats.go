@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/windy/caatsm-dashboard/internal/domain"
 	"go.uber.org/zap"
@@ -63,6 +64,9 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 		return nil, fmt.Errorf("get stats failed: %w", err)
 	}
 
+	// Determine time window identifier
+	stats.TimeWindow = s.determineTimeWindow(timeRange)
+
 	// Cache result
 	if s.cache != nil {
 		if err := s.cache.Set(ctx, cacheKey, stats); err != nil {
@@ -73,7 +77,8 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 	s.logger.Info("stats retrieved",
 		zap.Int64("total_messages", stats.TotalMessages),
 		zap.Int("by_type_count", len(stats.ByType)),
-		zap.Int("by_priority_count", len(stats.ByPriority)),
+		zap.Int64("active_routes", stats.ActiveRoutes),
+		zap.String("time_window", stats.TimeWindow),
 	)
 
 	return stats, nil
@@ -189,11 +194,19 @@ func (s *StatsService) GetHistoricalStats(ctx context.Context, timeRange TimeWin
 }
 
 // buildCacheKey creates a cache key for stats
+// For dynamic time windows (like "last 24 hours"), we round down to the nearest minute
+// to allow some caching while still being reasonably fresh
 func (s *StatsService) buildCacheKey(timeRange TimeWindow) string {
-	return fmt.Sprintf("stats:%d:%d",
-		timeRange.Start.Unix(),
-		timeRange.End.Unix(),
-	)
+	// Round down to nearest minute for dynamic windows to allow short-term caching
+	// This prevents cache misses due to microsecond differences while keeping data fresh
+	startUnix := timeRange.Start.Unix()
+	endUnix := timeRange.End.Unix()
+	
+	// Round down to nearest minute (60 seconds)
+	startRounded := (startUnix / 60) * 60
+	endRounded := (endUnix / 60) * 60
+	
+	return fmt.Sprintf("stats:%d:%d", startRounded, endRounded)
 }
 
 // buildHistoricalCacheKey creates a cache key for historical stats
@@ -203,4 +216,64 @@ func (s *StatsService) buildHistoricalCacheKey(timeRange TimeWindow, interval st
 		timeRange.Start.Unix(),
 		timeRange.End.Unix(),
 	)
+}
+
+// GetMessagesPerSec calculates the message rate based on the last 1 minute
+func (s *StatsService) GetMessagesPerSec(ctx context.Context) (float64, error) {
+	now := time.Now()
+	windowStart := now.Add(-60 * time.Second)
+	window := TimeWindow{
+		Start: windowStart,
+		End:   now,
+	}
+
+	stats, err := s.repo.TrafficSummary(ctx, window)
+	if err != nil {
+		s.logger.Warn("failed to get messages per sec",
+			zap.Error(err),
+			zap.Time("window_start", windowStart),
+			zap.Time("window_end", now),
+		)
+		return 0.0, fmt.Errorf("get messages per sec failed: %w", err)
+	}
+
+	// Calculate actual time window duration for accurate rate calculation
+	actualDuration := now.Sub(windowStart)
+	if actualDuration <= 0 {
+		actualDuration = 60 * time.Second // Fallback to 60 seconds
+	}
+
+	// Calculate rate: messages per second
+	var rate float64
+	if actualDuration.Seconds() > 0 {
+		rate = float64(stats.TotalMessages) / actualDuration.Seconds()
+	}
+
+	// Log for debugging (only when there are messages or rate > 0 to avoid log spam)
+	if stats.TotalMessages > 0 || rate > 0 {
+		s.logger.Debug("messages per sec calculated",
+			zap.Int64("total_messages", stats.TotalMessages),
+			zap.Duration("duration", actualDuration),
+			zap.Float64("rate", rate),
+			zap.Time("window_start", windowStart),
+			zap.Time("window_end", now),
+		)
+	}
+
+	return rate, nil
+}
+
+// determineTimeWindow determines the time window identifier based on the time range
+func (s *StatsService) determineTimeWindow(timeRange TimeWindow) string {
+	if timeRange.Start.IsZero() && timeRange.End.IsZero() {
+		return "all_time"
+	}
+
+	duration := timeRange.End.Sub(timeRange.Start)
+	if duration <= time.Hour {
+		return "last_1h"
+	} else if duration <= 24*time.Hour {
+		return "last_24h"
+	}
+	return "all_time"
 }

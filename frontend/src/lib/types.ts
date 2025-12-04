@@ -1,7 +1,9 @@
 export interface TrafficSummary {
   total: number;
-  byPriority?: Record<string, number>;
   byType?: Record<string, number>;
+  activeRoutes?: number;
+  messagesPerSec?: number;
+  timeWindow?: string;
 }
 
 export interface ComponentHealth {
@@ -46,8 +48,10 @@ export interface WSMessage {
 
 export interface WSStatsData {
   total: number;
-  byPriority?: Record<string, number>;
   byType?: Record<string, number>;
+  activeRoutes?: number;
+  messagesPerSec?: number;
+  timeWindow?: string;
 }
 
 export const WSMessageType = {

@@ -20,7 +20,8 @@ export class WebSocketService {
   private _url: string;
 
   constructor(url?: string) {
-    this._url = url || this.getWebSocketUrl();
+    // Don't call getWebSocketUrl() here - defer until connect() when window is available
+    this._url = url || "";
   }
 
   get status(): WSConnectionStatus {
@@ -43,8 +44,15 @@ export class WebSocketService {
   }
 
   private getWebSocketUrl(): string {
+    // Check if we're in browser environment
+    if (typeof window === "undefined") {
+      throw new Error("WebSocket URL can only be determined in browser environment");
+    }
+
     if (import.meta.env.DEV) {
-      return "ws://localhost:5173/ws";
+      // Use relative path in dev mode, Vite proxy will forward to backend
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${protocol}//${window.location.host}/ws`;
     }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
@@ -54,6 +62,18 @@ export class WebSocketService {
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return;
+    }
+
+    // Get URL when connecting (browser environment guaranteed)
+    if (!this._url) {
+      this._url = this.getWebSocketUrl();
+      if (!this._url) {
+        this.setStatus("error");
+        if (import.meta.env.DEV) {
+          console.error("Cannot determine WebSocket URL");
+        }
+        return;
+      }
     }
 
     this.setStatus("connecting");

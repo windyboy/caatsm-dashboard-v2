@@ -49,7 +49,16 @@ async function request<T>(path: string, init?: RequestInit & { signal?: AbortSig
 }
 
 export function fetchStats(): Promise<TrafficSummary> {
-  return request<TrafficSummary>("/api/stats");
+  // Default to last 24 hours
+  const endTime = new Date();
+  const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+  
+  const params = new URLSearchParams({
+    start_time: startTime.toISOString(),
+    end_time: endTime.toISOString(),
+  });
+  
+  return request<TrafficSummary>(`/api/stats?${params.toString()}`);
 }
 
 export function fetchHealth(): Promise<HealthSnapshot> {

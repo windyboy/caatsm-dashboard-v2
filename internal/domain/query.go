@@ -21,9 +21,11 @@ type SearchResult struct {
 
 // TrafficSummary contains aggregated traffic metrics.
 type TrafficSummary struct {
-	TotalMessages int64            `json:"total"`
-	ByType        map[string]int64 `json:"byType"`
-	ByPriority    map[int]int64     `json:"byPriority"`
+	TotalMessages  int64             `json:"total"`
+	ByType         map[string]int64  `json:"byType"`
+	ActiveRoutes   int64             `json:"activeRoutes"`
+	MessagesPerSec float64           `json:"messagesPerSec"`
+	TimeWindow     string            `json:"timeWindow"`
 }
 
 // RouteStat represents traffic statistics for a route.

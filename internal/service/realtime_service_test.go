@@ -117,7 +117,7 @@ func TestRealtimeService_handleMessage(t *testing.T) {
 
 			tt.setupMocks(hub)
 
-			svc := NewRealtimeService(subscriber, hub, logger)
+			svc := NewRealtimeService(subscriber, hub, nil, logger)
 
 			err := svc.handleMessage(ctx, tt.event)
 
@@ -152,7 +152,8 @@ func TestRealtimeService_Start(t *testing.T) {
 	// Use mock.Anything to accept the function since type aliases cause issues with mock.AnythingOfType
 	subscriber.On("Subscribe", mock.Anything, "msg:broadcast", mock.Anything).Return(nil)
 
-	svc := NewRealtimeService(subscriber, hub, logger)
+	hub.On("GetActiveConnections").Return(0).Maybe()
+	svc := NewRealtimeService(subscriber, hub, nil, logger)
 
 	// Start service in goroutine
 	errCh := make(chan error, 1)

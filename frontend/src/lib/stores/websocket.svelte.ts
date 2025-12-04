@@ -16,7 +16,29 @@ class WebSocketStore {
       this._stats = stats;
     });
     this.service.onMessage((telegram) => {
-      this._newMessages = [telegram, ...this._newMessages];
+      // Check if message already exists before adding
+      const isDuplicate = this._newMessages.some((msg) => {
+        // If both have message_id, compare by ID
+        if (msg.message_id && telegram.message_id) {
+          return msg.message_id === telegram.message_id;
+        }
+        // Otherwise, compare by content+time+type
+        return (
+          msg.content === telegram.content &&
+          msg.time === telegram.time &&
+          msg.type === telegram.type
+        );
+      });
+
+      // Skip if duplicate
+      if (isDuplicate) {
+        return;
+      }
+
+      // Add new message at the beginning (newest first)
+      // Limit to 100 messages to prevent memory leaks
+      const updated = [telegram, ...this._newMessages];
+      this._newMessages = updated.slice(0, 100);
     });
   }
 

@@ -40,6 +40,7 @@ type Server struct {
 	indexerSvc      *service.IndexerService
 	realtimeSvc     *service.RealtimeService
 	adminSvc        *service.AdminService
+	statsSvc        *service.StatsService
 	shutdownTracer  func(context.Context) error
 	ingestionCtx    context.Context
 	ingestionCancel context.CancelFunc
@@ -130,7 +131,9 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		return nil, fmt.Errorf("create redis client: %w", err)
 	}
 
-	cacheStore := cache.NewValkeyStore(redisCli, 5*time.Minute)
+	// Use shorter TTL for stats cache to ensure real-time data freshness
+	// 30 seconds is short enough for real-time updates but still reduces DB load
+	cacheStore := cache.NewValkeyStore(redisCli, 30*time.Second)
 	// Update to use msg:broadcast channel
 	eventBus := event.NewRedisEventBus(redisCli, "msg:broadcast")
 	eventPublisher := event.NewEventPublisherAdapter(eventBus)
@@ -233,6 +236,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	realtimeSvc := service.NewRealtimeService(
 		eventSubscriber,
 		wsHub,
+		statsSvc,
 		logger,
 	)
 
@@ -263,6 +267,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		indexerSvc:     indexerSvc,
 		realtimeSvc:    realtimeSvc,
 		adminSvc:       adminSvc,
+		statsSvc:       statsSvc,
 		shutdownTracer: shutdownTracer,
 	}
 
@@ -470,6 +475,7 @@ func (s *Server) registerRoutes() {
 	// Create adapters for stats and query services
 	statsAdapter := &statsServiceAdapter{
 		statsService: dashboardSvc,
+		statsSvc:     s.statsSvc,
 	}
 	queryAdapter := &queryServiceAdapter{
 		repo: s.container.Repo,
@@ -532,6 +538,7 @@ type statsServiceAdapter struct {
 	statsService interface {
 		GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
 	}
+	statsSvc *service.StatsService
 }
 
 func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interface{}) (interface{}, error) {
@@ -548,6 +555,13 @@ func (a *statsServiceAdapter) TrafficSummary(ctx context.Context, window interfa
 
 	// Return app.TrafficSummary directly (types are now unified)
 	return stats, nil
+}
+
+func (a *statsServiceAdapter) GetMessagesPerSec(ctx context.Context) (float64, error) {
+	if a.statsSvc == nil {
+		return 0.0, fmt.Errorf("stats service not available")
+	}
+	return a.statsSvc.GetMessagesPerSec(ctx)
 }
 
 // queryServiceAdapter adapts Repository to the interface expected by WebSocket handler

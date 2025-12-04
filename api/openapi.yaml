@@ -43,7 +43,7 @@ info:
         ↓ Broadcast stats updates and new messages
     Client receives JSON messages:
     - { "type": "message", "data": {...} }
-    - { "type": "stats", "data": { "total": 1234, "byPriority": {...}, "byType": {...} } }
+    - { "type": "stats", "data": { "total": 1234, "byType": {...}, "activeRoutes": 156, "messagesPerSec": 12.5, "timeWindow": "last_1h" } }
     ```
 
     **Important - WebSocket Guarantees**:
@@ -224,14 +224,27 @@ components:
           type: integer
           description: Total number of telegrams
           example: 15000
-        byPriority:
+        byType:
           type: object
           additionalProperties:
             type: integer
-          description: Message count by priority level (1-3)
+          description: Message count by type (AFTN, SITA, ACARS, CPDLC)
           example:
-            "1": 5000
-            "2": 8000
+            AFTN: 5000
+            SITA: 8000
+        activeRoutes:
+          type: integer
+          description: Number of unique source→destination route pairs
+          example: 156
+        messagesPerSec:
+          type: number
+          format: float
+          description: Current message rate (messages per second, based on last 1 minute)
+          example: 12.5
+        timeWindow:
+          type: string
+          description: Time window identifier (last_1h, last_24h, all_time)
+          example: last_1h
             "3": 2000
         byType:
           type: object
@@ -518,7 +531,7 @@ paths:
 
         **Message Types:**
         - `message`: New telegram received
-        - `stats`: Updated statistics (total, byPriority, byType)
+        - `stats`: Updated statistics (total, byType, activeRoutes, messagesPerSec, timeWindow)
         - `pong`: Heartbeat response
 
         **Example Message:**

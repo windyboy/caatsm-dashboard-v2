@@ -18,7 +18,13 @@
   const mergedStats = $derived.by(() => {
     const wsStats = wsStore.stats;
     return wsStats
-      ? ({ total: wsStats.total, byPriority: wsStats.byPriority, byType: wsStats.byType } as TrafficSummary)
+      ? ({
+          total: wsStats.total,
+          byType: wsStats.byType,
+          activeRoutes: wsStats.activeRoutes,
+          messagesPerSec: wsStats.messagesPerSec,
+          timeWindow: wsStats.timeWindow,
+        } as TrafficSummary)
       : stats;
   });
 
@@ -31,39 +37,39 @@
       return [];
     }
 
-    // If only one source has messages, return those
-    if (wsMessages.length === 0) return httpMessages;
-    if (httpMessages.length === 0) return wsMessages.slice(0, 50);
-
-    // Build a set of existing message IDs from HTTP messages
-    const existingIds = new Set(
-      httpMessages.map((m) => m.message_id).filter((id): id is string => Boolean(id))
-    );
-
-    // Create a helper to check if a message matches an HTTP message by content+time
-    const isDuplicateByContent = (wsMsg: Telegram): boolean => {
-      return httpMessages.some(
-        (httpMsg) =>
-          httpMsg.content === wsMsg.content &&
-          httpMsg.time === wsMsg.time &&
-          httpMsg.type === wsMsg.type
-      );
-    };
-
-    // Filter WebSocket messages: keep only those that are truly new
-    const newUnique = wsMessages.filter((m) => {
-      // If message has an ID, check against existing IDs
-      if (m.message_id) {
-        return !existingIds.has(m.message_id);
-      }
-      // If message has no ID, check by content+time+type to avoid duplicates
-      return !isDuplicateByContent(m);
-    });
-
-    // Combine: new WebSocket messages first (newest), then HTTP messages
+    // Combine all messages: WebSocket messages first (newest), then HTTP messages
     // This preserves "newest first" order
-    const merged = [...newUnique, ...httpMessages];
-    return merged.slice(0, 50);
+    const allMessages = [...wsMessages, ...httpMessages];
+
+    // Global deduplication using Map to preserve first occurrence (newest)
+    const messageMap = new Map<string, Telegram>();
+    const contentKeyMap = new Map<string, Telegram>();
+
+    for (const msg of allMessages) {
+      if (msg.message_id) {
+        // Use message_id as unique key
+        if (!messageMap.has(msg.message_id)) {
+          messageMap.set(msg.message_id, msg);
+        }
+      } else {
+        // Use content+time+type as fallback key for messages without ID
+        const contentKey = `${msg.content || ''}|${msg.time || ''}|${msg.type || ''}`;
+        if (!contentKeyMap.has(contentKey)) {
+          contentKeyMap.set(contentKey, msg);
+        }
+      }
+    }
+
+    // Combine deduplicated messages: messages with IDs first, then content-keyed messages
+    // Filter out content-keyed messages that also have an ID (already in messageMap)
+    const deduplicated = [
+      ...Array.from(messageMap.values()),
+      ...Array.from(contentKeyMap.values()).filter(
+        (msg) => !msg.message_id || !messageMap.has(msg.message_id)
+      ),
+    ];
+
+    return deduplicated.slice(0, 50);
   });
 
   const healthItems = $derived.by(() => {
@@ -114,12 +120,33 @@
     return items;
   });
 
-  const totalTypes = $derived(
-    Object.keys(mergedStats?.byType ?? {}).length
-  );
-  const totalPriorities = $derived(
-    Object.keys(mergedStats?.byPriority ?? {}).length
-  );
+  const activeRoutes = $derived(mergedStats?.activeRoutes ?? null);
+  const messagesPerSec = $derived(mergedStats?.messagesPerSec ?? null);
+
+  const typeDistribution = $derived.by(() => {
+    const byType = mergedStats?.byType;
+    if (!byType || Object.keys(byType).length === 0) return "—";
+    const total = mergedStats?.total ?? 0;
+    return Object.entries(byType)
+      .map(([type, count]) => {
+        const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+        return `${type}: ${count.toLocaleString()} (${percentage}%)`;
+      })
+      .join(" | ");
+  });
+
+  const timeWindowLabel = $derived.by(() => {
+    const window = mergedStats?.timeWindow;
+    if (!window) return "All time";
+    switch (window) {
+      case "last_1h":
+        return "Last 1 hour";
+      case "last_24h":
+        return "Last 24 hours";
+      default:
+        return "All time";
+    }
+  });
 
   onMount(async () => {
     document.title = "CAATSM Dashboard - Operations";
@@ -184,10 +211,25 @@
   </section>
 
   <section class="grid grid--metrics">
-    <MetricCard title="Messages (last window)" value={mergedStats?.total ?? "—"} hint="From /api/stats" />
-    <MetricCard title="Priority buckets" value={totalPriorities || "—"} hint="Count of priority groups" />
-    <MetricCard title="Types tracked" value={totalTypes || "—"} hint="By message type" />
+    <MetricCard title="Messages" value={mergedStats?.total?.toLocaleString() ?? "—"} hint={timeWindowLabel} />
+    <MetricCard
+      title="Messages/sec"
+      value={messagesPerSec !== null ? messagesPerSec.toFixed(1) : "—"}
+      hint="Last 1 min"
+    />
+    <MetricCard
+      title="Active routes"
+      value={activeRoutes !== null ? activeRoutes.toLocaleString() : "—"}
+      hint={`Unique source→destination pairs (${timeWindowLabel.toLowerCase()})`}
+    />
   </section>
+
+  {#if typeDistribution && typeDistribution !== "—"}
+    <div class="card">
+      <p class="eyebrow">Type Distribution ({timeWindowLabel})</p>
+      <p class="muted">{typeDistribution}</p>
+    </div>
+  {/if}
 
   {#if wsStore.status !== "disconnected"}
     <div class="card ws-status">
