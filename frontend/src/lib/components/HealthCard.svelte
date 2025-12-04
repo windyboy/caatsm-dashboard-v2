@@ -37,9 +37,7 @@
     <ul class="health-list" role="list">
       {#each items as item}
         <li class="health-row" role="listitem">
-          <span
-            class="status-dot {statusClass(item.status)}"
-            aria-label={item.status || "unknown"}
+          <span class="status-dot {statusClass(item.status)}" aria-label={item.status || "unknown"}
           ></span>
           <div>
             <p class="health-label">{item.label}</p>

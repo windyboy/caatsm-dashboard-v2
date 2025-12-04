@@ -3,10 +3,18 @@
 
   interface BadgeProps {
     variant?: "default" | "soft" | "ghost" | "ok" | "warn" | "error" | "idle";
+    class?: string;
+    title?: string;
     children?: import("svelte").Snippet;
   }
 
-  let { variant = "default", children, ...restProps }: BadgeProps = $props();
+  let {
+    variant = "default",
+    class: className,
+    title,
+    children,
+    ...restProps
+  }: BadgeProps = $props();
 </script>
 
 <span
@@ -17,8 +25,10 @@
     variant === "ok" && "pill--ok",
     variant === "warn" && "pill--warn",
     variant === "error" && "pill--error",
-    variant === "idle" && "pill--idle"
+    variant === "idle" && "pill--idle",
+    className
   )}
+  {title}
   {...restProps}
 >
   {#if children}

@@ -31,7 +31,7 @@
   {:else}
     <div class="message-list-container">
       <ul class="message-list" role="list">
-        {#each messages as message, index (`${message.message_id || 'no-id'}-${index}`)}
+        {#each messages as message, index (`${message.message_id || "no-id"}-${index}`)}
           <li class="message" role="listitem">
             <div class="message-meta">
               <Badge variant="soft">{message.type || "Unknown"}</Badge>

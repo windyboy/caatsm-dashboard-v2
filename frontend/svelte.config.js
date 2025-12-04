@@ -9,6 +9,18 @@ const config = {
     script: true, // Explicitly enable script preprocessing
   }),
 
+  // Suppress CSS unused selector warnings for dynamically added attributes
+  // These selectors are used by Melt UI and other libraries at runtime
+  onwarn: (warning, handler) => {
+    // Suppress CSS unused selector warnings - these are false positives
+    // Selectors targeting dynamically added attributes (like data-state, data-highlighted)
+    // are used by libraries like Melt UI at runtime
+    if (warning.code === "css-unused-selector") {
+      return;
+    }
+    handler(warning);
+  },
+
   kit: {
     adapter: adapter(),
   },

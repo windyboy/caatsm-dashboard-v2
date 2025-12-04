@@ -146,4 +146,3 @@ export function getWebSocketStore(): WebSocketStore {
   }
   return storeInstance;
 }
-

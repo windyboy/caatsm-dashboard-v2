@@ -1,8 +1,25 @@
 :root {
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  color: #0f172a;
-  background: #f6f8fb;
+  font-family:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: #18181b;
+  background: #fafafa;
   line-height: 1.5;
+
+  /* shadcn zinc color system */
+  --zinc-50: #fafafa;
+  --zinc-100: #f4f4f5;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-500: #71717a;
+  --zinc-600: #52525b;
+  --zinc-700: #3f3f46;
+  --zinc-800: #27272a;
+  --zinc-900: #18181b;
 }
 
 * {
@@ -11,8 +28,8 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 10% 20%, #e0edff 0, #f6f8fb 25%, #f6f8fb 60%);
-  color: #0f172a;
+  background: var(--zinc-50);
+  color: var(--zinc-900);
 }
 
 a {
@@ -22,7 +39,7 @@ a {
 
 .app-shell {
   min-height: 100vh;
-  background: linear-gradient(120deg, #f6f8fb 0%, #ecf2ff 50%, #f6f8fb 100%);
+  background: var(--zinc-50);
 }
 
 .topbar {
@@ -64,7 +81,9 @@ a {
   border-radius: 10px;
   color: #0f172a;
   font-weight: 600;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .nav-link:hover {
@@ -110,12 +129,28 @@ a {
   margin-top: 1rem;
 }
 
+.grid--four {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
 .card {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border: 1px solid var(--zinc-200);
+  border-radius: 12px;
   padding: 1.25rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.1s ease,
+    border-color 0.2s ease;
+}
+
+.card:hover {
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+  border-color: var(--zinc-300);
 }
 
 .card--compact {
@@ -135,13 +170,15 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.75rem;
-  color: #475569;
+  color: var(--zinc-600);
   margin: 0;
+  font-weight: 600;
 }
 
 .muted {
-  color: #64748b;
+  color: var(--zinc-500);
   margin: 0.25rem 0 0;
+  font-size: 0.875rem;
 }
 
 .pill {
@@ -333,7 +370,9 @@ a {
   color: #fff;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.2s ease;
 }
 
 .button:hover {
@@ -364,4 +403,64 @@ a {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Number transition */
+.metric-value {
+  transition: transform 0.3s ease-out;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1024px) {
+  .grid--four {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .grid--two {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .grid--four,
+  .grid--metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .page {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
 }

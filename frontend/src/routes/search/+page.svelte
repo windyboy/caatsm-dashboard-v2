@@ -25,11 +25,11 @@
     if (startTime && endTime) {
       const start = new Date(startTime);
       const end = new Date(endTime);
-      
+
       if (start >= end) {
         return "Start time must be before end time";
       }
-      
+
       const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
       if (daysDiff > 90) {
         return "Time range cannot exceed 90 days";
@@ -150,9 +150,7 @@
       <Button type="submit" disabled={loading}>
         {loading ? "Searching..." : "Search"}
       </Button>
-      <Button variant="ghost" type="button" onclick={reset}>
-        Clear
-      </Button>
+      <Button variant="ghost" type="button" onclick={reset}>Clear</Button>
     </div>
   </form>
 
@@ -211,5 +209,4 @@
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
   }
-
 </style>

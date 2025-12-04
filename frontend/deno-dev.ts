@@ -18,4 +18,3 @@ const vite = Deno.run({
 
 const status = await vite.status();
 Deno.exit(status.code);
-

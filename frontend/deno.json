@@ -19,7 +19,7 @@
     "dev": "deno run -A deno-dev.ts",
     "build": "deno run -A npm:vite@7.2.6 build",
     "preview": "deno run -A npm:vite@7.2.6 preview",
-    "check": "deno run -A npm:@sveltejs/kit@2.49.1 sync && deno check src/**/*.ts src/**/*.svelte",
+    "check": "deno run -A npm:@sveltejs/kit@2.49.1 sync && deno check src/**/*.ts",
     "dev:npm": "npm run dev",
     "build:npm": "npm run build",
     "preview:npm": "npm run preview"

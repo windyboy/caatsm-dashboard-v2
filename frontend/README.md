@@ -3,11 +3,13 @@
 A lean SvelteKit dashboard that surfaces message totals, a basic health snapshot, and the latest telegrams from the backend.
 
 ## Quick start
-- Install deps with your preferred tool (npm/bun/deno).  
+
+- Install deps with your preferred tool (npm/bun/deno).
 - Run `npm run dev` (or `deno task dev`) and open http://localhost:5173.
 - API base defaults to http://localhost:3002. Override with `VITE_API_BASE_URL` if needed.
 
 ## Available scripts
+
 - `npm run dev` – start the dev server
 - `npm run build` – production build
 - `npm run preview` – preview the build
@@ -15,6 +17,7 @@ A lean SvelteKit dashboard that surfaces message totals, a basic health snapshot
 - `npm run format` / `npm run lint` – run Prettier
 
 ## Pages
+
 - `/` – dashboard with totals, system health, and latest messages
 - `/search` – single-field search that hits `/api/search`
 - `/login` – placeholder ready for your auth flow
@@ -29,10 +32,10 @@ The frontend uses **@melt-ui/svelte** for accessible, headless UI components. Al
 
 ```svelte
 <script lang="ts">
-  import { createButton, melt } from '@melt-ui/svelte';
-  
+  import { createButton, melt } from "@melt-ui/svelte";
+
   const { elements, states } = createButton({
-    disabled: $derived(false)
+    disabled: $derived(false),
   });
 </script>
 
@@ -59,6 +62,7 @@ The frontend uses **@melt-ui/svelte** for accessible, headless UI components. Al
 ### Styling
 
 Components maintain existing styles from `app.css` while gaining built-in accessibility features:
+
 - ARIA attributes automatically applied
 - Keyboard navigation support
 - Focus management

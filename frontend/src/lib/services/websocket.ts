@@ -232,4 +232,3 @@ export class WebSocketService {
     this.setStatus("disconnected");
   }
 }
-

@@ -203,9 +203,9 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 		// Small delay to ensure WritePump has started processing
 		time.Sleep(10 * time.Millisecond)
 		
-		// Use request context for initial data fetch (safe for this quick operation)
-		ctx := c.Request().Context()
-		if err := h.sendInitialData(ctx, client); err != nil {
+		// Use clientCtx (hub context) instead of request context
+		// Request context is canceled after WebSocket upgrade, causing "context canceled" errors
+		if err := h.sendInitialData(clientCtx, client); err != nil {
 			h.logger.Warn("failed to send initial data", zap.Error(err))
 		}
 	}()

@@ -12,11 +12,7 @@
   </div>
 
   <nav class="topbar__nav" aria-label="Main navigation">
-    <a
-      class="nav-link"
-      href="/"
-      aria-current={$page.url.pathname === "/" ? "page" : undefined}
-    >
+    <a class="nav-link" href="/" aria-current={$page.url.pathname === "/" ? "page" : undefined}>
       Dashboard
     </a>
     <a
