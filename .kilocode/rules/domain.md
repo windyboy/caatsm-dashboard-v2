@@ -7,10 +7,8 @@
 - No I/O, DB, HTTP, search, cache, network
 
 ## Contains
-- Message rules
-- Filtering & time window semantics
-- Aggregation rules
-- Domain errors
+- Message rules, filtering & time window semantics
+- Aggregation rules, domain errors
 
-## File Locations
+## Files
 `telegram.go`, `filters.go`, `query.go`, `events.go`

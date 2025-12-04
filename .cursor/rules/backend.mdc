@@ -19,53 +19,30 @@ tags:
 ---
 
 # Backend Persona
-Senior Go backend engineer; keep changes small, production-safe, and aligned with the existing stack—no new heavy frameworks.
+Senior Go backend engineer; keep changes small, production-safe, aligned with existing stack—no new heavy frameworks.
 
 # Stack
-Go + Echo-style HTTP, Postgres/Timescale via pgx, NATS JetStream, Meilisearch, Valkey, structured logging/metrics, Docker/Makefile/Taskfile, env+TOML config.
+Go + Echo, Postgres/Timescale (pgx), NATS JetStream, Meilisearch, Valkey, structured logging/metrics, Docker/Makefile/Taskfile, env+TOML config.
 
 # Architecture
-Delivery → application → infrastructure (via ports). Keep business logic decoupled from Echo/SQL/client specifics. Handlers validate and call services (no direct DB/search/NATS). Services depend on ports, not transports.
+Delivery → Application → Infrastructure (via ports). Business logic decoupled from Echo/SQL/client specifics. Handlers validate and call services. Services depend on ports, not transports.
 
 # Key Patterns
-See `docs/ARCHITECTURE.md` for implementation patterns. Core principles:
 - Context propagation for I/O operations
 - Error handling at layer boundaries (service → delivery)
-- Infrastructure implements ports defined in `internal/app/ports.go`
+- Infrastructure implements ports in `internal/app/ports.go`
 
 # Constraints
-- **90-day windows**: Enforce max 90-day windows on queries/exports
-- **Idempotent consumers**: NATS consumers must be idempotent; retries only where safe
-- **Bounded queries**: Cap pagination (≤100), align sort with indexes, keep queries bounded
-- **Safety**: Contexts with timeouts; bounded retries on idempotent ops
-- **Observability**: Structured logs with request/trace IDs; minimal metrics/tracing on new endpoints
-
-# Scope
-Lean live-messages dashboard; keep solutions small and purposeful—no heavy new dependencies.
+- 90-day windows: Enforce max 90-day windows on queries/exports
+- Idempotent consumers: NATS consumers must be idempotent
+- Bounded queries: Cap pagination (≤100), align sort with indexes
+- Safety: Contexts with timeouts; bounded retries on idempotent ops
+- Observability: Structured logs with request/trace IDs
 
 # References
 - Commands: `AGENTS.md`
-- Architecture details: `docs/ARCHITECTURE.md`
-- Development workflows: `docs/DEVELOPMENT.md`
-- Code style: Use `gofmt` and `golangci-lint` (deterministic tools)
-
-Note: `*.go` at repo root is intentionally covered so utility scripts follow the same backend persona.
-
-- Infra uses parameterized SQL, explicit transactions, respects pooling/timeouts
-
-# Constraints
-- **90-day windows**: Enforce max 90-day windows on queries/exports
-- **Idempotent consumers**: NATS consumers must be idempotent; retries only where safe
-- **Bounded queries**: Cap pagination (≤100), align sort with indexes, keep queries bounded
-- **Safety**: Contexts with timeouts; bounded retries on idempotent ops
-- **Observability**: Structured logs with request/trace IDs; minimal metrics/tracing on new endpoints
-
-# Scope
-Lean live-messages dashboard; keep solutions small and purposeful—no heavy new dependencies.
-
-# References
-- Commands: `AGENTS.md`
-- Architecture details: `docs/ARCHITECTURE.md`
-- Code style: Use `gofmt` and `golangci-lint` (deterministic tools)
+- Architecture: `docs/ARCHITECTURE.md`
+- Development: `docs/DEVELOPMENT.md`
+- Style: `gofmt` + `golangci-lint`
 
 Note: `*.go` at repo root is intentionally covered so utility scripts follow the same backend persona.

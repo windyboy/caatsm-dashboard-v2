@@ -12,11 +12,13 @@ import (
 
 // IngestionService handles message ingestion from NATS JetStream.
 type IngestionService struct {
-	consumer       app.StreamConsumer
-	store          app.Repository
-	eventPublisher app.EventPublisher
-	streamPublisher app.StreamPublisher
-	logger         *zap.Logger
+	consumer           app.StreamConsumer
+	store              app.Repository
+	eventPublisher     app.EventPublisher
+	statsEventPublisher app.EventPublisher
+	streamPublisher    app.StreamPublisher
+	statsCounter       *StatsCounterService
+	logger             *zap.Logger
 }
 
 // NewIngestionService creates a new ingestion service.
@@ -24,15 +26,19 @@ func NewIngestionService(
 	consumer app.StreamConsumer,
 	store app.Repository,
 	eventPublisher app.EventPublisher,
+	statsEventPublisher app.EventPublisher,
 	streamPublisher app.StreamPublisher,
+	statsCounter *StatsCounterService,
 	logger *zap.Logger,
 ) *IngestionService {
 	return &IngestionService{
-		consumer:        consumer,
-		store:           store,
-		eventPublisher:  eventPublisher,
-		streamPublisher: streamPublisher,
-		logger:          logger,
+		consumer:            consumer,
+		store:               store,
+		eventPublisher:      eventPublisher,
+		statsEventPublisher: statsEventPublisher,
+		streamPublisher:     streamPublisher,
+		statsCounter:        statsCounter,
+		logger:              logger,
 	}
 }
 
@@ -65,6 +71,39 @@ func (s *IngestionService) Handle(ctx context.Context, telegram *app.Telegram) e
 		zap.String("message_id", telegram.MessageID),
 		zap.String("type", telegram.Type),
 	)
+
+	// Update statistics counters and publish incremental stats event
+	if s.statsCounter != nil && s.statsEventPublisher != nil {
+		statsEvent, err := s.statsCounter.Increment(ctx, telegram)
+		if err != nil {
+			s.logger.Warn("failed to increment statistics counters",
+				zap.String("message_id", telegram.MessageID),
+				zap.Error(err),
+			)
+		} else {
+			s.logger.Debug("publishing stats increment event",
+				zap.String("message_id", telegram.MessageID),
+				zap.Int64("total", statsEvent.Total),
+				zap.Any("by_type", statsEvent.ByType),
+			)
+			// Publish stats increment event to stats:incremented channel
+			if err := s.statsEventPublisher.Publish(ctx, *statsEvent); err != nil {
+				s.logger.Warn("failed to publish stats increment event",
+					zap.String("message_id", telegram.MessageID),
+					zap.Error(err),
+				)
+			} else {
+				s.logger.Debug("stats increment event published successfully",
+					zap.String("message_id", telegram.MessageID),
+				)
+			}
+		}
+	} else {
+		s.logger.Debug("stats counter or event publisher not available",
+			zap.Bool("has_counter", s.statsCounter != nil),
+			zap.Bool("has_publisher", s.statsEventPublisher != nil),
+		)
+	}
 
 	// Publish to Redis Pub/Sub msg:broadcast (fire-and-forget, best-effort)
 	event := domain.TelegramPersisted{

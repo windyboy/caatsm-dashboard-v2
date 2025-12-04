@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
+  import Input from "$lib/components/ui/Input.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import { runSearch } from "$lib/api";
   import type { Telegram } from "$lib/types";
   // 暂时移除虚拟列表，使用普通 each 循环避免兼容性问题
@@ -121,42 +123,36 @@
   </section>
 
   <form class="search-form" onsubmit={handleSubmit}>
-    <label class="search-field">
-      <span class="muted">Query (optional)</span>
-      <input
-        name="query"
-        placeholder="Type, flight number, route, or text"
-        bind:value={query}
-        aria-label="Search query"
-      />
-    </label>
+    <Input
+      label="Query (optional)"
+      name="query"
+      placeholder="Type, flight number, route, or text"
+      bind:value={query}
+      ariaLabel="Search query"
+    />
     <div class="search-form__time-filters">
-      <label class="search-field">
-        <span class="muted">Start Time (optional)</span>
-        <input
-          type="datetime-local"
-          name="start_time"
-          bind:value={startTime}
-          aria-label="Start time"
-        />
-      </label>
-      <label class="search-field">
-        <span class="muted">End Time (optional)</span>
-        <input
-          type="datetime-local"
-          name="end_time"
-          bind:value={endTime}
-          aria-label="End time"
-        />
-      </label>
+      <Input
+        label="Start Time (optional)"
+        name="start_time"
+        type="datetime-local"
+        bind:value={startTime}
+        ariaLabel="Start time"
+      />
+      <Input
+        label="End Time (optional)"
+        name="end_time"
+        type="datetime-local"
+        bind:value={endTime}
+        ariaLabel="End time"
+      />
     </div>
     <div class="search-actions">
-      <button class="button" type="submit" disabled={loading}>
+      <Button type="submit" disabled={loading}>
         {loading ? "Searching..." : "Search"}
-      </button>
-      <button class="button button--ghost" type="button" onclick={reset}>
+      </Button>
+      <Button variant="ghost" type="button" onclick={reset}>
         Clear
-      </button>
+      </Button>
     </div>
   </form>
 

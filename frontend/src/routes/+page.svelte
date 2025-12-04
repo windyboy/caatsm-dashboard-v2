@@ -9,70 +9,44 @@
   import type { HealthSnapshot, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
 
   const wsStore = getWebSocketStore();
-  let stats = $state<TrafficSummary | null>(null);
-  let health = $state<HealthSnapshot | null>(null);
-  let messages = $state<Telegram[]>([]);
+  // Initial HTTP data (only used as fallback until WebSocket connects)
+  let initialStats = $state<TrafficSummary | null>(null);
+  let initialHealth = $state<HealthSnapshot | null>(null);
+  let initialMessages = $state<Telegram[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
-  const mergedStats = $derived.by(() => {
+  // WebSocket data is primary source - simple priority: WS > HTTP fallback
+  const displayStats = $derived.by(() => {
     const wsStats = wsStore.stats;
-    return wsStats
-      ? ({
-          total: wsStats.total,
-          byType: wsStats.byType,
-          activeRoutes: wsStats.activeRoutes,
-          messagesPerSec: wsStats.messagesPerSec,
-          timeWindow: wsStats.timeWindow,
-        } as TrafficSummary)
-      : stats;
+    if (wsStats) {
+      return {
+        total: wsStats.total,
+        byType: wsStats.byType,
+        activeRoutes: wsStats.activeRoutes,
+        messagesPerSec: wsStats.messagesPerSec,
+        timeWindow: wsStats.timeWindow,
+      } as TrafficSummary;
+    }
+    // Fallback to initial HTTP data
+    return initialStats;
   });
 
-  const mergedMessages = $derived.by(() => {
+  const displayHealth = $derived(wsStore.health ?? initialHealth);
+
+  // Messages: WebSocket is primary, HTTP only as initial fallback
+  const displayMessages = $derived.by(() => {
     const wsMessages = wsStore.newMessages;
-    const httpMessages = messages;
-
-    // If both sources are empty, return empty array
-    if (wsMessages.length === 0 && httpMessages.length === 0) {
-      return [];
+    // Use WebSocket messages if available (they are always the most up-to-date)
+    if (wsMessages.length > 0) {
+      return wsMessages.slice(0, 50);
     }
-
-    // Combine all messages: WebSocket messages first (newest), then HTTP messages
-    // This preserves "newest first" order
-    const allMessages = [...wsMessages, ...httpMessages];
-
-    // Global deduplication using Map to preserve first occurrence (newest)
-    const messageMap = new Map<string, Telegram>();
-    const contentKeyMap = new Map<string, Telegram>();
-
-    for (const msg of allMessages) {
-      if (msg.message_id) {
-        // Use message_id as unique key
-        if (!messageMap.has(msg.message_id)) {
-          messageMap.set(msg.message_id, msg);
-        }
-      } else {
-        // Use content+time+type as fallback key for messages without ID
-        const contentKey = `${msg.content || ''}|${msg.time || ''}|${msg.type || ''}`;
-        if (!contentKeyMap.has(contentKey)) {
-          contentKeyMap.set(contentKey, msg);
-        }
-      }
-    }
-
-    // Combine deduplicated messages: messages with IDs first, then content-keyed messages
-    // Filter out content-keyed messages that also have an ID (already in messageMap)
-    const deduplicated = [
-      ...Array.from(messageMap.values()),
-      ...Array.from(contentKeyMap.values()).filter(
-        (msg) => !msg.message_id || !messageMap.has(msg.message_id)
-      ),
-    ];
-
-    return deduplicated.slice(0, 50);
+    // Fallback to initial HTTP messages only if WebSocket is not connected or empty
+    return initialMessages.slice(0, 50);
   });
 
   const healthItems = $derived.by(() => {
+    const health = displayHealth;
     if (!health) return [];
     
     const getDetail = (component: { status?: string; message?: string; response_time?: string } | undefined): string | undefined => {
@@ -120,13 +94,13 @@
     return items;
   });
 
-  const activeRoutes = $derived(mergedStats?.activeRoutes ?? null);
-  const messagesPerSec = $derived(mergedStats?.messagesPerSec ?? null);
+  const activeRoutes = $derived(displayStats?.activeRoutes ?? null);
+  const messagesPerSec = $derived(displayStats?.messagesPerSec ?? null);
 
   const typeDistribution = $derived.by(() => {
-    const byType = mergedStats?.byType;
+    const byType = displayStats?.byType;
     if (!byType || Object.keys(byType).length === 0) return "—";
-    const total = mergedStats?.total ?? 0;
+    const total = displayStats?.total ?? 0;
     return Object.entries(byType)
       .map(([type, count]) => {
         const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
@@ -136,7 +110,7 @@
   });
 
   const timeWindowLabel = $derived.by(() => {
-    const window = mergedStats?.timeWindow;
+    const window = displayStats?.timeWindow;
     if (!window) return "All time";
     switch (window) {
       case "last_1h":
@@ -157,41 +131,29 @@
 
     try {
       const [statsResponse, healthResponse, messagesResponse] = await Promise.all([
-        fetchStats().catch((err) => {
-          if (import.meta.env.DEV) {
-            console.error("Failed to fetch stats from /api/stats:", err);
-          }
-          return null;
-        }),
+        fetchStats().catch(() => null),
         fetchHealth().catch((err) => {
           console.error("Failed to fetch health from /api/health:", err);
           return null;
         }),
-        fetchRecentMessages(12).catch((err) => {
-          if (import.meta.env.DEV) {
-            console.error("Failed to fetch messages from /api/search:", err);
-          }
-          return { telegrams: [], total: 0 } as SearchResponse;
-        }),
+        fetchRecentMessages(12).catch(() => ({ telegrams: [], total: 0 } as SearchResponse)),
       ]);
 
+      // Store initial HTTP data as fallback (only used until WebSocket connects and provides data)
       if (statsResponse) {
-        stats = statsResponse;
+        initialStats = statsResponse;
       }
       if (healthResponse) {
-        health = healthResponse;
+        initialHealth = healthResponse;
       }
       if (messagesResponse) {
-        messages = messagesResponse.telegrams ?? [];
+        initialMessages = messagesResponse.telegrams ?? [];
       }
 
       if (!statsResponse && !healthResponse && (!messagesResponse || messagesResponse.telegrams.length === 0)) {
         error = "Unable to connect to backend API. Please ensure the backend server is running on port 3002. You can start it with: make backend-dev";
       }
     } catch (err) {
-      if (import.meta.env.DEV) {
-        console.error("Dashboard load error:", err);
-      }
       error = err instanceof Error ? err.message : "Unable to load dashboard data.";
     } finally {
       loading = false;
@@ -211,7 +173,7 @@
   </section>
 
   <section class="grid grid--metrics">
-    <MetricCard title="Messages" value={mergedStats?.total?.toLocaleString() ?? "—"} hint={timeWindowLabel} />
+    <MetricCard title="Messages" value={displayStats?.total?.toLocaleString() ?? "—"} hint={timeWindowLabel} />
     <MetricCard
       title="Messages/sec"
       value={messagesPerSec !== null ? messagesPerSec.toFixed(1) : "—"}
@@ -257,8 +219,8 @@
     </div>
   {:else}
     <section class="grid grid--two">
-      <HealthCard status={health?.status} items={healthItems} />
-      <MessageList messages={mergedMessages} />
+      <HealthCard status={displayHealth?.status} items={healthItems} />
+      <MessageList messages={displayMessages} />
     </section>
   {/if}
 </main>

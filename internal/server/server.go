@@ -39,6 +39,7 @@ type Server struct {
 	ingestionSvc    *service.IngestionService
 	indexerSvc      *service.IndexerService
 	realtimeSvc     *service.RealtimeService
+	healthSvc       *service.HealthService
 	adminSvc        *service.AdminService
 	statsSvc        *service.StatsService
 	shutdownTracer  func(context.Context) error
@@ -48,6 +49,8 @@ type Server struct {
 	indexerCancel   context.CancelFunc
 	realtimeCtx     context.Context
 	realtimeCancel  context.CancelFunc
+	healthCtx       context.Context
+	healthCancel    context.CancelFunc
 }
 
 // New constructs a Server instance and wires base middleware/routes.
@@ -139,10 +142,13 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 	eventPublisher := event.NewEventPublisherAdapter(eventBus)
 
 	// Create event broadcaster for WebSocket (before assigning to container)
+	// Note: EventBroadcaster is legacy. RealtimeService now handles all Redis Pub/Sub subscriptions.
+	// We still create the broadcaster for backward compatibility but don't start its listener
+	// to avoid duplicate message handling.
 	broadcaster = deliveryws.NewEventBroadcaster(redisCli, logger)
 	logger.Info("redis client available for WebSocket")
-	go broadcaster.StartRedisListener()
-	logger.Info("started Redis listener goroutine")
+	// Removed: go broadcaster.StartRedisListener() - RealtimeService handles this now
+	logger.Info("skipping EventBroadcaster listener (RealtimeService handles Redis subscriptions)")
 
 	// Create Redis Streams publisher and consumer
 	streamPublisher := streaming.NewRedisStreamPublisher(redisCli, logger)
@@ -188,6 +194,17 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		logger,
 	)
 
+	// Create stats counter service for real-time incremental statistics
+	statsCounterSvc := service.NewStatsCounterService(cacheStore, logger)
+
+	// Create event bus and publisher for stats events (separate channel)
+	statsEventBus := event.NewRedisEventBus(redisCli, "stats:incremented")
+	statsEventPublisher := event.NewEventPublisherAdapter(statsEventBus)
+
+	// Create event bus and publisher for health events (separate channel)
+	healthEventBus := event.NewRedisEventBus(redisCli, "health:updated")
+	healthEventPublisher := event.NewEventPublisherAdapter(healthEventBus)
+
 	dashboardSvc := service.NewDashboardService(
 		searchSvc,
 		statsSvc,
@@ -223,7 +240,9 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		natsConsumer,
 		store,
 		eventPublisher,
+		statsEventPublisher,
 		streamPublisher,
+		statsCounterSvc,
 		logger,
 	)
 
@@ -237,12 +256,20 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		eventSubscriber,
 		wsHub,
 		statsSvc,
+		statsCounterSvc,
 		logger,
 	)
 
 	adminSvc := service.NewAdminService(
 		store,
 		streamPublisher,
+		logger,
+	)
+
+	// Create health service
+	healthSvc := service.NewHealthService(
+		container, // Container implements HealthCheckService
+		healthEventPublisher,
 		logger,
 	)
 
@@ -266,6 +293,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 		ingestionSvc:   ingestionSvc,
 		indexerSvc:     indexerSvc,
 		realtimeSvc:    realtimeSvc,
+		healthSvc:      healthSvc,
 		adminSvc:       adminSvc,
 		statsSvc:       statsSvc,
 		shutdownTracer: shutdownTracer,
@@ -301,6 +329,7 @@ func (s *Server) Start(ctx context.Context) error {
 	s.ingestionCtx, s.ingestionCancel = context.WithCancel(ctx)
 	s.indexerCtx, s.indexerCancel = context.WithCancel(ctx)
 	s.realtimeCtx, s.realtimeCancel = context.WithCancel(ctx)
+	s.healthCtx, s.healthCancel = context.WithCancel(ctx)
 
 	// Start background services
 	go func() {
@@ -321,10 +350,17 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}()
 
+	go func() {
+		if err := s.healthSvc.Start(s.healthCtx); err != nil {
+			s.logger.Error("health service error", zap.Error(err))
+		}
+	}()
+
 	s.logger.Info("background services started",
 		zap.Bool("ingestion", true),
 		zap.Bool("indexer", true),
 		zap.Bool("realtime", true),
+		zap.Bool("health", true),
 	)
 
 	httpServer := &http.Server{
@@ -378,6 +414,9 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 
 	// Step 2: Stop background services
 	s.logger.Info("step 2: stopping background services")
+	if s.healthCancel != nil {
+		s.healthCancel()
+	}
 	if s.ingestionCancel != nil {
 		s.ingestionCancel()
 		s.logger.Info("ingestion service stopped")
@@ -389,6 +428,10 @@ func (s *Server) gracefulShutdown(httpServer *http.Server) error {
 	if s.realtimeCancel != nil {
 		s.realtimeCancel()
 		s.logger.Info("realtime service stopped")
+	}
+	if s.healthCancel != nil {
+		s.healthCancel()
+		s.logger.Info("health service stopped")
 	}
 
 	// Step 3: Cancel worker contexts and wait for goroutines to finish

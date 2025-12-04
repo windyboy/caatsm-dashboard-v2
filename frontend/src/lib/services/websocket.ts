@@ -1,7 +1,16 @@
-import type { WSMessage, WSStatsData, Telegram, WSConnectionStatus } from "$lib/types";
+import type {
+  WSMessage,
+  WSStatsData,
+  WSStatsDeltaData,
+  WSHealthData,
+  Telegram,
+  WSConnectionStatus,
+} from "$lib/types";
 import { WSMessageType } from "$lib/types";
 
 type StatsHandler = (data: WSStatsData) => void;
+type StatsDeltaHandler = (data: WSStatsDeltaData) => void;
+type HealthHandler = (data: WSHealthData) => void;
 type TelegramHandler = (data: Telegram) => void;
 
 export class WebSocketService {
@@ -13,6 +22,8 @@ export class WebSocketService {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
   private statsHandlers: StatsHandler[] = [];
+  private statsDeltaHandlers: StatsDeltaHandler[] = [];
+  private healthHandlers: HealthHandler[] = [];
   private telegramHandlers: TelegramHandler[] = [];
   private statusListeners: ((status: WSConnectionStatus) => void)[] = [];
 
@@ -69,9 +80,6 @@ export class WebSocketService {
       this._url = this.getWebSocketUrl();
       if (!this._url) {
         this.setStatus("error");
-        if (import.meta.env.DEV) {
-          console.error("Cannot determine WebSocket URL");
-        }
         return;
       }
     }
@@ -93,9 +101,7 @@ export class WebSocketService {
           const message: WSMessage = JSON.parse(event.data);
           this.handleMessage(message);
         } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error("Failed to parse WebSocket message:", err);
-          }
+          // Silently handle parse errors
         }
       };
 
@@ -113,9 +119,6 @@ export class WebSocketService {
       };
     } catch (err) {
       this.setStatus("error");
-      if (import.meta.env.DEV) {
-        console.error("WebSocket connection error:", err);
-      }
     }
   }
 
@@ -140,13 +143,30 @@ export class WebSocketService {
   private handleMessage(message: WSMessage): void {
     switch (message.type) {
       case WSMessageType.STATS:
+      case WSMessageType.STATS_FULL:
         try {
           const statsData = message.data as WSStatsData;
           this.statsHandlers.forEach((handler) => handler(statsData));
         } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error("Failed to handle stats message:", err);
-          }
+          // Silently handle handler errors
+        }
+        break;
+
+      case WSMessageType.STATS_DELTA:
+        try {
+          const deltaData = message.data as WSStatsDeltaData;
+          this.statsDeltaHandlers.forEach((handler) => handler(deltaData));
+        } catch (err) {
+          // Silently handle handler errors
+        }
+        break;
+
+      case WSMessageType.HEALTH:
+        try {
+          const healthData = message.data as WSHealthData;
+          this.healthHandlers.forEach((handler) => handler(healthData));
+        } catch (err) {
+          // Silently handle handler errors
         }
         break;
 
@@ -155,10 +175,12 @@ export class WebSocketService {
           const telegram = message.data as Telegram;
           this.telegramHandlers.forEach((handler) => handler(telegram));
         } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error("Failed to handle message:", err);
-          }
+          // Silently handle handler errors
         }
+        break;
+
+      default:
+        // Unknown message type, ignore
         break;
     }
   }
@@ -171,11 +193,29 @@ export class WebSocketService {
     };
   }
 
+  onStatsDelta(handler: StatsDeltaHandler): () => void {
+    this.statsDeltaHandlers.push(handler);
+    return () => {
+      const index = this.statsDeltaHandlers.indexOf(handler);
+      if (index > -1) this.statsDeltaHandlers.splice(index, 1);
+    };
+  }
+
+  onHealth(handler: HealthHandler): () => void {
+    this.healthHandlers.push(handler);
+    return () => {
+      const index = this.healthHandlers.indexOf(handler);
+      if (index > -1) this.healthHandlers.splice(index, 1);
+    };
+  }
+
   onMessage(handler: TelegramHandler): () => void {
     this.telegramHandlers.push(handler);
     return () => {
       const index = this.telegramHandlers.indexOf(handler);
-      if (index > -1) this.telegramHandlers.splice(index, 1);
+      if (index > -1) {
+        this.telegramHandlers.splice(index, 1);
+      }
     };
   }
 

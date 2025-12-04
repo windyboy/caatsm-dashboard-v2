@@ -248,7 +248,9 @@ pkg/
 
 ### Frontend Development (SvelteKit)
 
-The frontend runs SvelteKit 2.x with Svelte 5 runes, Vite 7, and UnoCSS. Development defaults to Deno 2.x; Bun is the preferred fallback when you need full HMR (Deno dev disables Vite 7 HMR to avoid WebSocket issues).
+The frontend runs SvelteKit 2.x with Svelte 5 runes, Vite 7, UnoCSS, and @melt-ui/svelte. Development defaults to Deno 2.x; Bun is the preferred fallback when you need full HMR (Deno dev disables Vite 7 HMR to avoid WebSocket issues).
+
+@melt-ui/svelte provides accessible, headless UI components that integrate seamlessly with UnoCSS and our custom styling system. All UI components use the @melt-ui/svelte builder pattern for enhanced accessibility and keyboard navigation.
 
 #### Project Structure
 
@@ -303,6 +305,33 @@ export const dashboardData = writable(null);
 export const loading = writable(false);
 export const error = writable(null);
 ```
+
+#### Component Development with @melt-ui/svelte
+
+All UI components use @melt-ui/svelte's builder pattern for accessible, headless components:
+
+```svelte
+<!-- lib/components/ui/Button.svelte -->
+<script lang="ts">
+  import { createButton, melt } from '@melt-ui/svelte';
+  
+  export let variant: 'default' | 'ghost' = 'default';
+  export let disabled: boolean = false;
+  
+  const {
+    elements: { root },
+    states: { disabled: isDisabled }
+  } = createButton({
+    disabled: $derived(disabled)
+  });
+</script>
+
+<button use:melt={$root} class="button" class:button--ghost={variant === 'ghost'}>
+  <slot />
+</button>
+```
+
+Components maintain existing styles from `app.css` while gaining built-in accessibility features (ARIA attributes, keyboard navigation, focus management).
 
 #### API Integration
 

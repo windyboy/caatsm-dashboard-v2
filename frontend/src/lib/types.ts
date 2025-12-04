@@ -54,8 +54,30 @@ export interface WSStatsData {
   timeWindow?: string;
 }
 
+export interface WSStatsDeltaData {
+  total: number;
+  byType?: Record<string, number>;
+  route?: string;
+  timestamp: string;
+  timeWindow?: string;
+}
+
+export interface WSHealthData {
+  status: string;
+  version?: string;
+  uptime?: string;
+  timestamp: string;
+  postgresql?: ComponentHealth;
+  meilisearch?: ComponentHealth;
+  redis?: ComponentHealth;
+  nats?: ComponentHealth;
+}
+
 export const WSMessageType = {
   STATS: "stats",
+  STATS_DELTA: "stats_delta",
+  STATS_FULL: "stats_full",
+  HEALTH: "health",
   MESSAGE: "message",
 } as const;
 

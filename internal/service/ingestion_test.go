@@ -135,7 +135,7 @@ func TestIngestionService_Handle(t *testing.T) {
 	tests := []struct {
 		name          string
 		telegram      *app.Telegram
-		setupMocks    func(*mockRepository, *mockEventPublisher, *mockStreamPublisher)
+		setupMocks    func(*mockRepository, *mockEventPublisher, *mockEventPublisher, *mockStreamPublisher, interface{})
 		expectedError bool
 		errorContains string
 	}{
@@ -151,8 +151,9 @@ func TestIngestionService_Handle(t *testing.T) {
 				Priority:     1,
 				Content:      "Test message",
 			},
-			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, streamPub *mockStreamPublisher) {
+			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, statsPub *mockEventPublisher, streamPub *mockStreamPublisher, statsCounter interface{}) {
 				repo.On("Save", mock.Anything, mock.AnythingOfType("*domain.Telegram")).Return(nil)
+				// Stats counter is nil in tests, so these won't be called
 				pub.On("Publish", mock.Anything, mock.AnythingOfType("domain.TelegramPersisted")).Return(nil)
 				streamPub.On("Publish", mock.Anything, "job:index", mock.MatchedBy(func(tg interface{}) bool {
 					if tgApp, ok := tg.(*app.Telegram); ok {
@@ -174,7 +175,7 @@ func TestIngestionService_Handle(t *testing.T) {
 				Time:      time.Now(),
 				Priority:  1,
 			},
-			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, streamPub *mockStreamPublisher) {
+			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, statsPub *mockEventPublisher, streamPub *mockStreamPublisher, statsCounter interface{}) {
 				// No mocks should be called for invalid telegram
 			},
 			expectedError: true,
@@ -189,7 +190,7 @@ func TestIngestionService_Handle(t *testing.T) {
 				FlightNumber: "CA100",
 				Priority:     1,
 			},
-			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, streamPub *mockStreamPublisher) {
+			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, statsPub *mockEventPublisher, streamPub *mockStreamPublisher, statsCounter interface{}) {
 				repo.On("Save", mock.Anything, mock.AnythingOfType("*domain.Telegram")).Return(errors.New("db error"))
 			},
 			expectedError: true,
@@ -204,8 +205,9 @@ func TestIngestionService_Handle(t *testing.T) {
 				FlightNumber: "CA100",
 				Priority:     1,
 			},
-			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, streamPub *mockStreamPublisher) {
+			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, statsPub *mockEventPublisher, streamPub *mockStreamPublisher, statsCounter interface{}) {
 				repo.On("Save", mock.Anything, mock.AnythingOfType("*domain.Telegram")).Return(nil)
+				// Stats counter is nil in tests, so these won't be called
 				pub.On("Publish", mock.Anything, mock.AnythingOfType("domain.TelegramPersisted")).Return(errors.New("pub error"))
 				streamPub.On("Publish", mock.Anything, "job:index", mock.MatchedBy(func(tg interface{}) bool {
 					_, ok1 := tg.(*app.Telegram)
@@ -224,8 +226,9 @@ func TestIngestionService_Handle(t *testing.T) {
 				FlightNumber: "CA100",
 				Priority:     1,
 			},
-			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, streamPub *mockStreamPublisher) {
+			setupMocks: func(repo *mockRepository, pub *mockEventPublisher, statsPub *mockEventPublisher, streamPub *mockStreamPublisher, statsCounter interface{}) {
 				repo.On("Save", mock.Anything, mock.AnythingOfType("*domain.Telegram")).Return(nil)
+				// Stats counter is nil in tests, so these won't be called
 				pub.On("Publish", mock.Anything, mock.AnythingOfType("domain.TelegramPersisted")).Return(nil)
 				streamPub.On("Publish", mock.Anything, "job:index", mock.MatchedBy(func(tg interface{}) bool {
 					if tgApp, ok := tg.(*app.Telegram); ok {
@@ -247,15 +250,19 @@ func TestIngestionService_Handle(t *testing.T) {
 			consumer := &mockStreamConsumer{}
 			repo := &mockRepository{}
 			eventPub := &mockEventPublisher{}
+			statsEventPub := &mockEventPublisher{}
 			streamPub := &mockStreamPublisher{}
+			var statsCounter *StatsCounterService
 
-			tt.setupMocks(repo, eventPub, streamPub)
+			tt.setupMocks(repo, eventPub, statsEventPub, streamPub, nil)
 
 			svc := NewIngestionService(
 				consumer,
 				repo,
 				eventPub,
+				statsEventPub,
 				streamPub,
+				statsCounter,
 				logger,
 			)
 
@@ -294,6 +301,7 @@ func TestIngestionService_Handle_Normalize(t *testing.T) {
 
 	repo := &mockRepository{}
 	eventPub := &mockEventPublisher{}
+	statsEventPub := &mockEventPublisher{}
 	streamPub := &mockStreamPublisher{}
 
 	repo.On("Save", mock.Anything, mock.MatchedBy(func(tg *domain.Telegram) bool {
@@ -304,6 +312,7 @@ func TestIngestionService_Handle_Normalize(t *testing.T) {
 			tg.Type == "AFTN" &&
 			tg.Content == "test content"
 	})).Return(nil)
+	// Stats counter is nil in tests, so these won't be called
 	eventPub.On("Publish", mock.Anything, mock.Anything).Return(nil)
 	streamPub.On("Publish", mock.Anything, "job:index", mock.MatchedBy(func(tg interface{}) bool {
 		if tgApp, ok := tg.(*app.Telegram); ok {
@@ -319,7 +328,9 @@ func TestIngestionService_Handle_Normalize(t *testing.T) {
 		&mockStreamConsumer{},
 		repo,
 		eventPub,
+		statsEventPub,
 		streamPub,
+		nil, // Stats counter is nil in tests
 		logger,
 	)
 

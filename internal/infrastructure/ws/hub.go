@@ -125,6 +125,25 @@ func (h *Hub) handleRegister(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	// Check if this client is already registered (duplicate connection detection)
+	clientID := fmt.Sprintf("%s@%s", client.RemoteAddr(), client.ConnectedAt().Format("15:04:05.000"))
+	for existingClient := range h.clients {
+		existingID := fmt.Sprintf("%s@%s", existingClient.RemoteAddr(), existingClient.ConnectedAt().Format("15:04:05.000"))
+		// Check if same IP and very close connection time (within 1 second) - likely duplicate
+		if existingClient.GetIP() == client.GetIP() &&
+			existingClient.RemoteAddr() == client.RemoteAddr() &&
+			client.ConnectedAt().Sub(existingClient.ConnectedAt()).Abs() < time.Second {
+			h.logger.Warn("duplicate client connection detected, closing new connection",
+				zap.String("client_id", clientID),
+				zap.String("existing_id", existingID),
+				zap.String("ip", client.GetIP()),
+			)
+			client.Close()
+			h.metrics.connectionRejectedInc()
+			return
+		}
+	}
+
 	// Check connection limits per IP
 	clientIP := client.GetIP()
 	if h.Config.MaxConnectionsPerIP > 0 {
@@ -146,6 +165,7 @@ func (h *Hub) handleRegister(client *Client) {
 
 	h.logger.Info("client registered",
 		zap.String("remote_addr", client.RemoteAddr()),
+		zap.String("client_id", clientID),
 		zap.String("ip", clientIP),
 		zap.Int("total_clients", len(h.clients)))
 }
@@ -213,12 +233,6 @@ func (h *Hub) handleBroadcast(message []byte) {
 
 	h.metrics.messagesBroadcastAdd(float64(success))
 	h.metrics.messagesDroppedAdd(float64(dropped))
-
-	if dropped > 0 {
-		h.logger.Debug("broadcast complete",
-			zap.Int("success", success),
-			zap.Int("dropped", dropped))
-	}
 
 	// Unregister slow clients synchronously while holding write lock
 	// This avoids deadlock since handleBroadcast runs in the run() goroutine
@@ -333,7 +347,7 @@ func (h *Hub) Close() {
 
 	select {
 	case <-done:
-		h.logger.Debug("hub goroutine finished")
+		// Hub goroutine finished normally
 	case <-time.After(5 * time.Second):
 		h.logger.Warn("hub shutdown timeout, proceeding with cleanup")
 	}

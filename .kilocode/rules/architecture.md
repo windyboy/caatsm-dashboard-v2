@@ -1,17 +1,8 @@
 # Architecture Rules
 
 ## Layering
-Allowed:
-```
-Delivery → Application
-Application → Domain
-Infrastructure → Application Ports + Domain Types
-```
-Forbidden:
-- Domain depends on infra or delivery
-- Handlers depend on DB/NATS/Redis/Search clients
-- Infrastructure references Delivery
-- Global mutable driver instances
+Allowed: Delivery → Application → Domain, Infrastructure → Application Ports + Domain Types
+Forbidden: Domain depends on infra/delivery, Handlers depend on DB/NATS/Redis/Search, Infrastructure references Delivery, Global mutable driver instances
 
 ## Responsibilities
 - Domain: business rules, validation, time windows, filtering

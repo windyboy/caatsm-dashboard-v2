@@ -1,7 +1,13 @@
 <script lang="ts">
   import type { Telegram } from "$lib/types";
+  import Card from "./ui/Card.svelte";
+  import Badge from "./ui/Badge.svelte";
 
-  export let messages: Telegram[] = [];
+  interface MessageListProps {
+    messages?: Telegram[];
+  }
+
+  let { messages = [] }: MessageListProps = $props();
 
   const formatPriority = (priority?: number): string => {
     if (!priority) return "Priority N/A";
@@ -11,24 +17,24 @@
   };
 </script>
 
-<div class="card">
+<Card>
   <div class="card__header">
     <div>
       <p class="eyebrow">Latest Messages</p>
       <p class="muted">Newest first</p>
     </div>
-    <span class="pill pill--soft">Live feed</span>
+    <Badge variant="soft">Live feed</Badge>
   </div>
 
   {#if messages.length === 0}
     <p class="muted">No messages yet.</p>
   {:else}
     <div class="message-list-container">
-      <ul class="message-list">
+      <ul class="message-list" role="list">
         {#each messages as message, index (`${message.message_id || 'no-id'}-${index}`)}
-          <li class="message">
+          <li class="message" role="listitem">
             <div class="message-meta">
-              <span class="pill pill--soft">{message.type || "Unknown"}</span>
+              <Badge variant="soft">{message.type || "Unknown"}</Badge>
               <span class="muted">
                 {message.time ? new Date(message.time).toLocaleString() : "No timestamp"}
               </span>
@@ -41,11 +47,11 @@
                 {message.source || "----"} → {message.destination || "----"}
               </span>
               <span class="muted">{message.flight_number || "Flight N/A"}</span>
-              <span class="pill pill--ghost">{formatPriority(message.priority)}</span>
+              <Badge variant="ghost">{formatPriority(message.priority)}</Badge>
             </div>
           </li>
         {/each}
       </ul>
     </div>
   {/if}
-</div>
+</Card>

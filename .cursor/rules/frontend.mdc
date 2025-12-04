@@ -1,5 +1,5 @@
 ---
-description: "Frontend rules for SvelteKit + TypeScript + UnoCSS + DaisyUI."
+description: "Frontend rules for SvelteKit + TypeScript + UnoCSS + @melt-ui/svelte."
 globs:
   - "frontend/**"
 alwaysApply: false
@@ -8,35 +8,28 @@ tags:
   - sveltekit
   - typescript
   - unocss
-  - daisyui
+  - melt-ui
 ---
 
 # Frontend Persona
 Senior SvelteKit engineer; simple, predictable UI with real-time capabilities. Keep changes small, production-safe, and aligned with existing patterns.
 
 # Stack
-SvelteKit 2.x + Svelte 5 (with runes), TypeScript (strict mode), UnoCSS + DaisyUI, Deno 2.0+ (runtime), Vitest (unit), Playwright (E2E).
-
-# Structure
-`frontend/src/lib/components/` (UI), `stores/` (reactive state), `services/` (REST + WebSocket clients), `routes/` (SvelteKit pages).
+SvelteKit 2.x + Svelte 5 (runes), TypeScript (strict), UnoCSS + @melt-ui/svelte, Deno 2.0+, Vitest, Playwright.
 
 # Key Patterns
-- Use Svelte 5 runes for reactive state (`$state`, `$derived`, `$effect`)
-- Prefer composition over inheritance; keep components focused
-- Handle all states explicitly: loading, error, empty, success
-- WebSocket client handles connection, reconnection, and message routing
-- Mirror backend constraints in UI (e.g., 90-day query windows)
+- Svelte 5 runes: `$state`, `$derived`, `$effect`, `$props`, `$bindable`
+- Use `{@render children()}` snippets instead of `<slot>`
+- Base UI components in `ui/`, feature components compose them
+- Handle all states: loading, error, empty, success
+- Mirror backend constraints (90-day windows, bounded queries)
 
 # Constraints
-- **Real-time first**: Never block WebSocket handlers or real-time streams
-- **State handling**: Handle all UI states explicitly; show connection status indicators
-- **Error handling**: Display user-friendly errors; log with context
-- **Backend alignment**: Mirror backend constraints (90-day windows, bounded queries)
-
-# Scope
-Lean real-time dashboard UI; keep solutions small and purposeful—no heavy new dependencies.
+- Real-time first: Never block WebSocket handlers
+- Backend alignment: Mirror constraints in UI
+- Accessibility: ARIA attributes, semantic HTML, keyboard navigation
 
 # References
 - Commands: `AGENTS.md`
-- Frontend details: `frontend/README.md`
-- Code style: Use Prettier and TypeScript compiler (deterministic tools)
+- Details: `frontend/README.md`
+- Style: Prettier + TypeScript compiler

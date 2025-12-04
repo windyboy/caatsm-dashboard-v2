@@ -96,3 +96,34 @@ func (e SearchPerformed) EventType() string {
 func (e SearchPerformed) OccurredAt() time.Time {
 	return e.Timestamp
 }
+
+// StatsIncremented is published when statistics counters are updated.
+// This event carries incremental changes to statistics rather than full snapshots.
+type StatsIncremented struct {
+	Total     int64            `json:"total"`
+	ByType    map[string]int64 `json:"byType"`
+	Route     string           `json:"route,omitempty"`
+	Timestamp time.Time        `json:"timestamp"`
+}
+
+func (e StatsIncremented) EventType() string {
+	return "stats.incremented"
+}
+
+func (e StatsIncremented) OccurredAt() time.Time {
+	return e.Timestamp
+}
+
+// HealthUpdated is published when health status changes.
+type HealthUpdated struct {
+	Health   interface{} `json:"health"` // HealthCheckResult from app layer
+	At       time.Time   `json:"at"`
+}
+
+func (e HealthUpdated) EventType() string {
+	return "health.updated"
+}
+
+func (e HealthUpdated) OccurredAt() time.Time {
+	return e.At
+}

@@ -186,12 +186,6 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 		return err
 	}
 
-	// Send initial data using request context (safe for this quick operation)
-	ctx := c.Request().Context()
-	if err := h.sendInitialData(ctx, client); err != nil {
-		h.logger.Warn("failed to send initial data", zap.Error(err))
-	}
-
 	// Create a detached context tied to the hub's lifecycle (not the HTTP request)
 	// This ensures the client pumps and Redis listener persist after the HTTP upgrade
 	clientCtx := h.hub.Context()
@@ -203,14 +197,21 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 	// writePump: sends messages from the send channel, periodic pings, and closes connection when done
 	go client.WritePump(clientCtx)
 
-	// Start Redis listener once with hub context (not request context) so it doesn't exit prematurely
-	// Use sync.Once to ensure only one listener is started across all client connections
-	if h.redisCli != nil {
-		h.redisListenerOnce.Do(func() {
-			h.logger.Info("starting Redis listener with hub lifecycle context")
-			go h.startRedisListener(clientCtx)
-		})
-	}
+	// Send initial data after WritePump is started to ensure messages can be sent
+	// Use goroutine to avoid blocking and give WritePump time to start
+	go func() {
+		// Small delay to ensure WritePump has started processing
+		time.Sleep(10 * time.Millisecond)
+		
+		// Use request context for initial data fetch (safe for this quick operation)
+		ctx := c.Request().Context()
+		if err := h.sendInitialData(ctx, client); err != nil {
+			h.logger.Warn("failed to send initial data", zap.Error(err))
+		}
+	}()
+
+	// Note: Redis listener is now handled by RealtimeService to avoid duplicate message handling.
+	// Removed: h.startRedisListener() - RealtimeService handles all Redis Pub/Sub subscriptions.
 
 	return nil
 }
@@ -305,6 +306,9 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 	return nil
 }
 
+// startRedisListener is deprecated and no longer used.
+// Redis Pub/Sub subscriptions are now handled by RealtimeService to avoid duplicate message handling.
+// This method is kept for reference but should not be called.
 func (h *Handler) startRedisListener(ctx context.Context) {
 	if h.redisCli == nil {
 		return

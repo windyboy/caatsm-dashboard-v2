@@ -134,4 +134,9 @@ func (e *GenericEvent) OccurredAt() time.Time {
 	return e.occurredAt
 }
 
+// GetData returns the event data for easier access.
+func (e *GenericEvent) GetData() interface{} {
+	return e.Data
+}
+
 

@@ -1,33 +1,17 @@
-
 # WHY
 Visualizes parsed aviation telegram data in real time. Provides dashboards, monitoring, and search. Does not parse or interpret telegram protocols—receives pre-parsed data via NATS.
 
 # WHAT
-Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + DaisyUI. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
+Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + @melt-ui/svelte. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
 
 # HOW
 Propose plan before significant changes. Keep changes small, aligned with Clean Architecture. No parsing logic. Preserve real-time behavior. Ask when unclear.
 
 # Progressive Disclosure
-When working on specific areas, reference:
-- Backend: `.cursor/rules/backend.mdc` → `docs/ARCHITECTURE.md` for patterns
-- Frontend: `.cursor/rules/frontend.mdc` → `frontend/README.md` for details
-- Commands: `AGENTS.md` → `docs/DEVELOPMENT.md` for workflows
-- Architecture: `docs/ARCHITECTURE.md` for layer responsibilities and data flow
-
-# Principles
-Minimal config, deterministic tooling. Use linters for code style. This file is hand-crafted and concise.
-
-Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + DaisyUI. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
-
-# HOW
-Propose plan before significant changes. Keep changes small, aligned with Clean Architecture. No parsing logic. Preserve real-time behavior. Ask when unclear.
-
-# Progressive Disclosure
-- Backend patterns: `.cursor/rules/backend.mdc`
-- Frontend patterns: `.cursor/rules/frontend.mdc`
-- Commands and tools: `AGENTS.md`
-- Architecture details: `docs/ARCHITECTURE.md`
+- Backend: `.cursor/rules/backend.mdc` → `docs/ARCHITECTURE.md`
+- Frontend: `.cursor/rules/frontend.mdc` → `frontend/README.md`
+- Commands: `AGENTS.md` → `docs/DEVELOPMENT.md`
+- Architecture: `docs/ARCHITECTURE.md`
 
 # Principles
 Minimal config, deterministic tooling. Use linters for code style. This file is hand-crafted and concise.
