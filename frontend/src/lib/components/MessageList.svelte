@@ -23,27 +23,29 @@
   {#if messages.length === 0}
     <p class="muted">No messages yet.</p>
   {:else}
-    <ul class="message-list">
-      {#each messages as message, index (message.message_id ?? `${message.time}-${index}`)}
-        <li class="message">
-          <div class="message-meta">
-            <span class="pill pill--soft">{message.type || "Unknown"}</span>
-            <span class="muted">
-              {message.time ? new Date(message.time).toLocaleString() : "No timestamp"}
-            </span>
-          </div>
+    <div class="message-list-container">
+      <ul class="message-list">
+        {#each messages as message, index (message.message_id ?? `${message.time}-${index}`)}
+          <li class="message">
+            <div class="message-meta">
+              <span class="pill pill--soft">{message.type || "Unknown"}</span>
+              <span class="muted">
+                {message.time ? new Date(message.time).toLocaleString() : "No timestamp"}
+              </span>
+            </div>
 
-          <p class="message-body">{message.content || "No content provided."}</p>
+            <p class="message-body">{message.content || "No content provided."}</p>
 
-          <div class="message-foot">
-            <span class="muted">
-              {message.source || "----"} → {message.destination || "----"}
-            </span>
-            <span class="muted">{message.flight_number || "Flight N/A"}</span>
-            <span class="pill pill--ghost">{formatPriority(message.priority)}</span>
-          </div>
-        </li>
-      {/each}
-    </ul>
+            <div class="message-foot">
+              <span class="muted">
+                {message.source || "----"} → {message.destination || "----"}
+              </span>
+              <span class="muted">{message.flight_number || "Flight N/A"}</span>
+              <span class="pill pill--ghost">{formatPriority(message.priority)}</span>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    </div>
   {/if}
 </div>

@@ -247,13 +247,18 @@ a {
   font-weight: 600;
 }
 
+.message-list-container {
+  height: 600px;
+  margin-top: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow-y: auto;
+}
+
 .message-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 .message {
@@ -261,6 +266,8 @@ a {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #f8fafc;
+  margin-bottom: 0.75rem;
+  box-sizing: border-box;
 }
 
 .message-meta {

@@ -1,20 +1,51 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import MessageList from "$lib/components/MessageList.svelte";
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
   import { runSearch } from "$lib/api";
   import type { Telegram } from "$lib/types";
+  // 暂时移除虚拟列表，使用普通 each 循环避免兼容性问题
+  // import SvelteVirtualList from "@humanspeak/svelte-virtual-list";
 
   let query = $state("");
+  let startTime = $state("");
+  let endTime = $state("");
   let results = $state<Telegram[]>([]);
   let total = $state(0);
   let loading = $state(false);
   let error = $state<string | null>(null);
   let abortController: AbortController | null = null;
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  let initialLoadDone = $state(false);
+
+  const hasSearchCriteria = $derived.by(() => {
+    return query.trim().length > 0 || startTime.length > 0 || endTime.length > 0;
+  });
+
+  function validateTimeRange(): string | null {
+    if (startTime && endTime) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      
+      if (start >= end) {
+        return "Start time must be before end time";
+      }
+      
+      const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysDiff > 90) {
+        return "Time range cannot exceed 90 days";
+      }
+    }
+    return null;
+  }
 
   async function performSearch() {
+    // Validate time range if both times are provided
+    const validationError = validateTimeRange();
+    if (validationError) {
+      error = validationError;
+      results = [];
+      total = 0;
+      return;
+    }
+
     if (abortController) {
       abortController.abort();
     }
@@ -23,7 +54,13 @@
     error = null;
 
     try {
-      const response = await runSearch(query, 100, abortController.signal);
+      const response = await runSearch(
+        query,
+        1000,
+        abortController.signal,
+        startTime || undefined,
+        endTime || undefined
+      );
       if (abortController.signal.aborted) return;
       results = response.telegrams ?? [];
       total = response.total ?? results.length;
@@ -39,64 +76,53 @@
     }
   }
 
-  function handleSubmit(event: SubmitEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
+    if (!hasSearchCriteria) {
+      error = "Please enter a search query or time range";
+      return;
     }
-    performSearch();
+    await performSearch();
   }
 
   function reset() {
     query = "";
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-    performSearch();
+    startTime = "";
+    endTime = "";
+    error = null;
+    results = [];
+    total = 0;
   }
-
-  $effect(() => {
-    if (!initialLoadDone) return;
-
-    // Access query to ensure effect tracks its changes
-    // This ensures the effect re-runs whenever query changes
-    query; // eslint-disable-line @typescript-eslint/no-unused-expressions
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      performSearch();
-    }, 400);
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-    };
-  });
 
   onMount(() => {
     document.title = "CAATSM Dashboard - Search";
-    performSearch().then(() => {
-      initialLoadDone = true;
-    });
+    // Initialize with empty results, don't perform search on mount
+    results = [];
+    total = 0;
   });
 
   onDestroy(() => {
-    if (debounceTimer) clearTimeout(debounceTimer);
     if (abortController) abortController.abort();
   });
+
+  const formatPriority = (priority?: number): string => {
+    if (!priority) return "Priority N/A";
+    if (priority === 1) return "Priority 1 · Urgent";
+    if (priority === 2) return "Priority 2 · Operational";
+    return "Priority 3 · Routine";
+  };
 </script>
 
 <main class="page">
   <section class="page__intro">
     <p class="eyebrow">Search</p>
     <h1>Find messages quickly</h1>
-    <p class="muted">A focused search view without extra controls or filters.</p>
+    <p class="muted">Search aviation telegrams with full-text search and time range filters.</p>
   </section>
 
   <form class="search-form" onsubmit={handleSubmit}>
     <label class="search-field">
-      <span class="muted">Query</span>
+      <span class="muted">Query (optional)</span>
       <input
         name="query"
         placeholder="Type, flight number, route, or text"
@@ -104,6 +130,26 @@
         aria-label="Search query"
       />
     </label>
+    <div class="search-form__time-filters">
+      <label class="search-field">
+        <span class="muted">Start Time (optional)</span>
+        <input
+          type="datetime-local"
+          name="start_time"
+          bind:value={startTime}
+          aria-label="Start time"
+        />
+      </label>
+      <label class="search-field">
+        <span class="muted">End Time (optional)</span>
+        <input
+          type="datetime-local"
+          name="end_time"
+          bind:value={endTime}
+          aria-label="End time"
+        />
+      </label>
+    </div>
     <div class="search-actions">
       <button class="button" type="submit" disabled={loading}>
         {loading ? "Searching..." : "Search"}
@@ -121,8 +167,53 @@
       <p class="eyebrow">Error</p>
       <p class="muted">{error}</p>
     </div>
+  {:else if results.length === 0 && !hasSearchCriteria}
+    <div class="card">
+      <p class="muted">Enter a search query or time range to search for messages.</p>
+    </div>
+  {:else if results.length === 0}
+    <div class="card">
+      <p class="muted">No messages found matching your search criteria.</p>
+    </div>
   {:else}
-    <p class="muted">Showing {results.length} of {total} results.</p>
-    <MessageList messages={results} />
+    <div class="card">
+      <div class="card__header">
+        <div>
+          <p class="eyebrow">Search Results</p>
+          <p class="muted">Showing {results.length} of {total} results</p>
+        </div>
+      </div>
+      <div class="message-list-container">
+        <ul class="message-list">
+          {#each results as item, index (item.message_id ?? `${item.time}-${index}`)}
+            <li class="message">
+              <div class="message-meta">
+                <span class="pill pill--soft">{item.type || "Unknown"}</span>
+                <span class="muted">
+                  {item.time ? new Date(item.time).toLocaleString() : "No timestamp"}
+                </span>
+              </div>
+              <p class="message-body">{item.content || "No content provided."}</p>
+              <div class="message-foot">
+                <span class="muted">
+                  {item.source || "----"} → {item.destination || "----"}
+                </span>
+                <span class="muted">{item.flight_number || "Flight N/A"}</span>
+                <span class="pill pill--ghost">{formatPriority(item.priority)}</span>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    </div>
   {/if}
 </main>
+
+<style>
+  .search-form__time-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+
+</style>

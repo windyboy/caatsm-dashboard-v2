@@ -95,7 +95,20 @@ export function fetchRecentMessages(limit: number = 12): Promise<SearchResponse>
   return request<SearchResponse>(`/api/search?${params.toString()}`);
 }
 
-export function runSearch(query: string, limit: number = 50, signal?: AbortSignal): Promise<SearchResponse> {
+function formatDateTimeLocalToRFC3339(dateTimeLocal: string): string {
+  if (!dateTimeLocal) return "";
+  // datetime-local format: "YYYY-MM-DDTHH:mm"
+  // RFC3339 format: "YYYY-MM-DDTHH:mm:ssZ"
+  return `${dateTimeLocal}:00Z`;
+}
+
+export function runSearch(
+  query: string,
+  limit: number = 50,
+  signal?: AbortSignal,
+  startTime?: string,
+  endTime?: string
+): Promise<SearchResponse> {
   const params = new URLSearchParams({
     limit: String(limit),
     sort_by: "time",
@@ -104,6 +117,14 @@ export function runSearch(query: string, limit: number = 50, signal?: AbortSigna
 
   if (query.trim()) {
     params.set("query", query.trim());
+  }
+
+  if (startTime) {
+    params.set("start_time", formatDateTimeLocalToRFC3339(startTime));
+  }
+
+  if (endTime) {
+    params.set("end_time", formatDateTimeLocalToRFC3339(endTime));
   }
 
   return request<SearchResponse>(`/api/search?${params.toString()}`, { signal });
