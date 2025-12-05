@@ -45,3 +45,8 @@ func (ds *DashboardService) Search(ctx context.Context, filters domain.SearchFil
 func (ds *DashboardService) GetStats(ctx context.Context, timeRange domain.TimeWindow) (*domain.TrafficSummary, error) {
 	return ds.statsSvc.GetStats(ctx, timeRange)
 }
+
+// GetHistoricalStats retrieves time-series statistics
+func (ds *DashboardService) GetHistoricalStats(ctx context.Context, timeRange domain.TimeWindow, interval string) (*domain.HistoricalStats, error) {
+	return ds.statsSvc.GetHistoricalStats(ctx, timeRange, interval)
+}

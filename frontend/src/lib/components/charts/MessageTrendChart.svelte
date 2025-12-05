@@ -44,12 +44,22 @@
     return generated;
   }
 
+  // Format time string for display
+  function formatTime(timeStr: string): string {
+    try {
+      const date = new Date(timeStr);
+      return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return timeStr;
+    }
+  }
+
   // Simple chart data - no derived chains
   function getChartData() {
     const sourceData = data.length > 0 ? data : generateMockData();
     
     return {
-      labels: sourceData.map((d) => d.time),
+      labels: sourceData.map((d) => formatTime(d.time)),
       datasets: [
         {
           label: "Messages",
@@ -63,6 +73,16 @@
         },
       ],
     };
+  }
+
+  // Update chart data when data prop changes
+  function updateChart() {
+    if (!chartInstance) return;
+    
+    const chartData = getChartData();
+    chartInstance.data.labels = chartData.labels;
+    chartInstance.data.datasets[0].data = chartData.datasets[0].data;
+    chartInstance.update();
   }
 
   // Create chart once on mount
@@ -105,13 +125,17 @@
 
     chartInstance = new Chart(ctx, config);
 
-    // Only update if data prop changes (manual update, not reactive)
     return () => {
       // Cleanup handled in onDestroy
     };
   });
 
-  // Chart updates are handled manually - no reactive effects to avoid loops
+  // Reactively update chart when data changes
+  $effect(() => {
+    if (chartInstance) {
+      updateChart();
+    }
+  });
 
   onDestroy(() => {
     if (chartInstance) {

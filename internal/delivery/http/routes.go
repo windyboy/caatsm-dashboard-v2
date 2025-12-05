@@ -15,6 +15,7 @@ func RegisterRoutes(e *echo.Echo, dashboardSvc DashboardService, logger *zap.Log
 	api := e.Group("/api")
 	api.GET("/search", handler.Search)
 	api.GET("/stats", handler.Stats)
+	api.GET("/stats/historical", handler.HistoricalStats)
 	api.GET("/health", handler.Health)
 }
 

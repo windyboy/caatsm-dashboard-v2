@@ -2,7 +2,6 @@ package ws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -304,77 +303,4 @@ func (h *Handler) sendRecentMessages(ctx context.Context, client *ws.Client) err
 	}
 
 	return nil
-}
-
-// startRedisListener is deprecated and no longer used.
-// Redis Pub/Sub subscriptions are now handled by RealtimeService to avoid duplicate message handling.
-// This method is kept for reference but should not be called.
-func (h *Handler) startRedisListener(ctx context.Context) {
-	if h.redisCli == nil {
-		return
-	}
-
-	pubsub := h.redisCli.Subscribe(ctx, "msg:broadcast")
-	defer func() {
-		_ = pubsub.Close()
-	}()
-
-	ch := pubsub.Channel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg, ok := <-ch:
-			if !ok {
-				return
-			}
-			if msg != nil && msg.Channel == "msg:broadcast" && msg.Payload != "" {
-				// Parse the event from Redis Pub/Sub
-				// Event format: {"type": "telegram.persisted", "data": {"Telegram": {...}, "At": "..."}}
-				var eventData map[string]any
-				if err := json.Unmarshal([]byte(msg.Payload), &eventData); err != nil {
-					h.logger.Warn("ignored invalid JSON message from redis",
-						zap.String("channel", msg.Channel),
-						zap.Error(err))
-					continue
-				}
-
-				// Extract telegram from event data
-				var telegram *app.Telegram
-				if data, ok := eventData["data"].(map[string]any); ok {
-					if telegramData, ok := data["Telegram"].(map[string]any); ok {
-						// Parse telegram from map
-						telegramBytes, err := json.Marshal(telegramData)
-						if err == nil {
-							var tg app.Telegram
-							if err := json.Unmarshal(telegramBytes, &tg); err == nil {
-								telegram = &tg
-							}
-						}
-					}
-				}
-
-				if telegram == nil {
-					eventType := ""
-					if t, ok := eventData["type"].(string); ok {
-						eventType = t
-					}
-					h.logger.Debug("could not extract telegram from redis message, skipping",
-						zap.String("channel", msg.Channel),
-						zap.String("event_type", eventType))
-					continue
-				}
-
-				// Broadcast to all clients via hub
-				wsMsg := app.WSMessage{
-					Type: "message",
-					Data: telegram, // Send Telegram object, not string
-				}
-				if err := h.hub.Broadcast(wsMsg); err != nil {
-					h.logger.Warn("failed to broadcast message", zap.Error(err))
-				}
-			}
-		}
-	}
 }

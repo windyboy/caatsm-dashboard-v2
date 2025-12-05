@@ -21,6 +21,7 @@ const (
 type DashboardService interface {
 	Search(ctx context.Context, filters app.SearchFilters) (*app.SearchResult, error)
 	GetStats(ctx context.Context, timeRange app.TimeWindow) (*app.TrafficSummary, error)
+	GetHistoricalStats(ctx context.Context, timeRange app.TimeWindow, interval string) (*app.HistoricalStats, error)
 }
 
 type AdminService interface {
@@ -98,6 +99,31 @@ func (h *Handler) Stats(c echo.Context) error {
 	stats, err := h.dashboardSvc.GetStats(c.Request().Context(), timeRange)
 	if err != nil {
 		h.logger.Error("stats retrieval failed", zap.Error(err))
+		return handleError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, stats)
+}
+
+func (h *Handler) HistoricalStats(c echo.Context) error {
+	timeRange, err := buildTimeWindow(c)
+	if err != nil {
+		h.logger.Error("invalid time range", zap.Error(err))
+		return handleError(c, app.ErrInvalidInput)
+	}
+
+	interval := c.QueryParam("interval")
+	if interval == "" {
+		interval = "hour"
+	}
+	if interval != "hour" && interval != "day" {
+		h.logger.Error("invalid interval", zap.String("interval", interval))
+		return handleError(c, app.ErrInvalidInput)
+	}
+
+	stats, err := h.dashboardSvc.GetHistoricalStats(c.Request().Context(), timeRange, interval)
+	if err != nil {
+		h.logger.Error("historical stats retrieval failed", zap.Error(err))
 		return handleError(c, err)
 	}
 

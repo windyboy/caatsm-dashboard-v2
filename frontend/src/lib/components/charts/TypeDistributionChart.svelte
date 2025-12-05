@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { Chart, type ChartConfiguration, ArcElement, Tooltip, Legend } from "chart.js";
+  import { Chart, type ChartConfiguration } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { generateColors, defaultChartOptions } from "$lib/utils/chart-helpers";
 
@@ -52,8 +52,8 @@
     const chartData = getChartData();
     if (chartData.labels.length === 0) return;
 
-    // Register required components (only once)
-    Chart.register(ArcElement, Tooltip, Legend);
+    // Chart.js components are already registered in chart-helpers.ts
+    // No need to register again here
 
     const config: ChartConfiguration<"doughnut"> = {
       type: "doughnut",

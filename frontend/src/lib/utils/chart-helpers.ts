@@ -7,6 +7,7 @@ import {
   LineController,
   BarElement,
   ArcElement,
+  DoughnutController,
   Title,
   Tooltip,
   Legend,
@@ -24,6 +25,7 @@ ChartJS.register(
   LineController,
   BarElement,
   ArcElement,
+  DoughnutController,
   Title,
   Tooltip,
   Legend,
@@ -57,7 +59,7 @@ export const chartColors = {
 };
 
 // 默认图表配置（shadcn风格）
-export const defaultChartOptions: Partial<ChartOptions<any>> = {
+export const defaultChartOptions: Partial<ChartOptions<"line" | "bar" | "doughnut">> = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {

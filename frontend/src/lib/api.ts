@@ -1,4 +1,4 @@
-import type { HealthSnapshot, SearchResponse, TrafficSummary } from "./types";
+import type { HealthSnapshot, HistoricalStats, SearchResponse, TrafficSummary } from "./types";
 import { getConnectionStore } from "./stores/connection.svelte";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3002";
@@ -99,6 +99,20 @@ export function fetchStats(): Promise<TrafficSummary> {
   });
 
   return request<TrafficSummary>(`/api/stats?${params.toString()}`);
+}
+
+export function fetchTrendData(interval: string = "hour"): Promise<HistoricalStats> {
+  // Default to last 24 hours
+  const endTime = new Date();
+  const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+
+  const params = new URLSearchParams({
+    start_time: startTime.toISOString(),
+    end_time: endTime.toISOString(),
+    interval: interval,
+  });
+
+  return request<HistoricalStats>(`/api/stats/historical?${params.toString()}`);
 }
 
 export async function fetchHealth(): Promise<HealthSnapshot> {

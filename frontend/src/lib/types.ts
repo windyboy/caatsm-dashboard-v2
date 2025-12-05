@@ -40,6 +40,16 @@ export interface SearchResponse {
   total: number;
 }
 
+export interface HistoricalDataPoint {
+  time: string;
+  count: number;
+}
+
+export interface HistoricalStats {
+  interval: string;
+  data: HistoricalDataPoint[];
+}
+
 // WebSocket message types
 export interface WSMessage {
   type: string;

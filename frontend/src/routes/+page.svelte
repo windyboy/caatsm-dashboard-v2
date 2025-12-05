@@ -8,14 +8,16 @@
   import MessageDataTable from "$lib/components/MessageDataTable.svelte";
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
   import ConnectionBanner from "$lib/components/ConnectionBanner.svelte";
-  import { fetchHealth, fetchRecentMessages, fetchStats } from "$lib/api";
+  import { fetchHealth, fetchRecentMessages, fetchStats, fetchTrendData } from "$lib/api";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
-  import type { HealthSnapshot, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
+  import type { HealthSnapshot, HistoricalStats, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
+  import type { TrendDataPoint } from "$lib/components/charts/MessageTrendChart.svelte";
 
   // Simple state management - no complex derived values
   let stats = $state<TrafficSummary | null>(null);
   let health = $state<HealthSnapshot | null>(null);
   let messages = $state<Telegram[]>([]);
+  let trendData = $state<TrendDataPoint[]>([]);
   let loading = $state(true);
   let timeWindow = $state("last_24h");
 
@@ -68,15 +70,22 @@
 
     // Initial HTTP data fetch
     try {
-      const [statsResponse, healthResponse, messagesResponse] = await Promise.all([
+      const [statsResponse, healthResponse, messagesResponse, trendResponse] = await Promise.all([
         fetchStats().catch(() => null),
         fetchHealth().catch(() => null),
         fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
+        fetchTrendData("hour").catch(() => null),
       ]);
 
       if (statsResponse) stats = statsResponse;
       if (healthResponse) health = healthResponse;
       if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
+      if (trendResponse?.data) {
+        trendData = trendResponse.data.map((d) => ({
+          time: d.time,
+          count: d.count,
+        }));
+      }
     } catch (err) {
       console.error("Failed to load initial data:", err);
     } finally {
@@ -144,7 +153,7 @@
       <!-- Visualization Section -->
       <section class="grid grid--two">
         <TypeDistributionChart data={byType} title="Message Type Distribution" />
-        <MessageTrendChart title="Message Trend" />
+        <MessageTrendChart title="Message Trend" data={trendData} />
       </section>
 
       <!-- System Health Panel -->
