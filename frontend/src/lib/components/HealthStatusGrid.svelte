@@ -1,7 +1,7 @@
 <script lang="ts">
   import Card from "./ui/Card.svelte";
   import Badge from "./ui/Badge.svelte";
-  import { cn } from "./ui/utils";
+  import { cn } from "$lib/utils.js";
   import type { HealthSnapshot } from "$lib/types";
 
   interface HealthStatusGridProps {

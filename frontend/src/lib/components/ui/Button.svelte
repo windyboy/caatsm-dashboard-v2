@@ -1,34 +1,27 @@
 <script lang="ts">
-  import { cn } from "./utils";
+  import { Button as ShadcnButton, type ButtonProps as ShadcnButtonProps } from "./button/index.js";
   import type { Snippet } from "svelte";
 
-  interface ButtonProps {
-    variant?: "default" | "ghost";
-    disabled?: boolean;
-    type?: "button" | "submit" | "reset";
+  interface ButtonProps extends Omit<ShadcnButtonProps, "children"> {
+    variant?: "default" | "ghost" | "outline" | "secondary" | "destructive" | "link";
     children?: Snippet;
     onclick?: (event: MouseEvent) => void;
-    [key: string]: unknown;
   }
 
   let {
     variant = "default",
-    disabled = false,
-    type = "button",
     children,
     onclick,
     ...restProps
   }: ButtonProps = $props();
 </script>
 
-<button
-  {type}
-  {disabled}
-  class={cn("button", variant === "ghost" && "button--ghost")}
-  {onclick}
+<ShadcnButton
+  {variant}
+  onclick={onclick}
   {...restProps}
 >
   {#if children}
     {@render children()}
   {/if}
-</button>
+</ShadcnButton>

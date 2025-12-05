@@ -1,14 +1,22 @@
 /// <reference path="./vite-env.d.ts" />
 import { sveltekit } from "@sveltejs/kit/vite";
-import UnoCSS from "unocss/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   // Plugin ordering for Svelte 5:
-  // 1. UnoCSS first (processes CSS)
-  // 2. sveltekit() includes @sveltejs/vite-plugin-svelte (processes Svelte files)
-  // This order ensures proper HMR behavior with Svelte 5
-  plugins: [UnoCSS(), sveltekit()],
+  // sveltekit() includes @sveltejs/vite-plugin-svelte (processes Svelte files)
+  // TailwindCSS is processed via PostCSS
+  plugins: [sveltekit()],
+  optimizeDeps: {
+    include: ["@internationalized/date"],
+    esbuildOptions: {
+      // Ensure proper resolution of package exports
+      mainFields: ["module", "main"],
+    },
+  },
+  ssr: {
+    noExternal: ["@internationalized/date"],
+  },
   server: {
     port: 5173,
     // HMR settings for Svelte 5 - ensure proper hot module replacement

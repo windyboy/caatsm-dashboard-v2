@@ -1,5 +1,9 @@
 <script lang="ts">
-  export let variant: "metric" | "message" | "health" = "metric";
+  interface LoadingSkeletonProps {
+    variant?: "metric" | "message" | "health";
+  }
+
+  let { variant = "metric" }: LoadingSkeletonProps = $props();
 </script>
 
 {#if variant === "metric"}

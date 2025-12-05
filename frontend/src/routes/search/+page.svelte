@@ -3,6 +3,8 @@
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import Button from "$lib/components/ui/Button.svelte";
+  import Card from "$lib/components/ui/Card.svelte";
+  import Badge from "$lib/components/ui/Badge.svelte";
   import { runSearch } from "$lib/api";
   import type { Telegram } from "$lib/types";
   // 暂时移除虚拟列表，使用普通 each 循环避免兼容性问题
@@ -157,20 +159,22 @@
   {#if loading}
     <LoadingSkeleton variant="message" />
   {:else if error}
-    <div class="card error-card" role="alert" aria-live="polite" aria-atomic="true">
-      <p class="eyebrow">Error</p>
-      <p class="muted">{error}</p>
-    </div>
+    <Card>
+      <div class="error-card" role="alert" aria-live="polite" aria-atomic="true">
+        <p class="eyebrow">Error</p>
+        <p class="muted">{error}</p>
+      </div>
+    </Card>
   {:else if results.length === 0 && !hasSearchCriteria}
-    <div class="card">
+    <Card>
       <p class="muted">Enter a search query or time range to search for messages.</p>
-    </div>
+    </Card>
   {:else if results.length === 0}
-    <div class="card">
+    <Card>
       <p class="muted">No messages found matching your search criteria.</p>
-    </div>
+    </Card>
   {:else}
-    <div class="card">
+    <Card>
       <div class="card__header">
         <div>
           <p class="eyebrow">Search Results</p>
@@ -182,7 +186,7 @@
           {#each results as item, index (item.message_id ?? `${item.time}-${index}`)}
             <li class="message">
               <div class="message-meta">
-                <span class="pill pill--soft">{item.type || "Unknown"}</span>
+                <Badge variant="soft">{item.type || "Unknown"}</Badge>
                 <span class="muted">
                   {item.time ? new Date(item.time).toLocaleString() : "No timestamp"}
                 </span>
@@ -193,20 +197,162 @@
                   {item.source || "----"} → {item.destination || "----"}
                 </span>
                 <span class="muted">{item.flight_number || "Flight N/A"}</span>
-                <span class="pill pill--ghost">{formatPriority(item.priority)}</span>
+                <Badge variant="ghost">{formatPriority(item.priority)}</Badge>
               </div>
             </li>
           {/each}
         </ul>
       </div>
-    </div>
+    </Card>
   {/if}
 </main>
 
 <style>
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    min-height: calc(100vh - 80px);
+  }
+
+  .page__intro {
+    margin-bottom: 2rem;
+  }
+
+  .page__intro h1 {
+    margin: 0.35rem 0 0.5rem;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #18181b;
+  }
+
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+  }
+
   .search-form__time-filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
+  }
+
+  .search-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .error-card {
+    padding: 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+  }
+
+  .error-card .eyebrow {
+    color: #dc2626;
+  }
+
+  .message-list-container {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    padding: 0.5rem;
+  }
+
+  .message-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .message {
+    padding: 1rem;
+    background: #fafafa;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .message:hover {
+    background: #f4f4f5;
+    border-color: #d4d4d8;
+  }
+
+  .message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .message-body {
+    margin: 0.5rem 0;
+    color: #18181b;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  .message-foot {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e4e4e7;
+  }
+
+  @media (max-width: 768px) {
+    .page {
+      padding: 1rem;
+    }
+
+    .page__intro h1 {
+      font-size: 1.5rem;
+    }
+
+    .search-form {
+      padding: 1rem;
+    }
+
+    .search-form__time-filters {
+      grid-template-columns: 1fr;
+    }
+
+    .message-list-container {
+      max-height: 400px;
+    }
+
+    .message {
+      padding: 0.75rem;
+    }
+
+    .message-meta,
+    .message-foot {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
   }
 </style>

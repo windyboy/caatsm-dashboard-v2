@@ -3,7 +3,7 @@ import { getWebSocketStore } from "./websocket.svelte";
 type ConnectionStatus = "connected" | "connecting" | "disconnected" | "degraded";
 
 class ConnectionStore {
-  private wsStore = getWebSocketStore();
+  private wsStore: ReturnType<typeof getWebSocketStore> | null = null;
   private _httpStatus = $state<ConnectionStatus>("disconnected");
   private _lastHttpError = $state<string | null>(null);
   private _retryCount = $state(0);
@@ -16,8 +16,15 @@ class ConnectionStore {
   constructor() {
     // Track WebSocket status for derived connection state
     $effect(() => {
-      const _ = this.wsStore.status;
+      const _ = this.getWsStore().status;
     });
+  }
+
+  private getWsStore(): ReturnType<typeof getWebSocketStore> {
+    if (!this.wsStore) {
+      this.wsStore = getWebSocketStore();
+    }
+    return this.wsStore;
   }
 
   get httpStatus(): ConnectionStatus {
@@ -25,7 +32,7 @@ class ConnectionStore {
   }
 
   get wsStatus() {
-    return this.wsStore.status;
+    return this.getWsStore().status;
   }
 
   get overallStatus(): ConnectionStatus {

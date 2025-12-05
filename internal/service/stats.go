@@ -46,6 +46,10 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 					s.logger.Warn("failed to unmarshal cached stats", zap.String("key", cacheKey), zap.Error(err))
 					_ = s.cache.Delete(ctx, cacheKey)
 				} else {
+					// Ensure ByType is not nil even for cached data
+					if stats.ByType == nil {
+						stats.ByType = make(map[string]int64)
+					}
 					s.logger.Debug("stats cache hit", zap.String("key", cacheKey))
 					return &stats, nil
 				}
@@ -64,6 +68,14 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 		return nil, fmt.Errorf("get stats failed: %w", err)
 	}
 
+	// Ensure ByType is not nil (empty map instead)
+	if stats.ByType == nil {
+		stats.ByType = make(map[string]int64)
+	}
+
+	// Calculate MessagesPerSec based on time window
+	stats.MessagesPerSec = s.calculateMessagesPerSec(ctx, timeRange, stats.TotalMessages)
+
 	// Determine time window identifier
 	stats.TimeWindow = s.determineTimeWindow(timeRange)
 
@@ -78,6 +90,7 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 		zap.Int64("total_messages", stats.TotalMessages),
 		zap.Int("by_type_count", len(stats.ByType)),
 		zap.Int64("active_routes", stats.ActiveRoutes),
+		zap.Float64("messages_per_sec", stats.MessagesPerSec),
 		zap.String("time_window", stats.TimeWindow),
 	)
 
@@ -261,6 +274,34 @@ func (s *StatsService) GetMessagesPerSec(ctx context.Context) (float64, error) {
 	}
 
 	return rate, nil
+}
+
+// calculateMessagesPerSec calculates the message rate for the given time window
+func (s *StatsService) calculateMessagesPerSec(ctx context.Context, timeRange TimeWindow, totalMessages int64) float64 {
+	// If time window is approximately 1 minute or less, use GetMessagesPerSec for real-time rate
+	now := time.Now()
+	duration := timeRange.End.Sub(timeRange.Start)
+	
+	// Check if this is a recent 1-minute window (within 2 minutes of now)
+	if !timeRange.End.IsZero() {
+		timeSinceEnd := now.Sub(timeRange.End)
+		if timeSinceEnd <= 2*time.Minute && duration <= 2*time.Minute {
+			// Use real-time calculation for recent short windows
+			rate, err := s.GetMessagesPerSec(ctx)
+			if err == nil {
+				return rate
+			}
+			// Fall through to average calculation if GetMessagesPerSec fails
+		}
+	}
+
+	// Calculate average rate based on time window and total messages
+	if duration <= 0 {
+		return 0.0
+	}
+
+	rate := float64(totalMessages) / duration.Seconds()
+	return rate
 }
 
 // determineTimeWindow determines the time window identifier based on the time range

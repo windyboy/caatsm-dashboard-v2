@@ -1,5 +1,6 @@
 import adapter from "@deno/svelte-adapter";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+import process from "node:process";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -9,20 +10,13 @@ const config = {
     script: true, // Explicitly enable script preprocessing
   }),
 
-  // Suppress CSS unused selector warnings for dynamically added attributes
-  // These selectors are used by Melt UI and other libraries at runtime
-  onwarn: (warning, handler) => {
-    // Suppress CSS unused selector warnings - these are false positives
-    // Selectors targeting dynamically added attributes (like data-state, data-highlighted)
-    // are used by libraries like Melt UI at runtime
-    if (warning.code === "css-unused-selector") {
-      return;
-    }
-    handler(warning);
-  },
-
   kit: {
     adapter: adapter(),
+    // Disable service worker in development to avoid errors
+    // Service worker will only be registered in production builds
+    serviceWorker: {
+      register: process.env.NODE_ENV === "production",
+    },
   },
 };
 

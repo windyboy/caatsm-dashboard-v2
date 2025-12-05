@@ -28,29 +28,24 @@ Tests and auxiliary demo routes were removed to keep the frontend small and focu
 
 ### UI Component Library
 
-The frontend uses **@melt-ui/svelte** for accessible, headless UI components. All UI components follow the builder pattern:
+The frontend uses **shadcn-svelte** for accessible, beautifully-designed UI components. Components are copied into the project (not installed as dependencies), allowing full customization.
 
 ```svelte
 <script lang="ts">
-  import { createButton, melt } from "@melt-ui/svelte";
-
-  const { elements, states } = createButton({
-    disabled: $derived(false),
-  });
+  import { Button } from "$lib/components/ui/button/index.js";
 </script>
 
-<button use:melt={$elements.root} class="button">
-  <slot />
-</button>
+<Button variant="default" size="default">Click me</Button>
 ```
 
 ### Component Structure
 
-- **Base components** (`lib/components/ui/`): Reusable UI primitives built with @melt-ui/svelte
-  - `Button.svelte` - Accessible button component
-  - `Input.svelte` - Accessible input component
+- **Base components** (`lib/components/ui/`): Reusable UI primitives from shadcn-svelte
+  - `Button.svelte` - Accessible button component (wrapper around shadcn-svelte Button)
+  - `Input.svelte` - Accessible input component with label support
   - `Card.svelte` - Card container component
-  - `Badge.svelte` - Badge/pill component
+  - `Badge.svelte` - Badge/pill component with custom variant mapping
+  - `Select.svelte` - Select dropdown component
 
 - **Feature components** (`lib/components/`): Higher-level components using base UI components
   - `Header.svelte` - Application header
@@ -61,11 +56,14 @@ The frontend uses **@melt-ui/svelte** for accessible, headless UI components. Al
 
 ### Styling
 
-Components maintain existing styles from `app.css` while gaining built-in accessibility features:
+Components use **TailwindCSS** for styling with shadcn-svelte's design system:
 
-- ARIA attributes automatically applied
-- Keyboard navigation support
-- Focus management
-- Screen reader compatibility
+- TailwindCSS utility classes for all styling
+- CSS variables for theming (defined in `app.css`)
+- Built-in accessibility features (ARIA attributes, keyboard navigation, focus management)
+- Dark mode support via CSS variables
 
-All styling is controlled through UnoCSS and custom CSS classes, maintaining full design system control.
+To add new shadcn-svelte components:
+```bash
+bun x shadcn-svelte@latest add <component-name>
+```

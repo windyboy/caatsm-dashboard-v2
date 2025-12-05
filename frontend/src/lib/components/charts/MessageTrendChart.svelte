@@ -3,12 +3,14 @@
   import {
     Chart,
     type ChartConfiguration,
+    LineController,
     LineElement,
     PointElement,
     LinearScale,
     CategoryScale,
     Tooltip,
     Legend,
+    Filler,
   } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { defaultChartOptions, chartColors } from "$lib/utils/chart-helpers";
@@ -27,45 +29,31 @@
 
   let canvasElement: HTMLCanvasElement | null = $state(null);
   let chartInstance: Chart<"line"> | null = $state(null);
-  let updateTimer: ReturnType<typeof setTimeout> | null = $state(null);
 
-  // Generate mock data if no data provided
-  const chartData = $derived.by(() => {
-    if (data.length > 0) {
-      return {
-        labels: data.map((d) => d.time),
-        datasets: [
-          {
-            label: "Messages",
-            data: data.map((d) => d.count),
-            borderColor: chartColors.accent.blue,
-            backgroundColor: `${chartColors.accent.blue}20`,
-            tension: 0.4,
-            fill: true,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-          },
-        ],
-      };
-    }
-
-    // Mock data for demonstration
+  // Generate static mock data once
+  function generateMockData(): TrendDataPoint[] {
     const now = new Date();
-    const mockData: TrendDataPoint[] = [];
+    const generated: TrendDataPoint[] = [];
     for (let i = 23; i >= 0; i--) {
       const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-      mockData.push({
+      generated.push({
         time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
         count: Math.floor(Math.random() * 100) + 50,
       });
     }
+    return generated;
+  }
 
+  // Simple chart data - no derived chains
+  function getChartData() {
+    const sourceData = data.length > 0 ? data : generateMockData();
+    
     return {
-      labels: mockData.map((d) => d.time),
+      labels: sourceData.map((d) => d.time),
       datasets: [
         {
           label: "Messages",
-          data: mockData.map((d) => d.count),
+          data: sourceData.map((d) => d.count),
           borderColor: chartColors.accent.blue,
           backgroundColor: `${chartColors.accent.blue}20`,
           tension: 0.4,
@@ -75,63 +63,55 @@
         },
       ],
     };
-  });
+  }
 
-  $effect(() => {
+  // Create chart once on mount
+  onMount(() => {
     if (!canvasElement) return;
 
-    // Debounce chart updates
-    if (updateTimer) {
-      clearTimeout(updateTimer);
-    }
+    const ctx = canvasElement.getContext("2d");
+    if (!ctx) return;
 
-    updateTimer = setTimeout(() => {
-      if (!canvasElement) return;
+    // Register required components (only once)
+    Chart.register(
+      LineController,
+      LineElement,
+      PointElement,
+      LinearScale,
+      CategoryScale,
+      Tooltip,
+      Legend,
+      Filler
+    );
 
-      const ctx = canvasElement.getContext("2d");
-      if (!ctx) return;
-
-      // Update existing chart if it exists, otherwise create new one
-      if (chartInstance) {
-        chartInstance.data = chartData;
-        chartInstance.update("none");
-      } else {
-        // Register required components
-        Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
-
-        const config: ChartConfiguration<"line"> = {
-          type: "line",
-          data: chartData,
-          options: {
-            ...defaultChartOptions,
-            plugins: {
-              ...defaultChartOptions.plugins,
-              legend: {
-                ...defaultChartOptions.plugins?.legend,
-                display: false,
-              },
-            },
-            interaction: {
-              intersect: false,
-              mode: "index",
-            },
+    const config: ChartConfiguration<"line"> = {
+      type: "line",
+      data: getChartData(),
+      options: {
+        ...defaultChartOptions,
+        plugins: {
+          ...defaultChartOptions.plugins,
+          legend: {
+            ...defaultChartOptions.plugins?.legend,
+            display: false,
           },
-        };
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+      },
+    };
 
-        chartInstance = new Chart(ctx, config);
-      }
-    }, 150);
+    chartInstance = new Chart(ctx, config);
 
+    // Only update if data prop changes (manual update, not reactive)
     return () => {
-      if (updateTimer) {
-        clearTimeout(updateTimer);
-      }
-      if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-      }
+      // Cleanup handled in onDestroy
     };
   });
+
+  // Chart updates are handled manually - no reactive effects to avoid loops
 
   onDestroy(() => {
     if (chartInstance) {

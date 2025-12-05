@@ -4,11 +4,13 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  LineController,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
   Legend,
+  Filler,
   type ChartOptions,
   type ChartData,
 } from "chart.js";
@@ -19,11 +21,13 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  LineController,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 export type { ChartOptions, ChartData };

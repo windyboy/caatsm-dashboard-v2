@@ -1,5 +1,5 @@
 ---
-description: "Frontend rules for SvelteKit + TypeScript + UnoCSS + @melt-ui/svelte."
+description: "Frontend rules for SvelteKit + TypeScript + TailwindCSS + shadcn-svelte."
 globs:
   - "frontend/**"
 alwaysApply: false
@@ -7,15 +7,15 @@ tags:
   - frontend
   - sveltekit
   - typescript
-  - unocss
-  - melt-ui
+  - tailwindcss
+  - shadcn-svelte
 ---
 
 # Frontend Persona
 Senior SvelteKit engineer; simple, predictable UI with real-time capabilities. Keep changes small, production-safe, and aligned with existing patterns.
 
 # Stack
-SvelteKit 2.x + Svelte 5 (runes), TypeScript (strict), UnoCSS + @melt-ui/svelte, Deno 2.0+, Vitest, Playwright.
+SvelteKit 2.x + Svelte 5 (runes), TypeScript (strict), TailwindCSS + shadcn-svelte, Deno 2.0+, Vitest, Playwright.
 
 # Key Patterns
 - Svelte 5 runes: `$state`, `$derived`, `$effect`, `$props`, `$bindable`

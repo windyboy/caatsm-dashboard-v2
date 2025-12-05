@@ -495,10 +495,16 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 		activeRoutes = 0
 	}
 
+	// Ensure ByType is not nil (should already be initialized, but double-check for safety)
+	if byType == nil {
+		byType = make(map[string]int64)
+	}
+
 	return &domain.TrafficSummary{
 		TotalMessages: total,
 		ByType:        byType,
 		ActiveRoutes:  activeRoutes,
+		// MessagesPerSec and TimeWindow will be set by the service layer
 	}, nil
 }
 

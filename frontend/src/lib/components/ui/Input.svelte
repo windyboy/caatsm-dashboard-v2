@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { Input as ShadcnInput } from "./input/index.js";
+  import { Label } from "./label/index.js";
+
   interface InputProps {
     label?: string;
     value?: string;
@@ -7,6 +10,7 @@
     name?: string;
     disabled?: boolean;
     ariaLabel?: string;
+    class?: string;
   }
 
   let {
@@ -17,22 +21,25 @@
     name = "",
     disabled = false,
     ariaLabel,
+    class: className,
     ...restProps
   }: InputProps = $props();
 </script>
 
-<label class="search-field">
+<div class="flex flex-col gap-1.5">
   {#if label}
-    <span class="muted">{label}</span>
+    <Label for={name || undefined} class="text-muted-foreground text-sm">
+      {label}
+    </Label>
   {/if}
-  <input
+  <ShadcnInput
     {type}
     {name}
     {placeholder}
     bind:value
     {disabled}
     aria-label={ariaLabel || label || undefined}
-    class="search-input"
+    class={className}
     {...restProps}
   />
-</label>
+</div>

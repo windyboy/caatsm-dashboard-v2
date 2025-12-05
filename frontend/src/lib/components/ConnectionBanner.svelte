@@ -1,13 +1,21 @@
 <script lang="ts">
   import { getConnectionStore } from "$lib/stores/connection.svelte";
 
-  const connectionStore = getConnectionStore();
+  // Lazy load store to avoid circular dependency during module initialization
+  let connectionStore = $state<ReturnType<typeof getConnectionStore> | null>(null);
+
+  $effect(() => {
+    if (!connectionStore) {
+      connectionStore = getConnectionStore();
+    }
+  });
+
   let timeUntilRetry = $state<number | null>(null);
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
-  const status = $derived(connectionStore.overallStatus);
-  const nextRetry = $derived(connectionStore.nextRetryAt);
-  const retryCount = $derived(connectionStore.retryCount);
+  const status = $derived(connectionStore?.overallStatus ?? "disconnected");
+  const nextRetry = $derived(connectionStore?.nextRetryAt ?? null);
+  const retryCount = $derived(connectionStore?.retryCount ?? 0);
 
   $effect(() => {
     if (nextRetry) {
@@ -33,7 +41,7 @@
   });
 
   function handleManualRetry() {
-    connectionStore.manualRetry();
+    connectionStore?.manualRetry();
     // Trigger a page refresh to retry API calls
     window.location.reload();
   }

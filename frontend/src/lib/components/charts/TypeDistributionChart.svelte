@@ -13,9 +13,9 @@
 
   let canvasElement: HTMLCanvasElement | null = $state(null);
   let chartInstance: Chart<"doughnut"> | null = $state(null);
-  let updateTimer: ReturnType<typeof setTimeout> | null = $state(null);
 
-  const chartData = $derived.by(() => {
+  // Simple chart data generation
+  function getChartData() {
     const entries = Object.entries(data);
     if (entries.length === 0) {
       return {
@@ -40,58 +40,53 @@
         },
       ],
     };
-  });
+  }
 
-  $effect(() => {
+  // Create chart once on mount
+  onMount(() => {
     if (!canvasElement) return;
 
-    // Debounce chart updates
-    if (updateTimer) {
-      clearTimeout(updateTimer);
-    }
+    const ctx = canvasElement.getContext("2d");
+    if (!ctx) return;
 
-    updateTimer = setTimeout(() => {
-      if (!canvasElement || !chartData.labels.length) return;
+    const chartData = getChartData();
+    if (chartData.labels.length === 0) return;
 
-      const ctx = canvasElement.getContext("2d");
-      if (!ctx) return;
+    // Register required components (only once)
+    Chart.register(ArcElement, Tooltip, Legend);
 
-      // Update existing chart if it exists, otherwise create new one
-      if (chartInstance) {
-        chartInstance.data = chartData;
-        chartInstance.update("none");
-      } else {
-        // Register required components
-        Chart.register(ArcElement, Tooltip, Legend);
-
-        const config: ChartConfiguration<"doughnut"> = {
-          type: "doughnut",
-          data: chartData,
-          options: {
-            ...defaultChartOptions,
-            plugins: {
-              ...defaultChartOptions.plugins,
-              legend: {
-                ...defaultChartOptions.plugins?.legend,
-                position: "bottom" as const,
-              },
-            },
-            cutout: "60%",
+    const config: ChartConfiguration<"doughnut"> = {
+      type: "doughnut",
+      data: chartData,
+      options: {
+        ...defaultChartOptions,
+        plugins: {
+          ...defaultChartOptions.plugins,
+          legend: {
+            ...defaultChartOptions.plugins?.legend,
+            position: "bottom" as const,
           },
-        };
+        },
+        cutout: "60%",
+      },
+    };
 
-        chartInstance = new Chart(ctx, config);
+    chartInstance = new Chart(ctx, config);
+  });
+
+  // Update chart only when data changes (debounced, no reactive loops)
+  $effect(() => {
+    if (!chartInstance) return;
+    
+    const timer = setTimeout(() => {
+      if (chartInstance) {
+        chartInstance.data = getChartData();
+        chartInstance.update("none");
       }
-    }, 100);
+    }, 500);
 
     return () => {
-      if (updateTimer) {
-        clearTimeout(updateTimer);
-      }
-      if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-      }
+      clearTimeout(timer);
     };
   });
 
@@ -101,6 +96,9 @@
       chartInstance = null;
     }
   });
+
+  // Simple check for empty data
+  const hasData = $derived(Object.keys(data).length > 0);
 </script>
 
 <Card>
@@ -108,7 +106,7 @@
     <div class="chart-header">
       <p class="eyebrow">{title}</p>
     </div>
-    {#if chartData.labels.length > 0}
+    {#if hasData}
       <div class="chart-wrapper">
         <canvas bind:this={canvasElement}></canvas>
       </div>

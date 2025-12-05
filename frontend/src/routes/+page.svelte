@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import TopControlBar from "$lib/components/TopControlBar.svelte";
   import EnhancedMetricCard from "$lib/components/EnhancedMetricCard.svelte";
   import TypeDistributionChart from "$lib/components/charts/TypeDistributionChart.svelte";
@@ -11,94 +11,62 @@
   import { fetchHealth, fetchRecentMessages, fetchStats } from "$lib/api";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import type { HealthSnapshot, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
-  import type { SortField, SortOrder } from "$lib/components/MessageDataTable.svelte";
 
-  const wsStore = getWebSocketStore();
-  // Initial HTTP data (only used as fallback until WebSocket connects)
-  let initialStats = $state<TrafficSummary | null>(null);
-  let initialHealth = $state<HealthSnapshot | null>(null);
-  let initialMessages = $state<Telegram[]>([]);
+  // Simple state management - no complex derived values
+  let stats = $state<TrafficSummary | null>(null);
+  let health = $state<HealthSnapshot | null>(null);
+  let messages = $state<Telegram[]>([]);
   let loading = $state(true);
-  let error = $state<string | null>(null);
   let timeWindow = $state("last_24h");
 
-  // WebSocket data is primary source - simple priority: WS > HTTP fallback
-  const displayStats = $derived.by(() => {
-    const wsStats = wsStore.stats;
-    if (wsStats) {
-      return {
-        total: wsStats.total,
-        byType: wsStats.byType,
-        activeRoutes: wsStats.activeRoutes,
-        messagesPerSec: wsStats.messagesPerSec,
-        timeWindow: wsStats.timeWindow,
-      } as TrafficSummary;
-    }
-    // Fallback to initial HTTP data
-    return initialStats;
-  });
+  // Initialize WebSocket store
+  const wsStore = getWebSocketStore();
 
-  const displayHealth = $derived<HealthSnapshot | null>(wsStore.health ?? initialHealth);
-
-  // Messages: WebSocket is primary, HTTP only as initial fallback
-  const displayMessages = $derived.by((): Telegram[] => {
-    const wsMessages = wsStore.newMessages;
-    // Use WebSocket messages if available (they are always the most up-to-date)
-    if (wsMessages.length > 0) {
-      return wsMessages.slice(0, 100);
-    }
-    // Fallback to initial HTTP messages only if WebSocket is not connected or empty
-    return initialMessages.slice(0, 100);
-  });
-
-  const activeRoutes = $derived(displayStats?.activeRoutes ?? null);
-  const messagesPerSec = $derived(displayStats?.messagesPerSec ?? null);
-
-  const timeWindowLabel = $derived.by(() => {
-    const window = displayStats?.timeWindow || timeWindow;
-    switch (window) {
-      case "last_1h":
-        return "Last 1 hour";
-      case "last_24h":
-        return "Last 24 hours";
-      case "last_7d":
-        return "Last 7 days";
-      default:
-        return "All time";
-    }
-  });
-
-  // Mock trend data (can be replaced with real data later)
-  const messagesTrend = $derived.by(() => {
-    // In real implementation, compare with previous period
-    return { value: 12.5, label: "Trending up this month" };
-  });
+  // Simple derived values - no nested chains
+  const totalMessages = $derived(stats?.total ?? 0);
+  const messagesPerSec = $derived(stats?.messagesPerSec ?? 0);
+  const activeRoutes = $derived(stats?.activeRoutes ?? 0);
+  const byType = $derived(stats?.byType ?? {});
+  const systemStatus = $derived(health?.status ?? "unknown");
 
   function handleTimeWindowChange(value: string) {
     timeWindow = value;
-    // TODO: Trigger data refetch with new time window
   }
 
   function handleRefresh() {
-    // Reload data
     window.location.reload();
   }
 
-  function handleSort(field: SortField, order: SortOrder) {
-    // Sorting is handled by MessageDataTable component
-  }
+  // Reactive sync of WebSocket data to local state using $effect
+  // This replaces polling with reactive updates for better performance
+  $effect(() => {
+    // Sync stats
+    if (wsStore.stats) {
+      stats = {
+        total: wsStore.stats.total,
+        byType: wsStore.stats.byType,
+        activeRoutes: wsStore.stats.activeRoutes ?? 0,
+        messagesPerSec: wsStore.stats.messagesPerSec ?? 0,
+        timeWindow: wsStore.stats.timeWindow,
+      };
+    }
 
-  function handlePageChange(page: number) {
-    // Pagination is handled by MessageDataTable component
-  }
+    // Sync health
+    if (wsStore.health) {
+      health = wsStore.health;
+    }
+
+    // Sync messages - always sync, even if empty, to ensure consistency
+    messages = wsStore.newMessages.slice(0, 100);
+  });
 
   onMount(async () => {
     document.title = "CAATSM Dashboard - Operations";
+    
+    // Connect WebSocket
     wsStore.connect();
 
-    loading = true;
-    error = null;
-
+    // Initial HTTP data fetch
     try {
       const [statsResponse, healthResponse, messagesResponse] = await Promise.all([
         fetchStats().catch(() => null),
@@ -106,47 +74,26 @@
         fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
       ]);
 
-      // Store initial HTTP data as fallback (only used until WebSocket connects and provides data)
-      if (statsResponse) {
-        initialStats = statsResponse;
-      }
-      if (healthResponse) {
-        initialHealth = healthResponse;
-      }
-      if (messagesResponse) {
-        initialMessages = messagesResponse.telegrams ?? [];
-      }
-
-      // Connection errors are handled by ConnectionBanner
-      // Only set error for non-connection related issues
-      // Even if all requests fail, we still show the UI with empty data
-      // so components can render properly
+      if (statsResponse) stats = statsResponse;
+      if (healthResponse) health = healthResponse;
+      if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
     } catch (err) {
-      // Connection errors are handled by ConnectionBanner
-      // Only set error for non-connection related issues
-      if (
-        err instanceof Error &&
-        !err.message.includes("无法连接") &&
-        !err.message.includes("Network error")
-      ) {
-        error = err.message;
-      }
+      console.error("Failed to load initial data:", err);
     } finally {
-      // Always set loading to false so components can render
-      // Components should handle empty/null data gracefully
       loading = false;
     }
+  });
+
+  onDestroy(() => {
+    // Clean up WebSocket connection when component is destroyed
+    wsStore.disconnect();
   });
 </script>
 
 <main class="dashboard-page">
   <ConnectionBanner />
 
-  <TopControlBar
-    {timeWindow}
-    onTimeWindowChange={handleTimeWindowChange}
-    onRefresh={handleRefresh}
-  />
+  <TopControlBar {timeWindow} onTimeWindowChange={handleTimeWindowChange} onRefresh={handleRefresh} />
 
   <div class="dashboard-content">
     <section class="page__intro">
@@ -169,59 +116,45 @@
         <LoadingSkeleton variant="health" />
         <LoadingSkeleton variant="message" />
       </section>
-    {:else if error}
-      <div class="card error-card" role="alert" aria-live="polite" aria-atomic="true">
-        <p class="eyebrow">Error</p>
-        <p class="muted">{error}</p>
-      </div>
     {:else}
       <!-- KPI Metrics Grid -->
       <section class="grid grid--four">
         <EnhancedMetricCard
           title="Total Messages"
-          value={displayStats?.total?.toLocaleString() ?? "—"}
-          hint={timeWindowLabel}
-          trend={messagesTrend}
-          variant="primary"
+          value={totalMessages.toLocaleString()}
+          hint="Last 24 hours"
         />
         <EnhancedMetricCard
           title="Messages/sec"
-          value={messagesPerSec !== null ? messagesPerSec.toFixed(1) : "—"}
+          value={messagesPerSec.toFixed(1)}
           hint="Last 1 min"
         />
         <EnhancedMetricCard
           title="Active Routes"
-          value={activeRoutes !== null ? activeRoutes.toLocaleString() : "—"}
-          hint={`Unique source→destination pairs`}
+          value={activeRoutes.toLocaleString()}
+          hint="Unique source→destination pairs"
         />
         <EnhancedMetricCard
           title="System Health"
-          value={displayHealth?.status?.toUpperCase() ?? "—"}
+          value={systemStatus.toUpperCase()}
           hint="Overall status"
-          variant="default"
         />
       </section>
 
       <!-- Visualization Section -->
       <section class="grid grid--two">
-        <TypeDistributionChart data={displayStats?.byType} title="Message Type Distribution" />
+        <TypeDistributionChart data={byType} title="Message Type Distribution" />
         <MessageTrendChart title="Message Trend" />
       </section>
 
       <!-- System Health Panel -->
       <section class="health-section">
-        <HealthStatusGrid health={displayHealth || null} />
+        <HealthStatusGrid {health} />
       </section>
 
       <!-- Real-time Message Table -->
       <section class="messages-section">
-        <MessageDataTable
-          messages={displayMessages}
-          pageSize={10}
-          {loading}
-          onSort={handleSort}
-          onPageChange={handlePageChange}
-        />
+        <MessageDataTable {messages} pageSize={10} {loading} />
       </section>
     {/if}
   </div>
@@ -270,11 +203,6 @@
 
   .messages-section {
     margin-bottom: 2rem;
-  }
-
-  .error-card {
-    border-color: #fecdd3;
-    background: #fff1f2;
   }
 
   @media (max-width: 1024px) {

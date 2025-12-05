@@ -3,7 +3,7 @@
   import Card from "./ui/Card.svelte";
   import Badge from "./ui/Badge.svelte";
   import Button from "./ui/Button.svelte";
-  import { cn } from "./ui/utils";
+  import { cn } from "$lib/utils.js";
 
   export type SortField = "time" | "type" | "priority" | "flight_number" | "source" | "destination";
   export type SortOrder = "asc" | "desc";

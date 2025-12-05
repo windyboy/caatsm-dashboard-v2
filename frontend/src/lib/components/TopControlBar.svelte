@@ -3,7 +3,7 @@
   import Select, { type SelectOption } from "./ui/Select.svelte";
   import Badge from "./ui/Badge.svelte";
   import Button from "./ui/Button.svelte";
-  import { cn } from "./ui/utils";
+  import { cn } from "$lib/utils.js";
 
   interface TopControlBarProps {
     timeWindow?: string;
@@ -13,7 +13,14 @@
 
   let { timeWindow = "last_24h", onTimeWindowChange, onRefresh }: TopControlBarProps = $props();
 
-  const wsStore = getWebSocketStore();
+  // Lazy load store to avoid circular dependency during module initialization
+  let wsStore = $state<ReturnType<typeof getWebSocketStore> | null>(null);
+
+  $effect(() => {
+    if (!wsStore) {
+      wsStore = getWebSocketStore();
+    }
+  });
 
   const timeWindowOptions: SelectOption[] = [
     { value: "last_1h", label: "Last 1 hour" },
@@ -22,7 +29,7 @@
     { value: "custom", label: "Custom range" },
   ];
 
-  const connectionStatus = $derived(wsStore.status);
+  const connectionStatus = $derived(wsStore?.status ?? "disconnected");
   const statusVariant = $derived.by(() => {
     switch (connectionStatus) {
       case "connected":
@@ -76,23 +83,23 @@
 
   <div class="top-control-bar__right">
     <Button variant="ghost" onclick={handleRefresh} type="button">
-      <span class="button-icon" aria-hidden="true">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M8 1.33334V4.66668M8 1.33334L5.33333 4.00001M8 1.33334L10.6667 4.00001M8 14.6667V11.3333M8 14.6667L10.6667 12M8 14.6667L5.33333 12M2.66667 8H6M10 8H13.3333M2.66667 8L4 6.66668M2.66667 8L4 9.33335M13.3333 8L12 6.66668M13.3333 8L12 9.33335"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </span>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        class="mr-1.5"
+        aria-hidden="true"
+      >
+        <path
+          d="M8 1.33334V4.66668M8 1.33334L5.33333 4.00001M8 1.33334L10.6667 4.00001M8 14.6667V11.3333M8 14.6667L10.6667 12M8 14.6667L5.33333 12M2.66667 8H6M10 8H13.3333M2.66667 8L4 6.66668M2.66667 8L4 9.33335M13.3333 8L12 6.66668M13.3333 8L12 9.33335"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
       Refresh
     </Button>
   </div>
@@ -163,11 +170,6 @@
     font-weight: 500;
   }
 
-  .button-icon {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 0.375rem;
-  }
 
   @media (max-width: 768px) {
     .top-control-bar {
