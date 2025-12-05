@@ -59,7 +59,7 @@
       type: "doughnut",
       data: chartData,
       options: {
-        ...defaultChartOptions,
+        ...(defaultChartOptions as Partial<ChartConfiguration<"doughnut">["options"]>),
         plugins: {
           ...defaultChartOptions.plugins,
           legend: {

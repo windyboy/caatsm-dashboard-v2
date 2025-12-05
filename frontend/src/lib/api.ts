@@ -198,8 +198,28 @@ export function fetchRecentMessages(limit: number = 12): Promise<SearchResponse>
 function formatDateTimeLocalToRFC3339(dateTimeLocal: string): string {
   if (!dateTimeLocal) return "";
   // datetime-local format: "YYYY-MM-DDTHH:mm"
-  // RFC3339 format: "YYYY-MM-DDTHH:mm:ssZ"
-  return `${dateTimeLocal}:00Z`;
+  // Parse as local time and convert to RFC3339 with timezone offset
+  // Split the datetime-local string into date and time parts
+  const [datePart, timePart] = dateTimeLocal.split("T");
+  if (!datePart || !timePart) {
+    // Fallback: try Date constructor
+    const date = new Date(dateTimeLocal);
+    if (isNaN(date.getTime())) {
+      return `${dateTimeLocal}:00Z`;
+    }
+    return date.toISOString();
+  }
+  
+  // Create a date object in local timezone
+  // datetime-local values are always in local time
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+  
+  // Create date in local timezone
+  const localDate = new Date(year, month - 1, day, hours, minutes);
+  
+  // Convert to ISO string (RFC3339 format with timezone offset)
+  return localDate.toISOString();
 }
 
 export function runSearch(

@@ -108,7 +108,7 @@
       type: "line",
       data: getChartData(),
       options: {
-        ...defaultChartOptions,
+        ...(defaultChartOptions as Partial<ChartConfiguration<"line">["options"]>),
         plugins: {
           ...defaultChartOptions.plugins,
           legend: {

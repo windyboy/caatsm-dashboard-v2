@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { getConnectionStore } from "$lib/stores/connection.svelte";
 
   // Lazy load store to avoid circular dependency during module initialization
   let connectionStore = $state<ReturnType<typeof getConnectionStore> | null>(null);
 
-  $effect(() => {
+  // Initialize store in onMount instead of $effect to avoid orphan effect error
+  onMount(() => {
     if (!connectionStore) {
       connectionStore = getConnectionStore();
     }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -219,8 +220,13 @@ func buildTimeWindow(c echo.Context) (app.TimeWindow, error) {
 		timeRange.End = end
 	}
 
-	// If no time parameters provided, default to last 24 hours
-	if timeRange.Start.IsZero() && timeRange.End.IsZero() {
+	// Only default to last 24 hours for stats endpoints, not search
+	// Search should allow searching all data when no time range is provided
+	// This check is done by checking the path
+	path := c.Path()
+	isStatsEndpoint := strings.Contains(path, "/stats")
+
+	if isStatsEndpoint && timeRange.Start.IsZero() && timeRange.End.IsZero() {
 		now := time.Now()
 		timeRange.End = now
 		timeRange.Start = now.Add(-24 * time.Hour)

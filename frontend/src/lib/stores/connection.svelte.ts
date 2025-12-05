@@ -14,10 +14,9 @@ class ConnectionStore {
   private maxRetryDelay = 30000; // 30 seconds
 
   constructor() {
-    // Track WebSocket status for derived connection state
-    $effect(() => {
-      const _ = this.getWsStore().status;
-    });
+    // Initialize WebSocket store reference
+    // Note: We can't use $effect in constructor, so we'll access it lazily
+    // The status will be accessed through getters which will trigger reactivity
   }
 
   private getWsStore(): ReturnType<typeof getWebSocketStore> {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import Select, { type SelectOption } from "./ui/Select.svelte";
   import Badge from "./ui/Badge.svelte";
@@ -16,7 +17,8 @@
   // Lazy load store to avoid circular dependency during module initialization
   let wsStore = $state<ReturnType<typeof getWebSocketStore> | null>(null);
 
-  $effect(() => {
+  // Initialize store in onMount instead of $effect to avoid orphan effect error
+  onMount(() => {
     if (!wsStore) {
       wsStore = getWebSocketStore();
     }
