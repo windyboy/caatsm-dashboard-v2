@@ -50,22 +50,22 @@
 
   const statusConfig = {
     connected: {
-      message: "已连接到服务器",
+      message: "Connected to server",
       variant: "success",
       show: false,
     },
     degraded: {
-      message: "部分连接可用，正在尝试恢复完整连接",
+      message: "Partially connected, attempting to restore full connection",
       variant: "warning",
       show: true,
     },
     connecting: {
-      message: "正在连接服务器...",
+      message: "Connecting to server...",
       variant: "info",
       show: true,
     },
     disconnected: {
-      message: "无法连接到服务器",
+      message: "Unable to connect to server",
       variant: "error",
       show: true,
     },
@@ -94,20 +94,20 @@
         <p class="connection-banner__message">{config.message}</p>
         {#if status === "disconnected" && nextRetry && timeUntilRetry !== null}
           <p class="connection-banner__hint">
-            将在 {timeUntilRetry} 秒后自动重试
+            Retrying automatically in {timeUntilRetry} second{timeUntilRetry !== 1 ? "s" : ""}
             {#if retryCount > 0}
-              （第 {retryCount} 次尝试）
+              (attempt {retryCount})
             {/if}
           </p>
         {:else if status === "connecting" && retryCount > 0}
           <p class="connection-banner__hint">
-            正在重试连接（第 {retryCount} 次尝试）
+            Retrying connection (attempt {retryCount})
           </p>
         {/if}
       </div>
       {#if status === "disconnected"}
         <button class="connection-banner__retry" onclick={handleManualRetry} type="button">
-          立即重试
+          Retry Now
         </button>
       {/if}
     </div>

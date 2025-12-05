@@ -16,9 +16,9 @@ type TelegramHandler = (data: Telegram) => void;
 export class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
+  private maxReconnectAttempts = Number(import.meta.env.VITE_WS_RECONNECT_MAX_ATTEMPTS) || 10;
   private reconnectDelay = 1000;
-  private maxReconnectDelay = 30000;
+  private maxReconnectDelay = Number(import.meta.env.VITE_WS_RECONNECT_MAX_DELAY) || 30000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
   private statsHandlers: StatsHandler[] = [];
@@ -101,7 +101,10 @@ export class WebSocketService {
           const message: WSMessage = JSON.parse(event.data);
           this.handleMessage(message);
         } catch (err) {
-          // Silently handle parse errors
+          // Log parse errors in development mode
+          if (import.meta.env.DEV) {
+            console.error("WebSocket message parse error:", err);
+          }
         }
       };
 
@@ -148,7 +151,10 @@ export class WebSocketService {
           const statsData = message.data as WSStatsData;
           this.statsHandlers.forEach((handler) => handler(statsData));
         } catch (err) {
-          // Silently handle handler errors
+          // Log handler errors in development mode
+          if (import.meta.env.DEV) {
+            console.error("WebSocket stats handler error:", err);
+          }
         }
         break;
 
@@ -157,7 +163,10 @@ export class WebSocketService {
           const deltaData = message.data as WSStatsDeltaData;
           this.statsDeltaHandlers.forEach((handler) => handler(deltaData));
         } catch (err) {
-          // Silently handle handler errors
+          // Log handler errors in development mode
+          if (import.meta.env.DEV) {
+            console.error("WebSocket stats delta handler error:", err);
+          }
         }
         break;
 
@@ -166,7 +175,10 @@ export class WebSocketService {
           const healthData = message.data as WSHealthData;
           this.healthHandlers.forEach((handler) => handler(healthData));
         } catch (err) {
-          // Silently handle handler errors
+          // Log handler errors in development mode
+          if (import.meta.env.DEV) {
+            console.error("WebSocket health handler error:", err);
+          }
         }
         break;
 
@@ -175,7 +187,10 @@ export class WebSocketService {
           const telegram = message.data as Telegram;
           this.telegramHandlers.forEach((handler) => handler(telegram));
         } catch (err) {
-          // Silently handle handler errors
+          // Log handler errors in development mode
+          if (import.meta.env.DEV) {
+            console.error("WebSocket message handler error:", err);
+          }
         }
         break;
 

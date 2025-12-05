@@ -99,7 +99,7 @@
   });
 </script>
 
-<main class="dashboard-page">
+<main id="main-content" class="dashboard-page">
   <ConnectionBanner />
 
   <TopControlBar {timeWindow} onTimeWindowChange={handleTimeWindowChange} onRefresh={handleRefresh} />

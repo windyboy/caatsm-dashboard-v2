@@ -7,6 +7,12 @@ function buildUrl(path: string): string {
   return new URL(path, API_BASE).toString();
 }
 
+/**
+ * Makes an HTTP request with retry logic and error handling.
+ * @param path - API endpoint path
+ * @param init - Request options including signal for abort and retry flag
+ * @returns Promise resolving to the response data
+ */
 async function request<T>(
   path: string,
   init?: RequestInit & { signal?: AbortSignal; retry?: boolean }
@@ -81,8 +87,8 @@ async function request<T>(
   // All retries failed
   const errorMessage =
     lastError instanceof TypeError && lastError.message.includes("fetch")
-      ? `无法连接到服务器。请检查后端服务是否正在运行。`
-      : lastError?.message || "请求失败";
+      ? "Unable to connect to server. Please check if the backend service is running."
+      : lastError?.message || "Request failed";
 
   connectionStore.markHttpError(errorMessage);
   throw lastError;
@@ -178,8 +184,8 @@ export async function fetchHealth(): Promise<HealthSnapshot> {
   // All retries failed
   const errorMessage =
     lastError instanceof TypeError && lastError.message.includes("fetch")
-      ? `无法连接到服务器。请检查后端服务是否正在运行。`
-      : lastError?.message || "请求失败";
+      ? "Unable to connect to server. Please check if the backend service is running."
+      : lastError?.message || "Request failed";
 
   connectionStore.markHttpError(errorMessage);
   throw lastError;
@@ -195,6 +201,11 @@ export function fetchRecentMessages(limit: number = 12): Promise<SearchResponse>
   return request<SearchResponse>(`/api/search?${params.toString()}`);
 }
 
+/**
+ * Converts datetime-local format to RFC3339 format with timezone offset.
+ * @param dateTimeLocal - Date string in datetime-local format (YYYY-MM-DDTHH:mm)
+ * @returns RFC3339 formatted date string
+ */
 function formatDateTimeLocalToRFC3339(dateTimeLocal: string): string {
   if (!dateTimeLocal) return "";
   // datetime-local format: "YYYY-MM-DDTHH:mm"

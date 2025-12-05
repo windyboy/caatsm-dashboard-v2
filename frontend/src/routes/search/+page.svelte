@@ -7,8 +7,13 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import { runSearch } from "$lib/api";
   import type { Telegram } from "$lib/types";
-  // 暂时移除虚拟列表，使用普通 each 循环避免兼容性问题
-  // import SvelteVirtualList from "@humanspeak/svelte-virtual-list";
+  // Virtual list for large result sets - use if available, otherwise fallback to regular list
+  let useVirtualList = $state(false);
+  
+  // Try to use virtual list for large result sets (>100 items)
+  $effect(() => {
+    useVirtualList = results.length > 100;
+  });
 
   let query = $state("");
   let startTime = $state("");
