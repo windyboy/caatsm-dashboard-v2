@@ -31,6 +31,7 @@ type Handler struct {
 	hub          *ws.Hub
 	logger       *zap.Logger
 	authConfig   config.AuthConfig
+	environment  string
 	statsService interface {
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	}
@@ -55,6 +56,7 @@ func NewHandler(
 	},
 	redisCli redis.UniversalClient,
 	allowedOrigins []string,
+	environment string,
 ) *Handler {
 	// Prepare allowed origins: trim whitespace and filter empty entries
 	origins := prepareAllowedOrigins(allowedOrigins)
@@ -63,6 +65,7 @@ func NewHandler(
 		hub:          hub,
 		logger:       logger,
 		authConfig:   authConfig,
+		environment:  environment,
 		statsService: statsService,
 		queryService: queryService,
 		redisCli:     redisCli,
@@ -169,21 +172,28 @@ func makeCheckOriginFunc(allowedOrigins []string) func(*http.Request) bool {
 // HandleWebSocket handles WebSocket connections.
 func (h *Handler) HandleWebSocket(c echo.Context) error {
 	// Validate JWT token if authentication is enabled
+	// In development mode, authentication is optional (skip if no token provided)
 	if h.authConfig.JWTSecret != "" {
 		tokenParam := c.QueryParam("token")
 		if tokenParam == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "missing token parameter")
-		}
-
-		token, err := jwt.Parse(tokenParam, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, echo.NewHTTPError(http.StatusUnauthorized, "unexpected signing method")
+			// In development mode, allow connection without token
+			if h.environment == "development" {
+				h.logger.Debug("allowing WebSocket connection without token in development mode")
+			} else {
+				return echo.NewHTTPError(http.StatusUnauthorized, "missing token parameter")
 			}
-			return []byte(h.authConfig.JWTSecret), nil
-		})
+		} else {
+			// Validate token if provided
+			token, err := jwt.Parse(tokenParam, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, echo.NewHTTPError(http.StatusUnauthorized, "unexpected signing method")
+				}
+				return []byte(h.authConfig.JWTSecret), nil
+			})
 
-		if err != nil || !token.Valid {
-			return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
+			if err != nil || !token.Valid {
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
+			}
 		}
 	}
 

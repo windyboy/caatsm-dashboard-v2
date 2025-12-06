@@ -63,9 +63,11 @@ export class WebSocketService {
 
     let url: string;
     if (import.meta.env.DEV) {
-      // Use relative path in dev mode, Vite proxy will forward to backend
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      url = `${protocol}//${window.location.host}/ws`;
+      // In dev mode, connect directly to backend
+      // Backend allows http://localhost:5173 as origin, so CORS is handled
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
+      const wsBase = apiBase.replace(/^http/, "ws");
+      url = `${wsBase}/ws`;
     } else {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
@@ -77,6 +79,9 @@ export class WebSocketService {
     if (accessToken) {
       const separator = url.includes('?') ? '&' : '?';
       url += `${separator}token=${encodeURIComponent(accessToken)}`;
+    } else if (import.meta.env.DEV) {
+      // Log warning in dev mode if token is missing
+      console.warn("WebSocket: No access token available. Connection may fail if authentication is required.");
     }
 
     return url;
@@ -127,11 +132,22 @@ export class WebSocketService {
           console.error("WebSocket error:", event);
           console.error("WebSocket readyState:", this.ws?.readyState);
           console.error("WebSocket URL:", this._url);
+          const accessToken = authManager.getAccessToken();
+          console.error("Has access token:", !!accessToken);
         }
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
         this.setStatus("disconnected");
+        // Log close details for debugging
+        if (import.meta.env.DEV) {
+          console.error("WebSocket closed:", {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            url: this._url,
+          });
+        }
         this.ws = null;
 
         if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {

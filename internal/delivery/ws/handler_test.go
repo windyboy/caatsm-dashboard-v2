@@ -325,6 +325,7 @@ func TestWebSocketHandler_MessageBroadcast(t *testing.T) {
 		&stubQueryService{telegrams: []app.Telegram{}},    // stub query service
 		nil, // redis client not needed for this test
 		nil, // allowed origins (will use defaults)
+		"development", // environment
 	)
 
 	// Setup Echo server
@@ -404,6 +405,7 @@ func TestWebSocketHandler_SlowClientDisconnect(t *testing.T) {
 		&stubQueryService{telegrams: []app.Telegram{}},
 		nil, // redis client not needed for this test
 		nil, // allowed origins (will use defaults)
+		"development", // environment
 	)
 
 	e := echo.New()
@@ -479,6 +481,7 @@ func TestWebSocketHandler_ConnectionError(t *testing.T) {
 		nil, // query service not needed for this test
 		nil, // redis client not needed for this test
 		nil, // allowed origins (will use defaults)
+		"development", // environment
 	)
 
 	e := echo.New()

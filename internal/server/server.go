@@ -533,6 +533,7 @@ func (s *Server) registerRoutes() {
 		queryAdapter,
 		s.container.RedisClient(),
 		s.cfg.WebSocket.AllowedOrigins,
+		s.cfg.Environment,
 	)
 
 	// Register WebSocket route

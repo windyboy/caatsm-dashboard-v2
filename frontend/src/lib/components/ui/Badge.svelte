@@ -3,10 +3,26 @@
   import type { Snippet } from "svelte";
   import { cn } from "$lib/utils.js";
 
+  /**
+   * Badge component wrapper that extends shadcn Badge with application-specific variants.
+   * Provides semantic variants (ok, warn, error, idle) in addition to standard shadcn variants.
+   * Use this component for consistent badge styling across the application.
+   *
+   * @example
+   * ```svelte
+   * <Badge variant="ok">Success</Badge>
+   * <Badge variant="error">Error</Badge>
+   * <Badge variant="soft">Info</Badge>
+   * ```
+   */
   interface BadgeProps {
+    /** Badge variant - includes custom application variants (ok, warn, error, idle) and standard shadcn variants */
     variant?: "default" | "soft" | "ghost" | "ok" | "warn" | "error" | "idle";
+    /** Additional CSS classes */
     class?: string;
+    /** Tooltip title text */
     title?: string;
+    /** Badge content */
     children?: Snippet;
   }
 
@@ -18,46 +34,40 @@
     ...restProps
   }: BadgeProps = $props();
 
-  // Map custom variants to shadcn-svelte variants
-  const mapVariant = (v: BadgeProps["variant"]): BadgeVariant => {
-    switch (v) {
-      case "soft":
-        return "secondary";
-      case "ghost":
-        return "outline";
-      case "ok":
-        return "default";
-      case "warn":
-        return "secondary";
-      case "error":
-        return "destructive";
-      case "idle":
-        return "outline";
-      default:
-        return "default";
-    }
+  // Configuration object mapping custom variants to shadcn variants and custom classes
+  const VARIANT_CONFIG: Record<
+    NonNullable<BadgeProps["variant"]>,
+    { shadcnVariant: BadgeVariant; customClasses?: string }
+  > = {
+    default: { shadcnVariant: "default" },
+    soft: { shadcnVariant: "secondary" },
+    ghost: { shadcnVariant: "outline" },
+    ok: {
+      shadcnVariant: "default",
+      customClasses:
+        "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
+    },
+    warn: {
+      shadcnVariant: "secondary",
+      customClasses:
+        "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800",
+    },
+    error: { shadcnVariant: "destructive" },
+    idle: {
+      shadcnVariant: "outline",
+      customClasses:
+        "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-950 dark:text-gray-400 dark:border-gray-800",
+    },
   };
 
-  // Custom classes for specific variants that need special styling
-  const getCustomClasses = (v: BadgeProps["variant"]): string => {
-    switch (v) {
-      case "ok":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800";
-      case "warn":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800";
-      case "error":
-        return ""; // Already handled by destructive variant
-      case "idle":
-        return "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-950 dark:text-gray-400 dark:border-gray-800";
-      default:
-        return "";
-    }
-  };
+  const variantConfig = $derived(VARIANT_CONFIG[variant]);
+  const shadcnVariant = $derived(variantConfig.shadcnVariant);
+  const customClasses = $derived(variantConfig.customClasses ?? "");
 </script>
 
 <ShadcnBadge
-  variant={mapVariant(variant)}
-  class={cn(getCustomClasses(variant), className)}
+  variant={shadcnVariant}
+  class={cn(customClasses, className)}
   {title}
   {...restProps}
 >

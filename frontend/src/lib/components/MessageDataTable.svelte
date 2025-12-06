@@ -2,7 +2,7 @@
   import type { Telegram } from "$lib/types";
   import Card from "./ui/Card.svelte";
   import Badge from "./ui/Badge.svelte";
-  import Button from "./ui/Button.svelte";
+  import { Button } from "./ui/button/index.js";
   import { cn } from "$lib/utils.js";
 
   export type SortField = "time" | "type" | "priority" | "flight_number" | "source" | "destination";

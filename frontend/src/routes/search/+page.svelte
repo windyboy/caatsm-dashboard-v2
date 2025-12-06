@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
   import Input from "$lib/components/ui/Input.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
+  import { Button } from "$lib/components/ui/button/index.js";
   import Card from "$lib/components/ui/Card.svelte";
   import Badge from "$lib/components/ui/Badge.svelte";
   import { runSearch } from "$lib/api";
@@ -125,14 +125,14 @@
   };
 </script>
 
-<div class="page">
-  <section class="page__intro">
+<div class="w-full max-w-full m-0 p-8 min-h-[calc(100vh-80px)] bg-[#fafafa] md:p-4">
+  <section class="mb-10 max-w-[1600px] mx-auto md:mb-6">
     <p class="eyebrow">Search</p>
-    <h1>Find messages quickly</h1>
-    <p class="muted">Search aviation telegrams with full-text search and time range filters.</p>
+    <h1 class="my-2 mt-0.5 mb-0.75 text-4xl font-bold text-[#18181b] leading-tight md:text-3xl">Find messages quickly</h1>
+    <p class="muted text-lg leading-relaxed">Search aviation telegrams with full-text search and time range filters.</p>
   </section>
 
-  <form class="search-form" onsubmit={handleSubmit}>
+  <form class="search-form grid grid-cols-[2fr_1fr_1fr_auto] gap-5 items-end mb-10 p-8 bg-white border border-[#e4e4e7] rounded-xl shadow-sm max-w-[1600px] mx-auto md:grid-cols-1 md:gap-4 md:p-5 md:mb-6" onsubmit={handleSubmit}>
     <Input
       label="Query (optional)"
       name="query"
@@ -140,7 +140,7 @@
       bind:value={query}
       ariaLabel="Search query"
     />
-    <div class="search-form__time-filters">
+    <div class="search-form__time-filters grid grid-cols-2 gap-4 md:grid-cols-1">
       <Input
         label="Start Time (optional)"
         name="start_time"
@@ -156,7 +156,7 @@
         ariaLabel="End time"
       />
     </div>
-    <div class="search-actions">
+    <div class="search-actions flex gap-3 flex-nowrap items-end md:justify-start">
       <Button type="submit" disabled={loading}>
         {loading ? "Searching..." : "Search"}
       </Button>
@@ -168,48 +168,48 @@
     <LoadingSkeleton variant="message" />
   {:else if error}
     <Card>
-      <div class="error-card" role="alert" aria-live="polite" aria-atomic="true">
-        <p class="eyebrow">Error</p>
+      <div class="p-6 bg-[#fef2f2] border border-[#fecaca] rounded-xl max-w-[1600px] mx-auto" role="alert" aria-live="polite" aria-atomic="true">
+        <p class="eyebrow text-[#dc2626] font-semibold">Error</p>
         <p class="muted">{error}</p>
       </div>
     </Card>
   {:else if results.length === 0 && !hasSearchCriteria}
-    <div class="empty-state">
+    <div class="max-w-[1600px] mx-auto">
       <Card>
-        <div class="empty-state__content">
+        <div class="py-12 px-8 text-center">
           <p class="muted">Enter a search query or time range to search for messages.</p>
         </div>
       </Card>
     </div>
   {:else if results.length === 0}
-    <div class="empty-state">
+    <div class="max-w-[1600px] mx-auto">
       <Card>
-        <div class="empty-state__content">
+        <div class="py-12 px-8 text-center">
           <p class="muted">No messages found matching your search criteria.</p>
         </div>
       </Card>
     </div>
   {:else}
-    <div class="results-container">
+    <div class="max-w-[1600px] mx-auto">
       <Card>
-        <div class="card__header">
+        <div class="card__header flex justify-between items-center gap-4 mb-6 pb-4 border-b-2 border-[#e4e4e7] md:flex-col md:items-start md:gap-2">
           <div>
             <p class="eyebrow">Search Results</p>
             <p class="muted">Showing {results.length} of {total} results</p>
           </div>
         </div>
-        <div class="message-list-container">
-          <ul class="message-list">
+        <div class="message-list-container max-h-[calc(100vh-400px)] min-h-[500px] overflow-y-auto border border-[#e4e4e7] rounded-xl p-4 bg-[#fafafa] md:max-h-[calc(100vh-350px)] md:min-h-[400px] md:p-3">
+          <ul class="list-none p-0 m-0 flex flex-col gap-4">
             {#each results as item, index (item.message_id ?? `${item.time}-${index}`)}
-              <li class="message">
-                <div class="message-meta">
+              <li class="message p-6 bg-white border border-[#e4e4e7] rounded-xl transition-all shadow-sm hover:bg-[#fafafa] hover:border-[#d4d4d8] hover:shadow-md hover:-translate-y-px md:p-4">
+                <div class="message-meta flex items-center gap-4 mb-4 flex-wrap md:flex-col md:items-start md:gap-2">
                   <Badge variant="soft">{item.type || "Unknown"}</Badge>
                   <span class="muted">
                     {item.time ? new Date(item.time).toLocaleString() : "No timestamp"}
                   </span>
                 </div>
-                <p class="message-body">{item.content || "No content provided."}</p>
-                <div class="message-foot">
+                <p class="message-body my-4 text-[#18181b] leading-relaxed break-words text-[0.95rem]">{item.content || "No content provided."}</p>
+                <div class="message-foot flex items-center gap-6 flex-wrap mt-4 pt-4 border-t border-[#e4e4e7] md:flex-col md:items-start md:gap-2">
                   <span class="muted">
                     {item.source || "----"} → {item.destination || "----"}
                   </span>
@@ -226,99 +226,7 @@
 </div>
 
 <style>
-  .page {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 2rem;
-    min-height: calc(100vh - 80px);
-    background: #fafafa;
-  }
-
-  .page__intro {
-    margin-bottom: 2.5rem;
-    max-width: 1600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .page__intro h1 {
-    margin: 0.5rem 0 0.75rem;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #18181b;
-    line-height: 1.2;
-  }
-
-  .page__intro .muted {
-    font-size: 1.1rem;
-    line-height: 1.6;
-  }
-
-  .search-form {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
-    gap: 1.25rem;
-    align-items: end;
-    margin-bottom: 2.5rem;
-    padding: 2rem;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    max-width: 1600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .search-form__time-filters {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
-  .search-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: nowrap;
-    align-items: flex-end;
-  }
-
-  .card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #e4e4e7;
-  }
-
-  .error-card {
-    padding: 1.5rem;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 12px;
-    max-width: 1600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .error-card .eyebrow {
-    color: #dc2626;
-    font-weight: 600;
-  }
-
-  .message-list-container {
-    max-height: calc(100vh - 400px);
-    min-height: 500px;
-    overflow-y: auto;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    padding: 1rem;
-    background: #fafafa;
-  }
-
+  /* Custom scrollbar styles - keep as scoped styles */
   .message-list-container::-webkit-scrollbar {
     width: 8px;
   }
@@ -335,132 +243,5 @@
 
   .message-list-container::-webkit-scrollbar-thumb:hover {
     background: #a1a1aa;
-  }
-
-  .message-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .message {
-    padding: 1.5rem;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  }
-
-  .message:hover {
-    background: #fafafa;
-    border-color: #d4d4d8;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
-  }
-
-  .message-meta {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .message-body {
-    margin: 1rem 0;
-    color: #18181b;
-    line-height: 1.7;
-    word-break: break-word;
-    font-size: 0.95rem;
-  }
-
-  .message-foot {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e4e4e7;
-  }
-
-  .results-container {
-    max-width: 1600px;
-    margin: 0 auto;
-  }
-
-  .empty-state {
-    max-width: 1600px;
-    margin: 0 auto;
-  }
-
-  .empty-state__content {
-    padding: 3rem 2rem;
-    text-align: center;
-  }
-
-  @media (max-width: 1200px) {
-    .search-form {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
-    .search-form__time-filters {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .search-actions {
-      justify-content: flex-start;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .page {
-      padding: 1rem;
-    }
-
-    .page__intro {
-      margin-bottom: 1.5rem;
-    }
-
-    .page__intro h1 {
-      font-size: 1.75rem;
-    }
-
-    .search-form {
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .search-form__time-filters {
-      grid-template-columns: 1fr;
-    }
-
-    .message-list-container {
-      max-height: calc(100vh - 350px);
-      min-height: 400px;
-      padding: 0.75rem;
-    }
-
-    .message {
-      padding: 1rem;
-    }
-
-    .message-meta,
-    .message-foot {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-
-    .card__header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
   }
 </style>

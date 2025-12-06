@@ -3,7 +3,7 @@
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import Select, { type SelectOption } from "./ui/Select.svelte";
   import Badge from "./ui/Badge.svelte";
-  import Button from "./ui/Button.svelte";
+  import { Button } from "./ui/button/index.js";
   import { cn } from "$lib/utils.js";
 
   interface TopControlBarProps {
