@@ -47,10 +47,12 @@
       ]);
 
       if (statsResponse) {
+        console.log("Stats response for time window:", value, statsResponse);
         stats = {
           ...statsResponse,
           byType: statsResponse.byType ?? {},
         };
+        console.log("Updated stats with byType:", stats.byType);
       }
       if (trendResponse?.data) {
         trendData = trendResponse.data.map((d) => ({
@@ -97,35 +99,39 @@
 
   // Reactive sync of WebSocket data to local state using $effect
   // This replaces polling with reactive updates for better performance
+  // Note: Only sync stats if WebSocket timeWindow matches current selection
+  // to avoid overriding manual time window changes
   $effect(() => {
     const wsStats = wsStore.stats;
     const wsHealth = wsStore.health;
     const wsMessages = wsStore.newMessages;
 
-    // Sync stats - only update if values actually changed
-    if (wsStats) {
-      const newByType = wsStats.byType ?? {};
-      
-      // Check if we need to update by comparing values first
-      const needsUpdate = !stats ||
-        stats.total !== wsStats.total ||
-        stats.activeRoutes !== (wsStats.activeRoutes ?? 0) ||
-        stats.messagesPerSec !== (wsStats.messagesPerSec ?? 0) ||
-        stats.timeWindow !== wsStats.timeWindow;
-      
-      // Check if byType changed (deep comparison to avoid reference issues)
-      let byTypeChanged = false;
-      if (stats) {
-        const oldByType = stats.byType ?? {};
-        const oldKeys = Object.keys(oldByType);
-        const newKeys = Object.keys(newByType);
-        byTypeChanged = oldKeys.length !== newKeys.length ||
-          oldKeys.some(key => (oldByType[key] ?? 0) !== (newByType[key] ?? 0));
-      } else {
-        // If stats is null, check if newByType has any data
-        byTypeChanged = Object.keys(newByType).length > 0;
-      }
-      
+    // Sync stats - only update from WebSocket if we're viewing "last_24h"
+    // WebSocket always sends "last_24h" data, so we should only sync when that's selected
+    // or if we don't have any stats yet (initial connection)
+    if (wsStats && (timeWindow === "last_24h" || !stats)) {
+        const newByType = wsStats.byType ?? {};
+        
+        // Check if we need to update by comparing values first
+        const needsUpdate = !stats ||
+          stats.total !== wsStats.total ||
+          stats.activeRoutes !== (wsStats.activeRoutes ?? 0) ||
+          stats.messagesPerSec !== (wsStats.messagesPerSec ?? 0) ||
+          stats.timeWindow !== wsStats.timeWindow;
+        
+        // Check if byType changed (deep comparison to avoid reference issues)
+        let byTypeChanged = false;
+        if (stats) {
+          const oldByType = stats.byType ?? {};
+          const oldKeys = Object.keys(oldByType);
+          const newKeys = Object.keys(newByType);
+          byTypeChanged = oldKeys.length !== newKeys.length ||
+            oldKeys.some(key => (oldByType[key] ?? 0) !== (newByType[key] ?? 0));
+        } else {
+          // If stats is null, check if newByType has any data
+          byTypeChanged = Object.keys(newByType).length > 0;
+        }
+        
       if (needsUpdate || byTypeChanged) {
         stats = {
           total: wsStats.total,
