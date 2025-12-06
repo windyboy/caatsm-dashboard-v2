@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap/zaptest"
@@ -319,10 +320,11 @@ func TestWebSocketHandler_MessageBroadcast(t *testing.T) {
 	handler := NewHandler(
 		hub,
 		logger,
+		config.AuthConfig{}, // empty auth config for tests
 		&stubStatsService{summary: &app.TrafficSummary{}}, // stub stats service
 		&stubQueryService{telegrams: []app.Telegram{}},    // stub query service
-		nil, // realtime service not needed
-		nil, // event publisher not needed
+		nil, // redis client not needed for this test
+		nil, // allowed origins (will use defaults)
 	)
 
 	// Setup Echo server
@@ -389,18 +391,19 @@ func TestWebSocketHandler_SlowClientDisconnect(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	// Setup hub with small buffer to trigger backpressure quickly
-	config := ws.DefaultConfig()
-	config.ClientBufferSize = 5 // Small buffer to trigger backpressure
-	hub := ws.NewHub(config, logger)
+	hubConfig := ws.DefaultConfig()
+	hubConfig.ClientBufferSize = 5 // Small buffer to trigger backpressure
+	hub := ws.NewHub(hubConfig, logger)
 	defer hub.Close()
 
 	handler := NewHandler(
 		hub,
 		logger,
+		config.AuthConfig{}, // empty auth config for tests
 		&stubStatsService{summary: &app.TrafficSummary{}},
 		&stubQueryService{telegrams: []app.Telegram{}},
-		nil,
-		nil,
+		nil, // redis client not needed for this test
+		nil, // allowed origins (will use defaults)
 	)
 
 	e := echo.New()
@@ -471,10 +474,11 @@ func TestWebSocketHandler_ConnectionError(t *testing.T) {
 	handler := NewHandler(
 		hub,
 		logger,
-		nil,
-		nil,
-		nil,
-		nil,
+		config.AuthConfig{}, // empty auth config for tests
+		nil, // stats service not needed for this test
+		nil, // query service not needed for this test
+		nil, // redis client not needed for this test
+		nil, // allowed origins (will use defaults)
 	)
 
 	e := echo.New()

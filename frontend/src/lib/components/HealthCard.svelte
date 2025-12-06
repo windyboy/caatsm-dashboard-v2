@@ -35,7 +35,7 @@
     <p class="muted">No component details available.</p>
   {:else}
     <ul class="health-list" role="list">
-      {#each items as item}
+      {#each items as item (item.label)}
         <li class="health-row" role="listitem">
           <span class="status-dot {statusClass(item.status)}" aria-label={item.status || "unknown"}
           ></span>

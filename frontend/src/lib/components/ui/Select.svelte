@@ -43,7 +43,7 @@
     {selectedOption?.label || placeholder}
   </SelectTrigger>
   <SelectContent>
-    {#each options as option}
+    {#each options as option (option.value)}
       <SelectItem value={option.value} label={option.label} />
     {/each}
   </SelectContent>

@@ -138,7 +138,7 @@ export class WebSocketService {
           this.scheduleReconnect();
         }
       };
-    } catch (err) {
+    } catch {
       this.setStatus("error");
     }
   }

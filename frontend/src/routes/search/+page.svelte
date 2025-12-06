@@ -132,7 +132,7 @@
     <p class="muted">Search aviation telegrams with full-text search and time range filters.</p>
   </section>
 
-  <form class="search-form" on:submit|preventDefault={handleSubmit}>
+  <form class="search-form" onsubmit={handleSubmit}>
     <Input
       label="Query (optional)"
       name="query"

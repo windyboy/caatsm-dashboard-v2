@@ -165,10 +165,10 @@
       </div>
     {:else}
       <div class="table-wrapper" role="region" aria-label="Message data table">
-        <table class="data-table" role="table">
+        <table class="data-table">
           <thead>
             <tr>
-              {#each columns as col}
+              {#each columns as col (col.key)}
                 <th
                   class={cn(
                     "table-header",

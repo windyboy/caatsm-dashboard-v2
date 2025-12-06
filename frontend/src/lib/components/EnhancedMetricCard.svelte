@@ -26,9 +26,6 @@
 
   const trendClass = $derived(trend ? (trend.value >= 0 ? "trend-up" : "trend-down") : "");
   const trendIcon = $derived(trend ? (trend.value >= 0 ? "↑" : "↓") : "");
-  const trendColor = $derived(
-    trend ? (trend.value >= 0 ? "text-green-600" : "text-red-600") : "text-zinc-600"
-  );
 </script>
 
 <Card>

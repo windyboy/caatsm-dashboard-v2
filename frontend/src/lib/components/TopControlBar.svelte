@@ -62,9 +62,11 @@
   <div class="top-control-bar__left">
     <div class="connection-status">
       <span class={cn("status-dot", `status-dot--${statusVariant}`)} aria-hidden="true"></span>
-      <Badge variant={statusVariant} aria-label={`Connection status: ${statusLabel}`}>
-        {statusLabel}
-      </Badge>
+      <div aria-label={`Connection status: ${statusLabel}`}>
+        <Badge variant={statusVariant}>
+          {statusLabel}
+        </Badge>
+      </div>
     </div>
   </div>
 

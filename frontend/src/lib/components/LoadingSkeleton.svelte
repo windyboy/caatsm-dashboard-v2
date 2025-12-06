@@ -22,7 +22,7 @@
       <div class="skeleton skeleton--pill"></div>
     </div>
     <ul class="message-list">
-      {#each Array(3) as _}
+      {#each Array(3) as _, i (i)}
         <li class="message">
           <div class="message-meta">
             <div class="skeleton skeleton--pill-small"></div>
@@ -48,7 +48,7 @@
       <div class="skeleton skeleton--pill"></div>
     </div>
     <ul class="health-list">
-      {#each Array(4) as _}
+      {#each Array(4) as _, i (i)}
         <li class="health-row">
           <div class="skeleton skeleton--dot"></div>
           <div>

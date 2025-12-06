@@ -12,7 +12,6 @@
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import type {
     HealthSnapshot,
-    HistoricalStats,
     TrafficSummary,
     Telegram,
     SearchResponse,

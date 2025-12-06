@@ -85,7 +85,7 @@
       <p class="muted">No component information available.</p>
     {:else}
       <div class="health-grid">
-        {#each components as component}
+        {#each components as component (component.label)}
           <div class="health-grid-item">
             <div class="health-grid-item__header">
               <span

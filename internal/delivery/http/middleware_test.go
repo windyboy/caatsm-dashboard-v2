@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -195,7 +196,8 @@ func TestBasicAuthMiddleware(t *testing.T) {
 		httpErr, ok := err.(*echo.HTTPError)
 		require.True(t, ok)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
-		assert.Contains(t, httpErr.Message.(string), "unauthorized")
+		// Echo's BasicAuth returns "Unauthorized" (capitalized)
+		assert.Contains(t, strings.ToLower(httpErr.Message.(string)), "unauthorized")
 	})
 
 	t.Run("allows valid credentials", func(t *testing.T) {

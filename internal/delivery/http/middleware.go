@@ -69,3 +69,61 @@ func CSRFMiddleware() echo.MiddlewareFunc {
 		CookieSameSite: http.SameSiteStrictMode,
 	})
 }
+
+// BasicAuthMiddleware returns an Echo middleware for Basic authentication
+func BasicAuthMiddleware(cfg config.AuthConfig) echo.MiddlewareFunc {
+	if !cfg.EnableBasic {
+		// If basic auth is disabled, skip authentication
+		return func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				return next(c)
+			}
+		}
+	}
+
+	// Use Echo's built-in BasicAuth middleware
+	return middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+		if username == cfg.Username && password == cfg.Password {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+// RateLimitMiddleware returns an Echo middleware for rate limiting
+func RateLimitMiddleware() echo.MiddlewareFunc {
+	// Use Echo's built-in rate limiter with memory store
+	// Default: 10 requests per second
+	return middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(10))
+}
+
+// ProductionConfigGuardMiddleware returns an Echo middleware that enforces production security requirements
+func ProductionConfigGuardMiddleware(cfg config.AppConfig) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// Only enforce in production environment
+			if cfg.Environment != "production" {
+				return next(c)
+			}
+
+			// Check TLS requirement
+			if !cfg.Server.TLSEnabled {
+				return echo.NewHTTPError(
+					http.StatusServiceUnavailable,
+					"TLS must be enabled in production environment",
+				)
+			}
+
+			// Check that we're not running on localhost in production
+			host := c.Request().Host
+			if strings.Contains(host, "localhost") || strings.Contains(host, "127.0.0.1") {
+				return echo.NewHTTPError(
+					http.StatusServiceUnavailable,
+					"production server cannot run on localhost",
+				)
+			}
+
+			return next(c)
+		}
+	}
+}

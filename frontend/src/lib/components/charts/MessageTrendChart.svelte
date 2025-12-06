@@ -31,7 +31,7 @@
     for (let i = 23; i >= 0; i--) {
       const time = new Date(now.getTime() - i * 60 * 60 * 1000);
       generated.push({
-        time: time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        time: time.toISOString(), // Use ISO format like backend
         count: Math.floor(Math.random() * 100) + 50,
       });
     }
@@ -40,13 +40,18 @@
 
   // Format time string for display
   function formatTime(timeStr: string): string {
+    // If it's already a formatted time string (like "02:30 PM" or "14:30"), return as-is
+    if (!timeStr.includes("T") && !timeStr.includes("Z") && timeStr.match(/^\d{1,2}:\d{2}/)) {
+      return timeStr;
+    }
+    
     try {
       const date = new Date(timeStr);
       if (isNaN(date.getTime())) {
-        return "Invalid Date";
+        return timeStr; // Return original string if parsing fails
       }
       return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    } catch (error) {
+    } catch {
       return timeStr;
     }
   }
