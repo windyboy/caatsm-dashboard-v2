@@ -23,4 +23,3 @@ describe("WebSocketStore", () => {
     expect(store.newMessages).toEqual([]);
   });
 });
-

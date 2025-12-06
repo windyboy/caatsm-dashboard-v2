@@ -13,16 +13,15 @@
   });
 
   let timeUntilRetry = $state<number | null>(null);
-  let intervalId: ReturnType<typeof setInterval> | null = null;
 
   const status = $derived(connectionStore?.overallStatus ?? "disconnected");
   const nextRetry = $derived(connectionStore?.nextRetryAt ?? null);
   const retryCount = $derived(connectionStore?.retryCount ?? 0);
 
   $effect(() => {
-    if (nextRetry) {
-      if (intervalId) clearInterval(intervalId);
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
+    if (nextRetry) {
       intervalId = setInterval(() => {
         const now = Date.now();
         const retryTime = nextRetry.getTime();
@@ -31,21 +30,20 @@
       }, 1000);
     } else {
       timeUntilRetry = null;
+    }
+
+    return () => {
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
       }
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
     };
   });
 
   function handleManualRetry() {
     connectionStore?.manualRetry();
-    // Trigger a page refresh to retry API calls
-    window.location.reload();
+    // The connection store will handle retry logic
+    // No need to reload the page - state will update reactively
   }
 
   const statusConfig = {

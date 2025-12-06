@@ -2,18 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import {
     Chart,
+    registerables,
     type ChartConfiguration,
-    LineController,
-    LineElement,
-    PointElement,
-    LinearScale,
-    CategoryScale,
-    Tooltip,
-    Legend,
-    Filler,
   } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { defaultChartOptions, chartColors } from "$lib/utils/chart-helpers";
+  import { _ } from "svelte-i18n";
 
   export interface TrendDataPoint {
     time: string;
@@ -25,7 +19,7 @@
     title?: string;
   }
 
-  let { data = [], title = "Message Trend" }: MessageTrendChartProps = $props();
+  let { data = [], title = $_("charts.messageTrend") }: MessageTrendChartProps = $props();
 
   let canvasElement: HTMLCanvasElement | null = $state(null);
   let chartInstance: Chart<"line"> | null = $state(null);
@@ -48,8 +42,11 @@
   function formatTime(timeStr: string): string {
     try {
       const date = new Date(timeStr);
+      if (isNaN(date.getTime())) {
+        return "Invalid Date";
+      }
       return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    } catch {
+    } catch (error) {
       return timeStr;
     }
   }
@@ -57,7 +54,7 @@
   // Simple chart data - no derived chains
   function getChartData() {
     const sourceData = data.length > 0 ? data : generateMockData();
-    
+
     return {
       labels: sourceData.map((d) => formatTime(d.time)),
       datasets: [
@@ -78,7 +75,7 @@
   // Update chart data when data prop changes
   function updateChart() {
     if (!chartInstance) return;
-    
+
     const chartData = getChartData();
     chartInstance.data.labels = chartData.labels;
     chartInstance.data.datasets[0].data = chartData.datasets[0].data;
@@ -93,16 +90,7 @@
     if (!ctx) return;
 
     // Register required components (only once)
-    Chart.register(
-      LineController,
-      LineElement,
-      PointElement,
-      LinearScale,
-      CategoryScale,
-      Tooltip,
-      Legend,
-      Filler
-    );
+    Chart.register(...registerables);
 
     const config: ChartConfiguration<"line"> = {
       type: "line",
@@ -149,10 +137,13 @@
   <div class="chart-container">
     <div class="chart-header">
       <p class="eyebrow">{title}</p>
-      <p class="muted">Messages over time (last 24 hours)</p>
+      <p class="muted">{$_("dashboard.messages")} over time (last 24 hours)</p>
     </div>
     <div class="chart-wrapper">
-      <canvas bind:this={canvasElement}></canvas>
+      <canvas
+        bind:this={canvasElement}
+        aria-label="Message trend chart showing message count over the last 24 hours"
+      ></canvas>
     </div>
   </div>
 </Card>

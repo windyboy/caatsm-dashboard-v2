@@ -1,0 +1,36 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh"
+  },
+  "header": {
+    "title": "CAATSM Dashboard",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "metrics": "Metrics",
+    "messages": "Messages",
+    "health": "Health Status"
+  },
+  "search": {
+    "title": "Message Search",
+    "placeholder": "Search messages...",
+    "timeRange": "Time Range",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "messageType": "Message Type",
+    "results": "Results"
+  },
+  "charts": {
+    "messageTrend": "Message Trend",
+    "typeDistribution": "Type Distribution",
+    "noData": "No data available"
+  }
+}

@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { Chart, type ChartConfiguration } from "chart.js";
+  import {
+    Chart,
+    registerables,
+    type ChartConfiguration,
+  } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { generateColors, defaultChartOptions } from "$lib/utils/chart-helpers";
 
@@ -52,8 +56,8 @@
     const chartData = getChartData();
     if (chartData.labels.length === 0) return;
 
-    // Chart.js components are already registered in chart-helpers.ts
-    // No need to register again here
+    // Register required components for doughnut chart
+    Chart.register(...registerables);
 
     const config: ChartConfiguration<"doughnut"> = {
       type: "doughnut",
@@ -74,16 +78,24 @@
     chartInstance = new Chart(ctx, config);
   });
 
-  // Update chart only when data changes (debounced, no reactive loops)
+  // Update chart only when data changes (debounced to prevent excessive updates)
   $effect(() => {
     if (!chartInstance) return;
     
+    // Skip update if no data
+    const entries = Object.entries(data);
+    if (entries.length === 0) return;
+
     const timer = setTimeout(() => {
       if (chartInstance) {
-        chartInstance.data = getChartData();
-        chartInstance.update("none");
+        const chartData = getChartData();
+        // Only update if chart data actually changed
+        if (chartData.labels.length > 0) {
+          chartInstance.data = chartData;
+          chartInstance.update("none");
+        }
       }
-    }, 500);
+    }, 300); // Reduced debounce time for better responsiveness
 
     return () => {
       clearTimeout(timer);
@@ -108,7 +120,10 @@
     </div>
     {#if hasData}
       <div class="chart-wrapper">
-        <canvas bind:this={canvasElement}></canvas>
+        <canvas
+          bind:this={canvasElement}
+          aria-label="Message type distribution chart showing proportion of different message types"
+        ></canvas>
       </div>
     {:else}
       <div class="chart-empty">

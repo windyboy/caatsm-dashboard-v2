@@ -28,4 +28,3 @@ describe("ConnectionStore", () => {
     expect(store.lastError).toBe("Test error");
   });
 });
-

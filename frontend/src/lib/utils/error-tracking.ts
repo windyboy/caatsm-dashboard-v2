@@ -35,4 +35,3 @@ export function trackEvent(name: string, data?: Record<string, unknown>): void {
     // Production: Send to analytics service
   }
 }
-

@@ -1,0 +1,36 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "cancel": "取消",
+    "confirm": "确认",
+    "search": "搜索",
+    "filter": "筛选",
+    "refresh": "刷新"
+  },
+  "header": {
+    "title": "CAATSM 仪表板",
+    "logout": "登出"
+  },
+  "dashboard": {
+    "title": "仪表板",
+    "metrics": "指标",
+    "messages": "消息",
+    "health": "健康状态"
+  },
+  "search": {
+    "title": "消息搜索",
+    "placeholder": "搜索消息...",
+    "timeRange": "时间范围",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
+    "messageType": "消息类型",
+    "results": "结果"
+  },
+  "charts": {
+    "messageTrend": "消息趋势",
+    "typeDistribution": "类型分布",
+    "noData": "暂无数据"
+  }
+}

@@ -16,7 +16,7 @@ class WebSocketStore {
   private _health = $state<HealthSnapshot | null>(null);
   private _newMessages = $state<Telegram[]>([]);
   private _initialBatchCount = $state(0);
-  
+
   // Check if we're still in initial batch (first 50 messages after connection)
   private get _isInitialBatch(): boolean {
     return this._initialBatchCount < 50;
@@ -68,7 +68,6 @@ class WebSocketStore {
     });
   }
 
-
   // applyStatsDelta applies incremental stats updates to current stats
   private applyStatsDelta(delta: WSStatsDeltaData): void {
     if (!this._stats) {
@@ -108,7 +107,9 @@ class WebSocketStore {
       status: health.status,
       version: health.version,
       timestamp: health.timestamp,
-      postgresql: health.postgresql ? (health.postgresql as HealthSnapshot["postgresql"]) : undefined,
+      postgresql: health.postgresql
+        ? (health.postgresql as HealthSnapshot["postgresql"])
+        : undefined,
       meilisearch: health.meilisearch
         ? (health.meilisearch as HealthSnapshot["meilisearch"])
         : undefined,

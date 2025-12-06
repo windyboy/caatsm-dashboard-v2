@@ -1,36 +1,7 @@
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  LineController,
-  BarElement,
-  ArcElement,
-  DoughnutController,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
   type ChartOptions,
   type ChartData,
 } from "chart.js";
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  LineController,
-  BarElement,
-  ArcElement,
-  DoughnutController,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
 
 export type { ChartOptions, ChartData };
 

@@ -7,6 +7,7 @@ import type {
   WSConnectionStatus,
 } from "$lib/types";
 import { WSMessageType } from "$lib/types";
+import { authManager } from "$lib/auth";
 
 type StatsHandler = (data: WSStatsData) => void;
 type StatsDeltaHandler = (data: WSStatsDeltaData) => void;
@@ -60,14 +61,25 @@ export class WebSocketService {
       throw new Error("WebSocket URL can only be determined in browser environment");
     }
 
+    let url: string;
     if (import.meta.env.DEV) {
       // Use relative path in dev mode, Vite proxy will forward to backend
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      return `${protocol}//${window.location.host}/ws`;
+      url = `${protocol}//${window.location.host}/ws`;
+    } else {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = window.location.host;
+      url = `${protocol}//${host}/ws`;
     }
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    return `${protocol}//${host}/ws`;
+
+    // 添加认证token到查询参数
+    const accessToken = authManager.getAccessToken();
+    if (accessToken) {
+      const separator = url.includes('?') ? '&' : '?';
+      url += `${separator}token=${encodeURIComponent(accessToken)}`;
+    }
+
+    return url;
   }
 
   connect(): void {
@@ -108,8 +120,14 @@ export class WebSocketService {
         }
       };
 
-      this.ws.onerror = () => {
+      this.ws.onerror = (event) => {
         this.setStatus("error");
+        // Log error details for debugging
+        if (import.meta.env.DEV) {
+          console.error("WebSocket error:", event);
+          console.error("WebSocket readyState:", this.ws?.readyState);
+          console.error("WebSocket URL:", this._url);
+        }
       };
 
       this.ws.onclose = () => {

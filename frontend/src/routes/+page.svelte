@@ -10,7 +10,13 @@
   import ConnectionBanner from "$lib/components/ConnectionBanner.svelte";
   import { fetchHealth, fetchRecentMessages, fetchStats, fetchTrendData } from "$lib/api";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
-  import type { HealthSnapshot, HistoricalStats, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
+  import type {
+    HealthSnapshot,
+    HistoricalStats,
+    TrafficSummary,
+    Telegram,
+    SearchResponse,
+  } from "$lib/types";
   import type { TrendDataPoint } from "$lib/components/charts/MessageTrendChart.svelte";
 
   // Simple state management - no complex derived values
@@ -36,7 +42,28 @@
   }
 
   function handleRefresh() {
-    window.location.reload();
+    // Reset loading state and refetch data
+    loading = true;
+    Promise.all([
+      fetchStats().catch(() => null),
+      fetchHealth().catch(() => null),
+      fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
+      fetchTrendData("hour").catch(() => null),
+    ]).then(([statsResponse, healthResponse, messagesResponse, trendResponse]) => {
+      if (statsResponse) stats = statsResponse;
+      if (healthResponse) health = healthResponse;
+      if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
+      if (trendResponse?.data) {
+        trendData = trendResponse.data.map((d) => ({
+          time: d.time,
+          count: d.count,
+        }));
+      }
+    }).catch((err) => {
+      console.error("Failed to refresh data:", err);
+    }).finally(() => {
+      loading = false;
+    });
   }
 
   // Reactive sync of WebSocket data to local state using $effect
@@ -64,7 +91,7 @@
 
   onMount(async () => {
     document.title = "CAATSM Dashboard - Operations";
-    
+
     // Connect WebSocket
     wsStore.connect();
 
@@ -99,10 +126,14 @@
   });
 </script>
 
-<main id="main-content" class="dashboard-page">
+<div class="dashboard-page">
   <ConnectionBanner />
 
-  <TopControlBar {timeWindow} onTimeWindowChange={handleTimeWindowChange} onRefresh={handleRefresh} />
+  <TopControlBar
+    {timeWindow}
+    onTimeWindowChange={handleTimeWindowChange}
+    onRefresh={handleRefresh}
+  />
 
   <div class="dashboard-content">
     <section class="page__intro">
@@ -167,7 +198,7 @@
       </section>
     {/if}
   </div>
-</main>
+</div>
 
 <style>
   .dashboard-page {

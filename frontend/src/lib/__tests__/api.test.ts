@@ -21,9 +21,7 @@ describe("API Client", () => {
   });
 
   it("should handle fetch errors", async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new TypeError("fetch failed")
-    );
+    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new TypeError("fetch failed"));
 
     await expect(runSearch("test")).rejects.toThrow();
   });
@@ -39,4 +37,3 @@ describe("API Client", () => {
     await expect(runSearch("test")).rejects.toThrow();
   });
 });
-

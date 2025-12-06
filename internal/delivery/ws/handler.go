@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
+	"github.com/windy/caatsm-dashboard/config"
 	"github.com/windy/caatsm-dashboard/internal/app"
 	"github.com/windy/caatsm-dashboard/internal/infrastructure/ws"
 	"go.uber.org/zap"
@@ -28,6 +30,7 @@ const (
 type Handler struct {
 	hub          *ws.Hub
 	logger       *zap.Logger
+	authConfig   config.AuthConfig
 	statsService interface {
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	}
@@ -43,6 +46,7 @@ type Handler struct {
 func NewHandler(
 	hub *ws.Hub,
 	logger *zap.Logger,
+	authConfig config.AuthConfig,
 	statsService interface {
 		TrafficSummary(ctx context.Context, window interface{}) (interface{}, error)
 	},
@@ -58,6 +62,7 @@ func NewHandler(
 	return &Handler{
 		hub:          hub,
 		logger:       logger,
+		authConfig:   authConfig,
 		statsService: statsService,
 		queryService: queryService,
 		redisCli:     redisCli,
@@ -113,12 +118,12 @@ func normalizeOrigin(origin string) string {
 
 	// Normalize scheme and host to lowercase
 	scheme := strings.ToLower(u.Scheme)
-	
+
 	// Only allow http and https schemes for WebSocket origins (fail-secure)
 	if scheme != "http" && scheme != "https" {
 		return ""
 	}
-	
+
 	host := strings.ToLower(u.Host)
 
 	// Remove default ports
@@ -163,6 +168,25 @@ func makeCheckOriginFunc(allowedOrigins []string) func(*http.Request) bool {
 
 // HandleWebSocket handles WebSocket connections.
 func (h *Handler) HandleWebSocket(c echo.Context) error {
+	// Validate JWT token if authentication is enabled
+	if h.authConfig.JWTSecret != "" {
+		tokenParam := c.QueryParam("token")
+		if tokenParam == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "missing token parameter")
+		}
+
+		token, err := jwt.Parse(tokenParam, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, echo.NewHTTPError(http.StatusUnauthorized, "unexpected signing method")
+			}
+			return []byte(h.authConfig.JWTSecret), nil
+		})
+
+		if err != nil || !token.Valid {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid token")
+		}
+	}
+
 	conn, err := h.upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		h.logger.Error("failed to upgrade to websocket", zap.Error(err))
@@ -201,7 +225,7 @@ func (h *Handler) HandleWebSocket(c echo.Context) error {
 	go func() {
 		// Small delay to ensure WritePump has started processing
 		time.Sleep(10 * time.Millisecond)
-		
+
 		// Use clientCtx (hub context) instead of request context
 		// Request context is canceled after WebSocket upgrade, causing "context canceled" errors
 		if err := h.sendInitialData(clientCtx, client); err != nil {
@@ -260,11 +284,11 @@ func (h *Handler) sendInitialStats(ctx context.Context, client *ws.Client) error
 
 	// Send unified stats message
 	statsData := &ws.StatsData{
-		Total:         summary.TotalMessages,
-		ByType:        summary.ByType,
-		ActiveRoutes:  summary.ActiveRoutes,
+		Total:          summary.TotalMessages,
+		ByType:         summary.ByType,
+		ActiveRoutes:   summary.ActiveRoutes,
 		MessagesPerSec: messagesPerSec,
-		TimeWindow:    summary.TimeWindow,
+		TimeWindow:     summary.TimeWindow,
 	}
 	msg := &ws.Message{
 		Type: ws.MessageTypeStats,

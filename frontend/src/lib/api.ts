@@ -1,5 +1,6 @@
 import type { HealthSnapshot, HistoricalStats, SearchResponse, TrafficSummary } from "./types";
 import { getConnectionStore } from "./stores/connection.svelte";
+import { authManager } from "./auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3002";
 
@@ -27,13 +28,40 @@ async function request<T>(
     try {
       connectionStore.markHttpSuccess();
 
+      // 构建请求头
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // 合并现有头
+      if (init?.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((value, key) => {
+            headers[key] = value;
+          });
+        } else {
+          Object.assign(headers, init.headers);
+        }
+      }
+
+      // 添加认证头
+      const accessToken = authManager.getAccessToken();
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
+      // 添加CSRF token（对于非GET请求）
+      if (init?.method && init.method !== "GET") {
+        const csrfToken = authManager.getCsrfToken();
+        if (csrfToken) {
+          headers["X-CSRF-Token"] = csrfToken;
+        }
+      }
+
       const response = await fetch(url, {
         ...init,
         signal: init?.signal,
-        headers: {
-          "Content-Type": "application/json",
-          ...init?.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -124,6 +152,7 @@ export function fetchTrendData(interval: string = "hour"): Promise<HistoricalSta
 export async function fetchHealth(): Promise<HealthSnapshot> {
   // Health endpoint may return 503 for degraded/unhealthy status, which is still valid data
   // We need to handle 503 as a valid response since it contains health information
+  // Use the shared request function but handle 503 as a valid status
   const connectionStore = getConnectionStore();
   const url = buildUrl("/api/health");
   const maxRetries = 3;
@@ -133,8 +162,18 @@ export async function fetchHealth(): Promise<HealthSnapshot> {
     try {
       connectionStore.markHttpSuccess();
 
+      // Build headers with authentication
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      const accessToken = authManager.getAccessToken();
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
       const response = await fetch(url, {
-        headers: { "Content-Type": "application/json" },
+        headers,
       });
 
       // 503 is valid for health endpoint - it means degraded/unhealthy but still has data
@@ -160,6 +199,11 @@ export async function fetchHealth(): Promise<HealthSnapshot> {
 
       if (attempt === maxRetries) {
         break;
+      }
+
+      // Don't retry on abort
+      if (err instanceof Error && err.name === "AbortError") {
+        throw err;
       }
 
       // Network errors - retry with exponential backoff
@@ -220,15 +264,15 @@ function formatDateTimeLocalToRFC3339(dateTimeLocal: string): string {
     }
     return date.toISOString();
   }
-  
+
   // Create a date object in local timezone
   // datetime-local values are always in local time
   const [year, month, day] = datePart.split("-").map(Number);
   const [hours, minutes] = timePart.split(":").map(Number);
-  
+
   // Create date in local timezone
   const localDate = new Date(year, month - 1, day, hours, minutes);
-  
+
   // Convert to ISO string (RFC3339 format with timezone offset)
   return localDate.toISOString();
 }

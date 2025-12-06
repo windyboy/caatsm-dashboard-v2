@@ -7,13 +7,6 @@
   import Badge from "$lib/components/ui/Badge.svelte";
   import { runSearch } from "$lib/api";
   import type { Telegram } from "$lib/types";
-  // Virtual list for large result sets - use if available, otherwise fallback to regular list
-  let useVirtualList = $state(false);
-  
-  // Try to use virtual list for large result sets (>100 items)
-  $effect(() => {
-    useVirtualList = results.length > 100;
-  });
 
   let query = $state("");
   let startTime = $state("");
@@ -24,9 +17,9 @@
   let error = $state<string | null>(null);
   let abortController: AbortController | null = null;
 
-  const hasSearchCriteria = $derived.by(() => {
-    return query.trim().length > 0 || startTime.length > 0 || endTime.length > 0;
-  });
+  const hasSearchCriteria = $derived(
+    query.trim().length > 0 || startTime.length > 0 || endTime.length > 0
+  );
 
   function validateTimeRange(): string | null {
     if (startTime && endTime) {
@@ -85,13 +78,23 @@
     }
   }
 
-  async function handleSubmit(event: SubmitEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+
+    // Validate time range synchronously
+    const validationError = validateTimeRange();
+    if (validationError) {
+      error = validationError;
+      return;
+    }
+
     if (!hasSearchCriteria) {
       error = "Please enter a search query or time range";
       return;
     }
-    await performSearch();
+
+    // Perform search asynchronously
+    performSearch();
   }
 
   function reset() {
@@ -122,14 +125,14 @@
   };
 </script>
 
-<main class="page">
+<div class="page">
   <section class="page__intro">
     <p class="eyebrow">Search</p>
     <h1>Find messages quickly</h1>
     <p class="muted">Search aviation telegrams with full-text search and time range filters.</p>
   </section>
 
-  <form class="search-form" onsubmit={handleSubmit}>
+  <form class="search-form" on:submit|preventDefault={handleSubmit}>
     <Input
       label="Query (optional)"
       name="query"
@@ -220,7 +223,7 @@
       </Card>
     </div>
   {/if}
-</main>
+</div>
 
 <style>
   .page {

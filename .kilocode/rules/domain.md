@@ -2,7 +2,7 @@
 
 ## Principles
 - Domain is single source of truth
-- Lives in `internal/app/`
+- Lives in `internal/domain/`
 - Pure Go, deterministic, testable
 - No I/O, DB, HTTP, search, cache, network
 

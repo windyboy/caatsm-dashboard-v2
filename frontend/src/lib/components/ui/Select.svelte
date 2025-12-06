@@ -38,13 +38,8 @@
   });
 </script>
 
-<SelectRoot
-  type="single"
-  bind:value={value as never}
-  disabled={disabled}
-  bind:open
->
-  <SelectTrigger disabled={disabled} class="w-full">
+<SelectRoot type="single" bind:value={value as never} {disabled} bind:open>
+  <SelectTrigger {disabled} class="w-full">
     {selectedOption?.label || placeholder}
   </SelectTrigger>
   <SelectContent>

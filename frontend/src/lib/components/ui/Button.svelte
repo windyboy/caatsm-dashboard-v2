@@ -8,19 +8,10 @@
     onclick?: (event: MouseEvent) => void;
   }
 
-  let {
-    variant = "default",
-    children,
-    onclick,
-    ...restProps
-  }: ButtonProps = $props();
+  let { variant = "default", children, onclick, ...restProps }: ButtonProps = $props();
 </script>
 
-<ShadcnButton
-  {variant}
-  onclick={onclick}
-  {...restProps}
->
+<ShadcnButton {variant} {onclick} {...restProps}>
   {#if children}
     {@render children()}
   {/if}

@@ -12,15 +12,18 @@ test("Search: should display search form", async ({ page }) => {
 
 test("Search: should show error for invalid time range", async ({ page }) => {
   await page.goto("/search");
-  
+
   const startTime = page.locator('input[name="start_time"]');
   const endTime = page.locator('input[name="end_time"]');
-  
+
   await startTime.fill("2024-01-02T00:00");
   await endTime.fill("2024-01-01T00:00"); // End before start
-  
+
   await page.locator('button[type="submit"]').click();
-  
+
+  // Wait for error to appear
+  await page.waitForSelector('[role="alert"]');
+
   // Should show validation error
   await expect(page.locator('[role="alert"]')).toBeVisible();
 });

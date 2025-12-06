@@ -64,6 +64,7 @@ Components use **TailwindCSS** for styling with shadcn-svelte's design system:
 - Dark mode support via CSS variables
 
 To add new shadcn-svelte components:
+
 ```bash
 bun x shadcn-svelte@latest add <component-name>
 ```

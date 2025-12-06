@@ -2,6 +2,7 @@
   import * as NavigationMenu from "$lib/components/ui/navigation-menu/index.js";
   import { cn } from "$lib/utils.js";
   import { page } from "$app/stores";
+  import { _ } from "svelte-i18n";
   import type { HTMLAttributes } from "svelte/elements";
 
   type ListItemProps = HTMLAttributes<HTMLAnchorElement> & {
@@ -11,13 +12,7 @@
   };
 </script>
 
-{#snippet ListItem({
-  title,
-  content,
-  href,
-  class: className,
-  ...restProps
-}: ListItemProps)}
+{#snippet ListItem({ title, content, href, class: className, ...restProps }: ListItemProps)}
   <li>
     <NavigationMenu.Link>
       {#snippet child()}
@@ -44,14 +39,14 @@
     <span class="brand-mark" aria-hidden="true"></span>
     <div>
       <p class="eyebrow">CAATSM</p>
-      <p class="title">Operations Dashboard</p>
+      <p class="title">{$_("header.title")}</p>
     </div>
   </div>
 
-  <NavigationMenu.Root viewport={false}>
+  <NavigationMenu.Root viewport={false} aria-label="Main navigation">
     <NavigationMenu.List>
       <NavigationMenu.Item>
-        <NavigationMenu.Trigger>Home</NavigationMenu.Trigger>
+        <NavigationMenu.Trigger>{$_("dashboard.title")}</NavigationMenu.Trigger>
         <NavigationMenu.Content>
           <ul class="grid gap-2 p-2 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
             <li class="row-span-3">
@@ -70,13 +65,13 @@
             </li>
             {@render ListItem({
               href: "/",
-              title: "Dashboard",
-              content: "Main operational dashboard with real-time metrics and charts."
+              title: $_("dashboard.title"),
+              content: "Main operational dashboard with real-time metrics and charts.",
             })}
             {@render ListItem({
               href: "/search",
-              title: "Search",
-              content: "Search and filter aviation telegrams with full-text search."
+              title: $_("search.title"),
+              content: "Search and filter aviation telegrams with full-text search.",
             })}
           </ul>
         </NavigationMenu.Content>
@@ -90,7 +85,7 @@
               class="nav-link"
               aria-current={$page.url.pathname === "/" ? "page" : undefined}
             >
-              Dashboard
+              {$_("dashboard.title")}
             </a>
           {/snippet}
         </NavigationMenu.Link>
@@ -104,7 +99,7 @@
               class="nav-link"
               aria-current={$page.url.pathname === "/search" ? "page" : undefined}
             >
-              Search
+              {$_("search.title")}
             </a>
           {/snippet}
         </NavigationMenu.Link>

@@ -27,9 +27,9 @@
   </div>
 
   {#if messages.length === 0}
-    <p class="muted">No messages yet.</p>
+    <p class="muted" role="status" aria-live="polite">No messages yet.</p>
   {:else}
-    <div class="message-list-container">
+    <div class="message-list-container" role="region" aria-live="polite" aria-label="Latest messages">
       <ul class="message-list" role="list">
         {#each messages as message, index (`${message.message_id || "no-id"}-${index}`)}
           <li class="message" role="listitem">

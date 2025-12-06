@@ -66,8 +66,8 @@
 
     // Use stable sort for better performance and consistency
     sorted.sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
+      let aVal: string | number;
+      let bVal: string | number;
 
       switch (sortField) {
         case "time":
@@ -156,16 +156,16 @@
     </div>
 
     {#if loading}
-      <div class="table-loading">
+      <div class="table-loading" role="status" aria-live="polite" aria-busy="true">
         <p class="muted">Loading messages...</p>
       </div>
     {:else if paginatedMessages.length === 0}
-      <div class="table-empty">
+      <div class="table-empty" role="status" aria-live="polite">
         <p class="muted">No messages available.</p>
       </div>
     {:else}
-      <div class="table-wrapper">
-        <table class="data-table">
+      <div class="table-wrapper" role="region" aria-label="Message data table">
+        <table class="data-table" role="table">
           <thead>
             <tr>
               {#each columns as col}

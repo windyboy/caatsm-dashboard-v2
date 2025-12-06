@@ -1,5 +1,31 @@
 // Client-side hooks for SvelteKit
 import { dev } from "$app/environment";
+import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
+
+// Performance monitoring
+function reportWebVitals(metric: Metric) {
+  // Log performance metrics to console
+  console.log(`Web Vitals - ${metric.name}:`, metric);
+
+  // In production, you could send to analytics service
+  if (!dev) {
+    // Example: send to backend API
+    // fetch('/api/performance', {
+    //   method: 'POST',
+    //   body: JSON.stringify(metric),
+    //   headers: { 'Content-Type': 'application/json' }
+    // }).catch(err => console.warn('Failed to report performance metric:', err));
+  }
+}
+
+// Monitor core web vitals
+if (typeof window !== 'undefined') {
+  onCLS(reportWebVitals);
+  onINP(reportWebVitals);
+  onFCP(reportWebVitals);
+  onLCP(reportWebVitals);
+  onTTFB(reportWebVitals);
+}
 
 // Service worker management
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {

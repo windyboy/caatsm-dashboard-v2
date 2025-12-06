@@ -301,7 +301,7 @@ func New(cfg *config.AppConfig, logger *zap.Logger) (*Server, error) {
 
 	// Set NATS connection in container for health checks
 	container.SetNATSConnection(nc)
-	
+
 	// Set version (can be overridden via build flags or environment variable)
 	version := os.Getenv("APP_VERSION")
 	if version == "" {
@@ -528,6 +528,7 @@ func (s *Server) registerRoutes() {
 	wsHandler := deliveryws.NewHandler(
 		s.hub,
 		s.logger,
+		s.cfg.Auth,
 		statsAdapter,
 		queryAdapter,
 		s.container.RedisClient(),

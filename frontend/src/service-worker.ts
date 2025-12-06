@@ -35,33 +35,33 @@ const getAssets = (): string[] => [...build, ...files];
 // Helper to check if request should be skipped
 const shouldSkipRequest = (request: Request): boolean => {
   const url = new URL(request.url);
-  
+
   // Skip service worker script itself to avoid infinite loops
   if (url.pathname.includes("/service-worker.js")) {
     return true;
   }
-  
+
   // Skip Vite HMR requests in development
   if (url.pathname.includes("/@vite/client") || url.pathname.includes("/@fs/")) {
     return true;
   }
-  
+
   // Skip WebSocket connections
   if (url.protocol === "ws:" || url.protocol === "wss:") {
     return true;
   }
-  
+
   // Skip API and WebSocket proxy paths
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/ws")) {
     return true;
   }
-  
+
   return false;
 };
 
 self.addEventListener("install", (event: ExtendableEvent) => {
   const assets = getAssets();
-  
+
   // Only cache if we have assets
   if (assets.length === 0) {
     console.debug("Service worker: No assets to cache, skipping install");

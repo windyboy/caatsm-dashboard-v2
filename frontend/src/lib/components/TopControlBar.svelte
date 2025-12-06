@@ -32,34 +32,22 @@
   ];
 
   const connectionStatus = $derived(wsStore?.status ?? "disconnected");
-  const statusVariant = $derived.by(() => {
-    switch (connectionStatus) {
-      case "connected":
-        return "ok";
-      case "connecting":
-        return "warn";
-      case "disconnected":
-      case "error":
-        return "error";
-      default:
-        return "idle";
-    }
-  });
+  
+  // Use simple derived for direct mapping
+  const statusVariant = $derived(
+    connectionStatus === "connected" ? "ok" :
+    connectionStatus === "connecting" ? "warn" :
+    (connectionStatus === "disconnected" || connectionStatus === "error") ? "error" :
+    "idle"
+  );
 
-  const statusLabel = $derived.by(() => {
-    switch (connectionStatus) {
-      case "connected":
-        return "Connected";
-      case "connecting":
-        return "Connecting...";
-      case "disconnected":
-        return "Disconnected";
-      case "error":
-        return "Error";
-      default:
-        return "Unknown";
-    }
-  });
+  const statusLabel = $derived(
+    connectionStatus === "connected" ? "Connected" :
+    connectionStatus === "connecting" ? "Connecting..." :
+    connectionStatus === "disconnected" ? "Disconnected" :
+    connectionStatus === "error" ? "Error" :
+    "Unknown"
+  );
 
   function handleTimeWindowChange(value: string) {
     onTimeWindowChange?.(value);
@@ -74,8 +62,9 @@
   <div class="top-control-bar__left">
     <div class="connection-status">
       <span class={cn("status-dot", `status-dot--${statusVariant}`)} aria-hidden="true"></span>
-      <span class="status-label">{statusLabel}</span>
-      <Badge variant={statusVariant}>{statusLabel}</Badge>
+      <Badge variant={statusVariant} aria-label={`Connection status: ${statusLabel}`}>
+        {statusLabel}
+      </Badge>
     </div>
   </div>
 
@@ -171,7 +160,6 @@
     color: #52525b;
     font-weight: 500;
   }
-
 
   @media (max-width: 768px) {
     .top-control-bar {
