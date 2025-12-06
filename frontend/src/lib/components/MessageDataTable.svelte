@@ -4,6 +4,7 @@
   import Badge from "./ui/Badge.svelte";
   import { Button } from "./ui/button/index.js";
   import { cn } from "$lib/utils.js";
+  import { formatPriorityShort, formatPriority, formatDate } from "$lib/utils/telegram-formatters";
 
   export type SortField = "time" | "type" | "priority" | "flight_number" | "source" | "destination";
   export type SortOrder = "asc" | "desc";
@@ -27,35 +28,6 @@
   let currentPage = $state(1);
   let sortField = $state<SortField>("time");
   let sortOrder = $state<SortOrder>("desc");
-
-  const formatPriority = (priority?: number): string => {
-    if (!priority) return "N/A";
-    if (priority === 1) return "P1";
-    if (priority === 2) return "P2";
-    return "P3";
-  };
-
-  const getPriorityLabel = (priority?: number): string => {
-    if (!priority) return "Priority N/A";
-    if (priority === 1) return "Priority 1 · Urgent";
-    if (priority === 2) return "Priority 2 · Operational";
-    return "Priority 3 · Routine";
-  };
-
-  const formatDate = (dateStr?: string): string => {
-    if (!dateStr) return "—";
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
 
   // Sort and paginate messages
   const sortedMessages = $derived.by(() => {
@@ -206,7 +178,7 @@
           <tbody>
             {#each paginatedMessages as message, index (`${message.message_id || index}-${index}`)}
               <tr class="table-row" tabindex="0">
-                <td class="table-cell">{formatDate(message.time)}</td>
+                <td class="table-cell">{formatDate(message.time, { format: "short" })}</td>
                 <td class="table-cell">
                   <Badge variant="soft">{message.type || "—"}</Badge>
                 </td>
@@ -225,9 +197,9 @@
                       : message.priority === 2
                         ? "warn"
                         : "ghost"}
-                    title={getPriorityLabel(message.priority)}
+                    title={formatPriority(message.priority)}
                   >
-                    {formatPriority(message.priority)}
+                    {formatPriorityShort(message.priority)}
                   </Badge>
                 </td>
               </tr>

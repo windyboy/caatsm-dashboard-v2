@@ -36,20 +36,50 @@
   const byType = $derived(stats?.byType ?? {});
   const systemStatus = $derived(health?.status ?? "unknown");
 
-  function handleTimeWindowChange(value: string) {
+  async function handleTimeWindowChange(value: string) {
     timeWindow = value;
+    // Reload data with new time window
+    loading = true;
+    try {
+      const [statsResponse, trendResponse] = await Promise.all([
+        fetchStats(value).catch(() => null),
+        fetchTrendData(value).catch(() => null),
+      ]);
+
+      if (statsResponse) {
+        stats = {
+          ...statsResponse,
+          byType: statsResponse.byType ?? {},
+        };
+      }
+      if (trendResponse?.data) {
+        trendData = trendResponse.data.map((d) => ({
+          time: d.time,
+          count: d.count,
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to load data for time window:", err);
+    } finally {
+      loading = false;
+    }
   }
 
   function handleRefresh() {
     // Reset loading state and refetch data
     loading = true;
     Promise.all([
-      fetchStats().catch(() => null),
+      fetchStats(timeWindow).catch(() => null),
       fetchHealth().catch(() => null),
       fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
-      fetchTrendData("hour").catch(() => null),
+      fetchTrendData(timeWindow).catch(() => null),
     ]).then(([statsResponse, healthResponse, messagesResponse, trendResponse]) => {
-      if (statsResponse) stats = statsResponse;
+      if (statsResponse) {
+        stats = {
+          ...statsResponse,
+          byType: statsResponse.byType ?? {},
+        };
+      }
       if (healthResponse) health = healthResponse;
       if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
       if (trendResponse?.data) {
@@ -68,24 +98,55 @@
   // Reactive sync of WebSocket data to local state using $effect
   // This replaces polling with reactive updates for better performance
   $effect(() => {
-    // Sync stats
-    if (wsStore.stats) {
-      stats = {
-        total: wsStore.stats.total,
-        byType: wsStore.stats.byType,
-        activeRoutes: wsStore.stats.activeRoutes ?? 0,
-        messagesPerSec: wsStore.stats.messagesPerSec ?? 0,
-        timeWindow: wsStore.stats.timeWindow,
-      };
+    const wsStats = wsStore.stats;
+    const wsHealth = wsStore.health;
+    const wsMessages = wsStore.newMessages;
+
+    // Sync stats - only update if values actually changed
+    if (wsStats) {
+      const newByType = wsStats.byType ?? {};
+      
+      // Check if we need to update by comparing values first
+      const needsUpdate = !stats ||
+        stats.total !== wsStats.total ||
+        stats.activeRoutes !== (wsStats.activeRoutes ?? 0) ||
+        stats.messagesPerSec !== (wsStats.messagesPerSec ?? 0) ||
+        stats.timeWindow !== wsStats.timeWindow;
+      
+      // Check if byType changed (deep comparison to avoid reference issues)
+      let byTypeChanged = false;
+      if (stats) {
+        const oldByType = stats.byType ?? {};
+        const oldKeys = Object.keys(oldByType);
+        const newKeys = Object.keys(newByType);
+        byTypeChanged = oldKeys.length !== newKeys.length ||
+          oldKeys.some(key => (oldByType[key] ?? 0) !== (newByType[key] ?? 0));
+      } else {
+        // If stats is null, check if newByType has any data
+        byTypeChanged = Object.keys(newByType).length > 0;
+      }
+      
+      if (needsUpdate || byTypeChanged) {
+        stats = {
+          total: wsStats.total,
+          byType: newByType,
+          activeRoutes: wsStats.activeRoutes ?? 0,
+          messagesPerSec: wsStats.messagesPerSec ?? 0,
+          timeWindow: wsStats.timeWindow,
+        };
+      }
     }
 
-    // Sync health
-    if (wsStore.health) {
-      health = wsStore.health;
+    // Sync health - only update if changed
+    if (wsHealth && wsHealth !== health) {
+      health = wsHealth;
     }
 
-    // Sync messages - always sync, even if empty, to ensure consistency
-    messages = wsStore.newMessages.slice(0, 100);
+    // Sync messages - use slice to create new array reference only when needed
+    if (wsMessages.length !== messages.length || 
+        wsMessages[0]?.message_id !== messages[0]?.message_id) {
+      messages = wsMessages.slice(0, 100);
+    }
   });
 
   onMount(async () => {
@@ -97,13 +158,18 @@
     // Initial HTTP data fetch
     try {
       const [statsResponse, healthResponse, messagesResponse, trendResponse] = await Promise.all([
-        fetchStats().catch(() => null),
+        fetchStats(timeWindow).catch(() => null),
         fetchHealth().catch(() => null),
         fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
-        fetchTrendData("hour").catch(() => null),
+        fetchTrendData(timeWindow).catch(() => null),
       ]);
 
-      if (statsResponse) stats = statsResponse;
+      if (statsResponse) {
+        stats = {
+          ...statsResponse,
+          byType: statsResponse.byType ?? {},
+        };
+      }
       if (healthResponse) health = healthResponse;
       if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
       if (trendResponse?.data) {
@@ -129,7 +195,7 @@
   <ConnectionBanner />
 
   <TopControlBar
-    {timeWindow}
+    bind:timeWindow
     onTimeWindowChange={handleTimeWindowChange}
     onRefresh={handleRefresh}
   />

@@ -50,7 +50,11 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 					if stats.ByType == nil {
 						stats.ByType = make(map[string]int64)
 					}
-					s.logger.Debug("stats cache hit", zap.String("key", cacheKey))
+					s.logger.Debug("stats cache hit",
+						zap.String("key", cacheKey),
+						zap.Int64("total", stats.TotalMessages),
+						zap.Int("by_type_count", len(stats.ByType)),
+					)
 					return &stats, nil
 				}
 			}
@@ -87,8 +91,12 @@ func (s *StatsService) GetStats(ctx context.Context, timeRange TimeWindow) (*Tra
 	}
 
 	s.logger.Info("stats retrieved",
+		zap.String("cache_key", cacheKey),
+		zap.Time("start", timeRange.Start),
+		zap.Time("end", timeRange.End),
 		zap.Int64("total_messages", stats.TotalMessages),
 		zap.Int("by_type_count", len(stats.ByType)),
+		zap.Any("by_type", stats.ByType),
 		zap.Int64("active_routes", stats.ActiveRoutes),
 		zap.Float64("messages_per_sec", stats.MessagesPerSec),
 		zap.String("time_window", stats.TimeWindow),
@@ -214,11 +222,11 @@ func (s *StatsService) buildCacheKey(timeRange TimeWindow) string {
 	// This prevents cache misses due to microsecond differences while keeping data fresh
 	startUnix := timeRange.Start.Unix()
 	endUnix := timeRange.End.Unix()
-	
+
 	// Round down to nearest minute (60 seconds)
 	startRounded := (startUnix / 60) * 60
 	endRounded := (endUnix / 60) * 60
-	
+
 	return fmt.Sprintf("stats:%d:%d", startRounded, endRounded)
 }
 
@@ -281,7 +289,7 @@ func (s *StatsService) calculateMessagesPerSec(ctx context.Context, timeRange Ti
 	// If time window is approximately 1 minute or less, use GetMessagesPerSec for real-time rate
 	now := time.Now()
 	duration := timeRange.End.Sub(timeRange.Start)
-	
+
 	// Check if this is a recent 1-minute window (within 2 minutes of now)
 	if !timeRange.End.IsZero() {
 		timeSinceEnd := now.Sub(timeRange.End)
@@ -311,9 +319,13 @@ func (s *StatsService) determineTimeWindow(timeRange TimeWindow) string {
 	}
 
 	duration := timeRange.End.Sub(timeRange.Start)
-	if duration <= time.Hour {
+	// Use a small tolerance (1 second) to account for timing differences
+	oneHour := time.Hour
+	twentyFourHours := 24 * time.Hour
+
+	if duration <= oneHour+time.Second {
 		return "last_1h"
-	} else if duration <= 24*time.Hour {
+	} else if duration <= twentyFourHours+time.Second {
 		return "last_24h"
 	}
 	return "all_time"

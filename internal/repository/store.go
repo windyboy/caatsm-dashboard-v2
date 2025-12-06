@@ -451,10 +451,10 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 	}
 
 	typeQuery := fmt.Sprintf(`
-		SELECT type, COUNT(*) as count
+		SELECT COALESCE(type, 'unknown') as type, COUNT(*) as count
 		FROM telegrams
 		%s
-		GROUP BY type
+		GROUP BY COALESCE(type, 'unknown')
 	`, whereClause)
 
 	typeRows, err := s.pool.Query(ctx, typeQuery, args...)
@@ -469,6 +469,10 @@ func (s *Store) TrafficSummary(ctx context.Context, window domain.TimeWindow) (*
 		var count int64
 		if err := typeRows.Scan(&t, &count); err != nil {
 			return nil, fmt.Errorf("scan type: %w", err)
+		}
+		// Skip empty strings (shouldn't happen with COALESCE, but be safe)
+		if t == "" {
+			t = "unknown"
 		}
 		byType[t] = count
 	}

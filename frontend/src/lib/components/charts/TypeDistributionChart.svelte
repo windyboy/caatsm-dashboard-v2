@@ -17,6 +17,7 @@
 
   let canvasElement: HTMLCanvasElement | null = $state(null);
   let chartInstance: Chart<"doughnut"> | null = $state(null);
+  let lastDataHash = $state<string>("");
 
   // Simple chart data generation
   function getChartData() {
@@ -46,60 +47,71 @@
     };
   }
 
-  // Create chart once on mount
+  // Register Chart.js components once on mount
   onMount(() => {
+    Chart.register(...registerables);
+  });
+
+  // Create or update chart when canvas and data are available
+  $effect(() => {
     if (!canvasElement) return;
 
     const ctx = canvasElement.getContext("2d");
     if (!ctx) return;
 
-    const chartData = getChartData();
-    if (chartData.labels.length === 0) return;
-
-    // Register required components for doughnut chart
-    Chart.register(...registerables);
-
-    const config: ChartConfiguration<"doughnut"> = {
-      type: "doughnut",
-      data: chartData,
-      options: {
-        ...(defaultChartOptions as Partial<ChartConfiguration<"doughnut">["options"]>),
-        plugins: {
-          ...defaultChartOptions.plugins,
-          legend: {
-            ...defaultChartOptions.plugins?.legend,
-            position: "bottom" as const,
-          },
-        },
-        cutout: "60%",
-      },
-    };
-
-    chartInstance = new Chart(ctx, config);
-  });
-
-  // Update chart only when data changes (debounced to prevent excessive updates)
-  $effect(() => {
-    if (!chartInstance) return;
+    // Create a hash of the data to detect actual changes
+    const dataHash = JSON.stringify(data);
     
-    // Skip update if no data
-    const entries = Object.entries(data);
-    if (entries.length === 0) return;
+    // Skip if data hasn't actually changed
+    if (dataHash === lastDataHash && chartInstance) {
+      return;
+    }
+    
+    lastDataHash = dataHash;
 
-    const timer = setTimeout(() => {
+    const chartData = getChartData();
+    
+    // If no data, destroy existing chart if it exists
+    if (chartData.labels.length === 0) {
       if (chartInstance) {
-        const chartData = getChartData();
-        // Only update if chart data actually changed
-        if (chartData.labels.length > 0) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+      return;
+    }
+
+    // Create chart if it doesn't exist
+    if (!chartInstance) {
+      const config: ChartConfiguration<"doughnut"> = {
+        type: "doughnut",
+        data: chartData,
+        options: {
+          ...(defaultChartOptions as Partial<ChartConfiguration<"doughnut">["options"]>),
+          plugins: {
+            ...defaultChartOptions.plugins,
+            legend: {
+              ...defaultChartOptions.plugins?.legend,
+              position: "bottom" as const,
+            },
+          },
+          cutout: "60%",
+        },
+      };
+
+      chartInstance = new Chart(ctx, config);
+    } else {
+      // Update existing chart with debounce
+      const timer = setTimeout(() => {
+        if (chartInstance && chartData.labels.length > 0) {
           chartInstance.data = chartData;
           chartInstance.update("none");
         }
-      }
-    }, 300); // Reduced debounce time for better responsiveness
+      }, 300);
 
-    return () => {
-      clearTimeout(timer);
-    };
+      return () => {
+        clearTimeout(timer);
+      };
+    }
   });
 
   onDestroy(() => {

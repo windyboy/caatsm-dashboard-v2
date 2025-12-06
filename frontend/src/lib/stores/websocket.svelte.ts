@@ -36,7 +36,10 @@ class WebSocketStore {
 
     // Handle full stats (replaces current stats)
     this.service.onStats((stats) => {
-      this._stats = stats;
+      this._stats = {
+        ...stats,
+        byType: stats.byType ?? {},
+      };
     });
 
     // Handle incremental stats (accumulates)
@@ -74,7 +77,7 @@ class WebSocketStore {
       // If no stats exist, initialize from delta
       this._stats = {
         total: delta.total,
-        byType: { ...delta.byType },
+        byType: delta.byType ? { ...delta.byType } : {},
         activeRoutes: 0,
         messagesPerSec: 0,
         timeWindow: delta.timeWindow,

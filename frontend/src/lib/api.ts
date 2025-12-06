@@ -122,10 +122,35 @@ async function request<T>(
   throw lastError;
 }
 
-export function fetchStats(): Promise<TrafficSummary> {
-  // Default to last 24 hours
+/**
+ * Calculates time range based on time window string
+ * @param timeWindow - Time window string: "last_1h", "last_24h", "last_7d", or "custom"
+ * @returns Object with startTime and endTime
+ */
+function calculateTimeRange(timeWindow: string): { startTime: Date; endTime: Date } {
   const endTime = new Date();
-  const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+  let startTime: Date;
+
+  switch (timeWindow) {
+    case "last_1h":
+      startTime = new Date(endTime.getTime() - 60 * 60 * 1000);
+      break;
+    case "last_24h":
+      startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case "last_7d":
+      startTime = new Date(endTime.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    default:
+      // Default to last 24 hours
+      startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+  }
+
+  return { startTime, endTime };
+}
+
+export function fetchStats(timeWindow: string = "last_24h"): Promise<TrafficSummary> {
+  const { startTime, endTime } = calculateTimeRange(timeWindow);
 
   const params = new URLSearchParams({
     start_time: startTime.toISOString(),
@@ -135,15 +160,24 @@ export function fetchStats(): Promise<TrafficSummary> {
   return request<TrafficSummary>(`/api/stats?${params.toString()}`);
 }
 
-export function fetchTrendData(interval: string = "hour"): Promise<HistoricalStats> {
-  // Default to last 24 hours
-  const endTime = new Date();
-  const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+export function fetchTrendData(
+  timeWindow: string = "last_24h",
+  interval: string = "hour"
+): Promise<HistoricalStats> {
+  const { startTime, endTime } = calculateTimeRange(timeWindow);
+
+  // Adjust interval based on time window
+  let adjustedInterval = interval;
+  if (timeWindow === "last_7d") {
+    adjustedInterval = "day";
+  } else if (timeWindow === "last_1h") {
+    adjustedInterval = "hour";
+  }
 
   const params = new URLSearchParams({
     start_time: startTime.toISOString(),
     end_time: endTime.toISOString(),
-    interval: interval,
+    interval: adjustedInterval,
   });
 
   return request<HistoricalStats>(`/api/stats/historical?${params.toString()}`);

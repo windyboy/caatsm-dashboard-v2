@@ -12,7 +12,7 @@
     onRefresh?: () => void;
   }
 
-  let { timeWindow = "last_24h", onTimeWindowChange, onRefresh }: TopControlBarProps = $props();
+  let { timeWindow = $bindable("last_24h"), onTimeWindowChange, onRefresh }: TopControlBarProps = $props();
 
   // Lazy load store to avoid circular dependency during module initialization
   let wsStore = $state<ReturnType<typeof getWebSocketStore> | null>(null);
@@ -71,7 +71,7 @@
   </div>
 
   <div class="top-control-bar__center">
-    <Select options={timeWindowOptions} value={timeWindow} onValueChange={handleTimeWindowChange} />
+    <Select options={timeWindowOptions} bind:value={timeWindow} onValueChange={handleTimeWindowChange} />
   </div>
 
   <div class="top-control-bar__right">

@@ -79,10 +79,9 @@ export class WebSocketService {
     if (accessToken) {
       const separator = url.includes('?') ? '&' : '?';
       url += `${separator}token=${encodeURIComponent(accessToken)}`;
-    } else if (import.meta.env.DEV) {
-      // Log warning in dev mode if token is missing
-      console.warn("WebSocket: No access token available. Connection may fail if authentication is required.");
     }
+    // Note: In development mode, backend allows connections without token
+    // No warning needed as this is expected behavior
 
     return url;
   }
@@ -139,9 +138,10 @@ export class WebSocketService {
 
       this.ws.onclose = (event) => {
         this.setStatus("disconnected");
-        // Log close details for debugging
-        if (import.meta.env.DEV) {
-          console.error("WebSocket closed:", {
+        // Log close details for debugging (only for unexpected closes)
+        // Code 1005 (No Status Received) and 1000 (Normal Closure) are usually expected
+        if (import.meta.env.DEV && event.code !== 1000 && event.code !== 1005) {
+          console.warn("WebSocket closed unexpectedly:", {
             code: event.code,
             reason: event.reason,
             wasClean: event.wasClean,

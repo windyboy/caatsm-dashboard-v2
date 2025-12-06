@@ -2,19 +2,13 @@
   import type { Telegram } from "$lib/types";
   import Card from "./ui/Card.svelte";
   import Badge from "./ui/Badge.svelte";
+  import { formatPriority, formatDate } from "$lib/utils/telegram-formatters";
 
   interface MessageListProps {
     messages?: Telegram[];
   }
 
   let { messages = [] }: MessageListProps = $props();
-
-  const formatPriority = (priority?: number): string => {
-    if (!priority) return "Priority N/A";
-    if (priority === 1) return "Priority 1 · Urgent";
-    if (priority === 2) return "Priority 2 · Operational";
-    return "Priority 3 · Routine";
-  };
 </script>
 
 <Card>
@@ -36,7 +30,7 @@
             <div class="message-meta">
               <Badge variant="soft">{message.type || "Unknown"}</Badge>
               <span class="muted">
-                {message.time ? new Date(message.time).toLocaleString() : "No timestamp"}
+                {formatDate(message.time)}
               </span>
             </div>
 
