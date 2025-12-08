@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import TopControlBar from "$lib/components/TopControlBar.svelte";
-  import EnhancedMetricCard from "$lib/components/EnhancedMetricCard.svelte";
-  import TypeDistributionChart from "$lib/components/charts/TypeDistributionChart.svelte";
-  import MessageTrendChart from "$lib/components/charts/MessageTrendChart.svelte";
-  import HealthStatusGrid from "$lib/components/HealthStatusGrid.svelte";
-  import MessageDataTable from "$lib/components/MessageDataTable.svelte";
   import LoadingSkeleton from "$lib/components/LoadingSkeleton.svelte";
   import ConnectionBanner from "$lib/components/ConnectionBanner.svelte";
+  import KPIMetricsSection from "$lib/components/dashboard/KPIMetricsSection.svelte";
+  import VisualizationSection from "$lib/components/dashboard/VisualizationSection.svelte";
+  import HealthSection from "$lib/components/dashboard/HealthSection.svelte";
+  import MessagesSection from "$lib/components/dashboard/MessagesSection.svelte";
   import { fetchHealth, fetchRecentMessages, fetchStats, fetchTrendData } from "$lib/api";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import type {
@@ -228,45 +227,18 @@
         <LoadingSkeleton variant="message" />
       </section>
     {:else}
-      <!-- KPI Metrics Grid -->
-      <section class="grid grid--four">
-        <EnhancedMetricCard
-          title="Total Messages"
-          value={totalMessages.toLocaleString()}
-          hint="Last 24 hours"
-        />
-        <EnhancedMetricCard
-          title="Messages/sec"
-          value={messagesPerSec.toFixed(1)}
-          hint="Last 1 min"
-        />
-        <EnhancedMetricCard
-          title="Active Routes"
-          value={activeRoutes.toLocaleString()}
-          hint="Unique source→destination pairs"
-        />
-        <EnhancedMetricCard
-          title="System Health"
-          value={systemStatus.toUpperCase()}
-          hint="Overall status"
-        />
-      </section>
+      <KPIMetricsSection
+        {totalMessages}
+        {messagesPerSec}
+        {activeRoutes}
+        {systemStatus}
+      />
 
-      <!-- Visualization Section -->
-      <section class="grid grid--two">
-        <TypeDistributionChart data={byType} title="Message Type Distribution" />
-        <MessageTrendChart title="Message Trend" data={trendData} />
-      </section>
+      <VisualizationSection {byType} {trendData} />
 
-      <!-- System Health Panel -->
-      <section class="health-section">
-        <HealthStatusGrid {health} />
-      </section>
+      <HealthSection {health} />
 
-      <!-- Real-time Message Table -->
-      <section class="messages-section">
-        <MessageDataTable {messages} pageSize={10} {loading} />
-      </section>
+      <MessagesSection {messages} {loading} />
     {/if}
   </div>
 </div>
@@ -306,14 +278,6 @@
 
   .grid--two {
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  }
-
-  .health-section {
-    margin-bottom: 1.5rem;
-  }
-
-  .messages-section {
-    margin-bottom: 2rem;
   }
 
   @media (max-width: 1024px) {

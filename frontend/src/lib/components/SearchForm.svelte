@@ -3,13 +3,45 @@
   import { Button } from "./ui/button/index.js";
   import Card from "./ui/Card.svelte";
 
+  /**
+   * Props for the SearchForm component.
+   * 
+   * @interface SearchFormProps
+   * @property {string} [query] - Search query text (bindable)
+   * @property {string} [startTime] - Start time for time range filter in ISO format (bindable)
+   * @property {string} [endTime] - End time for time range filter in ISO format (bindable)
+   * @property {boolean} [loading=false] - Whether the form is in a loading state
+   * @property {(event: SubmitEvent) => void} [onSubmit] - Callback function called when the form is submitted
+   * @property {() => void} [onReset] - Callback function called when the form is reset
+   * @property {(error: string) => void} [onValidationError] - Callback function called when validation fails
+   * 
+   * @example
+   * ```svelte
+   * <SearchForm
+   *   bind:query={searchQuery}
+   *   bind:startTime={start}
+   *   bind:endTime={end}
+   *   loading={isSearching}
+   *   onSubmit={handleSearch}
+   *   onReset={handleReset}
+   *   onValidationError={handleError}
+   * />
+   * ```
+   */
   interface SearchFormProps {
+    /** Search query text (bindable) */
     query?: string;
+    /** Start time for time range filter in ISO format (bindable) */
     startTime?: string;
+    /** End time for time range filter in ISO format (bindable) */
     endTime?: string;
+    /** Whether the form is in a loading state */
     loading?: boolean;
+    /** Callback function called when the form is submitted */
     onSubmit?: (event: SubmitEvent) => void;
+    /** Callback function called when the form is reset */
     onReset?: () => void;
+    /** Callback function called when validation fails */
     onValidationError?: (error: string) => void;
   }
 
@@ -24,6 +56,7 @@
   }: SearchFormProps = $props();
 
   let showFilters = $state(false);
+  const errorId = "search-form-error";
 
   function validateTimeRange(): string | null {
     if (startTime && endTime) {
@@ -80,6 +113,7 @@
             placeholder="Type, flight number, route, or text..."
             bind:value={query}
             ariaLabel="Search query"
+            aria-describedby={onValidationError ? errorId : undefined}
             class="w-full pl-12"
           />
         </div>
@@ -134,6 +168,7 @@
             type="datetime-local"
             bind:value={startTime}
             ariaLabel="Start time"
+            aria-describedby={onValidationError ? errorId : undefined}
           />
           <Input
             label="End Time"
@@ -141,6 +176,7 @@
             type="datetime-local"
             bind:value={endTime}
             ariaLabel="End time"
+            aria-describedby={onValidationError ? errorId : undefined}
           />
         </div>
         {#if startTime || endTime}

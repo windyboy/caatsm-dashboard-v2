@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import Select, { type SelectOption } from "./ui/Select.svelte";
   import Badge from "./ui/Badge.svelte";
@@ -14,15 +13,9 @@
 
   let { timeWindow = $bindable("last_24h"), onTimeWindowChange, onRefresh }: TopControlBarProps = $props();
 
-  // Lazy load store to avoid circular dependency during module initialization
-  let wsStore = $state<ReturnType<typeof getWebSocketStore> | null>(null);
-
-  // Initialize store in onMount instead of $effect to avoid orphan effect error
-  onMount(() => {
-    if (!wsStore) {
-      wsStore = getWebSocketStore();
-    }
-  });
+  // Initialize store using $effect for reactive initialization
+  // The store is a singleton, so it's safe to initialize directly
+  const wsStore = getWebSocketStore();
 
   const timeWindowOptions: SelectOption[] = [
     { value: "last_1h", label: "Last 1 hour" },

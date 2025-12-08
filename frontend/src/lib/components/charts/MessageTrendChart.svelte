@@ -56,8 +56,8 @@
     }
   }
 
-  // Simple chart data - no derived chains
-  function getChartData() {
+  // Memoized chart data using $derived for performance optimization
+  const chartData = $derived.by(() => {
     const sourceData = data.length > 0 ? data : generateMockData();
 
     return {
@@ -75,13 +75,12 @@
         },
       ],
     };
-  }
+  });
 
   // Update chart data when data prop changes
   function updateChart() {
     if (!chartInstance) return;
 
-    const chartData = getChartData();
     chartInstance.data.labels = chartData.labels;
     chartInstance.data.datasets[0].data = chartData.datasets[0].data;
     chartInstance.update();
@@ -99,7 +98,7 @@
 
     const config: ChartConfiguration<"line"> = {
       type: "line",
-      data: getChartData(),
+      data: chartData,
       options: {
         ...(defaultChartOptions as Partial<ChartConfiguration<"line">["options"]>),
         plugins: {
@@ -138,20 +137,22 @@
   });
 </script>
 
-<Card>
-  <div class="chart-container">
-    <div class="chart-header">
-      <p class="eyebrow">{title}</p>
-      <p class="muted">{$_("dashboard.messages")} over time (last 24 hours)</p>
+<svelte:boundary>
+  <Card>
+    <div class="chart-container">
+      <div class="chart-header">
+        <p class="eyebrow">{title}</p>
+        <p class="muted">{$_("dashboard.messages")} over time (last 24 hours)</p>
+      </div>
+      <div class="chart-wrapper">
+        <canvas
+          bind:this={canvasElement}
+          aria-label="Message trend chart showing message count over the last 24 hours"
+        ></canvas>
+      </div>
     </div>
-    <div class="chart-wrapper">
-      <canvas
-        bind:this={canvasElement}
-        aria-label="Message trend chart showing message count over the last 24 hours"
-      ></canvas>
-    </div>
-  </div>
-</Card>
+  </Card>
+</svelte:boundary>
 
 <style>
   .chart-container {

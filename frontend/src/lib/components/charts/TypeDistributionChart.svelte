@@ -19,8 +19,8 @@
   let chartInstance: Chart<"doughnut"> | null = $state(null);
   let lastDataHash = $state<string>("");
 
-  // Simple chart data generation
-  function getChartData() {
+  // Memoized chart data generation using $derived for performance
+  const chartData = $derived.by(() => {
     const entries = Object.entries(data);
     if (entries.length === 0) {
       return {
@@ -45,7 +45,7 @@
         },
       ],
     };
-  }
+  });
 
   // Register Chart.js components once on mount
   onMount(() => {
@@ -68,8 +68,6 @@
     }
     
     lastDataHash = dataHash;
-
-    const chartData = getChartData();
     
     // If no data, destroy existing chart if it exists
     if (chartData.labels.length === 0) {
@@ -125,25 +123,27 @@
   const hasData = $derived(Object.keys(data).length > 0);
 </script>
 
-<Card>
-  <div class="chart-container">
-    <div class="chart-header">
-      <p class="eyebrow">{title}</p>
+<svelte:boundary>
+  <Card>
+    <div class="chart-container">
+      <div class="chart-header">
+        <p class="eyebrow">{title}</p>
+      </div>
+      {#if hasData}
+        <div class="chart-wrapper">
+          <canvas
+            bind:this={canvasElement}
+            aria-label="Message type distribution chart showing proportion of different message types"
+          ></canvas>
+        </div>
+      {:else}
+        <div class="chart-empty">
+          <p class="muted">No data available</p>
+        </div>
+      {/if}
     </div>
-    {#if hasData}
-      <div class="chart-wrapper">
-        <canvas
-          bind:this={canvasElement}
-          aria-label="Message type distribution chart showing proportion of different message types"
-        ></canvas>
-      </div>
-    {:else}
-      <div class="chart-empty">
-        <p class="muted">No data available</p>
-      </div>
-    {/if}
-  </div>
-</Card>
+  </Card>
+</svelte:boundary>
 
 <style>
   .chart-container {

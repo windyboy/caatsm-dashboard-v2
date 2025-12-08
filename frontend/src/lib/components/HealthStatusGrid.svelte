@@ -4,7 +4,19 @@
   import { cn } from "$lib/utils.js";
   import type { HealthSnapshot } from "$lib/types";
 
+  /**
+   * Props for the HealthStatusGrid component.
+   * 
+   * @interface HealthStatusGridProps
+   * @property {HealthSnapshot | null} [health] - Health snapshot data containing component statuses
+   * 
+   * @example
+   * ```svelte
+   * <HealthStatusGrid health={healthData} />
+   * ```
+   */
   interface HealthStatusGridProps {
+    /** Health snapshot data containing component statuses (PostgreSQL, Redis, Meilisearch, NATS) */
     health?: HealthSnapshot | null;
   }
 

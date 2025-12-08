@@ -21,21 +21,27 @@
    * />
    * ```
    */
-  interface InputProps extends Omit<HTMLInputAttributes, "value" | "type" | "name" | "disabled" | "class"> {
+  interface InputProps extends Omit<HTMLInputAttributes, "value" | "type" | "name" | "disabled" | "class" | "id" | "placeholder" | "aria-label" | "aria-describedby"> {
     /** Optional label text displayed above the input */
     label?: string;
     /** Input value (bindable) */
     value?: string;
     /** Input type (default: "text") */
-    type?: HTMLInputAttributes["type"];
+    type?: Exclude<HTMLInputAttributes["type"], null>;
     /** Input name attribute */
     name?: string;
     /** Whether the input is disabled */
     disabled?: boolean;
     /** Aria label for accessibility (falls back to label if not provided) */
     ariaLabel?: string;
+    /** Aria describedby for linking error messages or descriptions */
+    "aria-describedby"?: string;
     /** Additional CSS classes */
     class?: string;
+    /** Input placeholder */
+    placeholder?: string;
+    /** Input ID */
+    id?: string;
   }
 
   let {
@@ -46,16 +52,26 @@
     name = "",
     disabled = false,
     ariaLabel,
+    "aria-describedby": ariaDescribedBy,
     class: className,
     id,
     ...restProps
   }: InputProps = $props();
+
+  // Type for restProps - all remaining HTMLInputAttributes that weren't destructured
+  // Exclude files since we're not using file type
+  type RestProps = Omit<HTMLInputAttributes, "value" | "type" | "name" | "disabled" | "class" | "id" | "placeholder" | "aria-label" | "aria-describedby" | "label" | "ariaLabel" | "files"> & {
+    files?: never;
+  };
 
   // Generate unique ID for label-input association if not provided
   // Use name if available, otherwise generate a unique ID
   const inputId = $derived(
     id || (label && name ? name : label ? `input-${++inputCounter}` : undefined)
   );
+
+  // Ensure type is never null for the underlying component
+  const inputType = $derived(type ?? "text");
 </script>
 
 <div class="flex flex-col gap-1.5">
@@ -66,13 +82,14 @@
   {/if}
   <ShadcnInput
     id={inputId}
-    {type}
+    type={inputType as Exclude<typeof inputType, "file">}
     {name}
     {placeholder}
     bind:value
     {disabled}
     aria-label={ariaLabel || (label && !inputId ? label : undefined)}
+    aria-describedby={ariaDescribedBy}
     class={className}
-    {...restProps}
+    {...(restProps as RestProps)}
   />
 </div>

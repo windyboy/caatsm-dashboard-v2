@@ -3,23 +3,31 @@
   import '$lib/i18n';
   
   import { locale } from 'svelte-i18n';
+  import type { Snippet } from 'svelte';
   import "../app.css";
   import Header from "$lib/components/Header.svelte";
+  import type { LayoutData } from './$types';
 
-  export let data;
+  // Svelte 5 runes mode: use $props() instead of export let
+  // SvelteKit automatically passes layout data from +layout.server.ts as 'data' prop
+  // and 'children' snippet for rendering child pages
+  let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
   // Update locale if server provided a different one
   // This happens AFTER initial render, so hydration is safe
-  $: if (data?.locale) {
-    $locale = data.locale;
-  }
+  // Using $effect instead of $: reactive statement (Svelte 5 best practice)
+  $effect(() => {
+    if (data?.locale) {
+      $locale = data.locale;
+    }
+  });
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <div class="app-shell">
   <Header />
   <main id="main-content">
-    <slot />
+    {@render children()}
   </main>
 </div>
 
