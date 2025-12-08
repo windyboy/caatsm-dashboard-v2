@@ -38,7 +38,7 @@ Use `make <target>` or `task <target>` (e.g., `make backend-dev`).
 
 ## Cursor Rules & Architecture
 - **Backend**: `.cursor/rules/backend.mdc` (Go + Echo, Clean Arch, 90-day limits)
-- **Frontend**: `.cursor/rules/frontend.mdc` (SvelteKit + TS, real-time first)
+- **Frontend**: `frontend/.cursor/rules/frontend.mdc` (SvelteKit + TS, real-time first)
 - **General**: `.cursor/rules/general.mdc` (lean real-time dashboard)
 - **Architecture**: Clean Architecture: Delivery → Service → Domain ← Infrastructure
 - **Stack**: PostgreSQL/Timescale, Meilisearch, Valkey, NATS

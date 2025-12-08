@@ -2,14 +2,14 @@
 Visualizes parsed aviation telegram data in real time. Provides dashboards, monitoring, and search. Does not parse or interpret telegram protocols—receives pre-parsed data via NATS.
 
 # WHAT
-Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + UnoCSS + @melt-ui/svelte. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
+Stack: Go + Echo, TimescaleDB, Meilisearch, Valkey, NATS, SvelteKit + Deno + TailwindCSS + shadcn-svelte. Structure: `cmd/` (entrypoints), `internal/` (backend), `frontend/` (UI), `config/` (settings). Visualization and monitoring layer only.
 
 # HOW
 Propose plan before significant changes. Keep changes small, aligned with Clean Architecture. No parsing logic. Preserve real-time behavior. Ask when unclear.
 
 # Progressive Disclosure
 - Backend: `.cursor/rules/backend.mdc` → `docs/ARCHITECTURE.md`
-- Frontend: `.cursor/rules/frontend.mdc` → `frontend/README.md`
+- Frontend: `frontend/.cursor/rules/frontend.mdc` → `frontend/README.md`
 - Commands: `AGENTS.md` → `docs/DEVELOPMENT.md`
 - Architecture: `docs/ARCHITECTURE.md`
 

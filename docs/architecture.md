@@ -217,10 +217,10 @@ Services are architecturally independent and can be split into separate binaries
 | Database | PostgreSQL + TimescaleDB | Primary storage |
 | Search | Meilisearch | Full-text search |
 | Cache/Broker | Redis | Pub/Sub, Streams, Cache |
-| Frontend | SvelteKit + @melt-ui/svelte | Web dashboard with accessible UI components |
+| Frontend | SvelteKit + shadcn-svelte | Web dashboard with accessible UI components |
 | Observability | Prometheus + Zap | Metrics and logging |
 
-**Frontend UI Components**: The frontend uses @melt-ui/svelte for accessible, headless UI components. All components follow the builder pattern, providing built-in ARIA support, keyboard navigation, and focus management while maintaining full style control through UnoCSS and custom CSS.
+**Frontend UI Components**: The frontend uses shadcn-svelte (built on bits-ui) for accessible, headless UI components. All components follow the builder pattern, providing built-in ARIA support, keyboard navigation, and focus management while maintaining full style control through TailwindCSS and custom CSS.
 
 ---
 

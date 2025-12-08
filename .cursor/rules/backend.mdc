@@ -25,7 +25,7 @@ Senior Go backend engineer; keep changes small, production-safe, aligned with ex
 Go + Echo, Postgres/Timescale (pgx), NATS JetStream, Meilisearch, Valkey, structured logging/metrics, Docker/Makefile/Taskfile, env+TOML config.
 
 # Architecture
-Delivery → Application → Infrastructure (via ports). Business logic decoupled from Echo/SQL/client specifics. Handlers validate and call services. Services depend on ports, not transports.
+Delivery → Service → Domain ← Infrastructure (via ports). Business logic decoupled from Echo/SQL/client specifics. Handlers validate and call services. Services depend on ports, not transports.
 
 # Key Patterns
 - Context propagation for I/O operations
