@@ -5,7 +5,7 @@
   import SearchError from "$lib/components/search/SearchError.svelte";
   import SearchEmptyState from "$lib/components/search/SearchEmptyState.svelte";
   import SearchResults from "$lib/components/search/SearchResults.svelte";
-  import { useSearch } from "$lib/composables/useSearch";
+  import { useSearch } from "$lib/composables/useSearch.svelte";
 
   let query = $state("");
   let startTime = $state("");
@@ -22,6 +22,10 @@
     search.handleReset();
   });
 </script>
+
+<svelte:head>
+  <title>CAATSM Dashboard - Search</title>
+</svelte:head>
 
 <div class="w-full min-h-[calc(100vh-80px)] bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
   <div class="max-w-[1600px] mx-auto px-6 py-10 md:px-4 md:py-6">
