@@ -1,0 +1,43 @@
+{
+  "version": "0.6.0",
+  "project": {
+    "name": "caatsm-dashboard",
+    "languages": [
+      "go",
+      "javascript",
+      "sql",
+      "typescript",
+      "svelte"
+    ]
+  },
+  "intelligence": {
+    "enableRealTimeAnalysis": true,
+    "enablePatternLearning": true,
+    "vectorEmbeddings": true
+  },
+  "watching": {
+    "patterns": [
+      "**/*.go",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.ts",
+      "**/*.tsx"
+    ],
+    "ignored": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/target/**"
+    ],
+    "debounceMs": 500
+  },
+  "mcp": {
+    "serverPort": 3000,
+    "enableAllTools": true
+  },
+  "setup": {
+    "createdAt": "2025-12-12T08:41:36.723Z",
+    "setupVersion": "interactive-v1"
+  }
+}
