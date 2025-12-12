@@ -73,7 +73,6 @@ func TestRealtimeService_handleMessage(t *testing.T) {
 				hub.On("Broadcast", mock.MatchedBy(func(msg app.WSMessage) bool {
 					return msg.Type == "message" && msg.Data != nil
 				})).Return(nil)
-				hub.On("GetActiveConnections").Return(5)
 			},
 			expectedError: false,
 		},
@@ -179,4 +178,3 @@ func TestRealtimeService_Start(t *testing.T) {
 
 	subscriber.AssertExpectations(t)
 }
-

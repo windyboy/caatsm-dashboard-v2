@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
-  import type { SortField, SortOrder } from "$lib/composables/useTableSort";
+  import type { SortField, SortOrder } from "$lib/composables/useTableSort.svelte";
 
   interface TableHeaderProps {
     columns: Array<{
@@ -102,4 +102,3 @@
     }
   }
 </style>
-

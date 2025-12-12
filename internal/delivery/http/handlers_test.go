@@ -126,6 +126,7 @@ func TestBuildTimeWindow(t *testing.T) {
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/api/stats", nil)
 		c := e.NewContext(req, nil)
+		c.SetPath("/api/stats")
 
 		timeRange, err := buildTimeWindow(c)
 
@@ -141,6 +142,7 @@ func TestBuildTimeWindow(t *testing.T) {
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/api/stats?start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z", nil)
 		c := e.NewContext(req, nil)
+		c.SetPath("/api/stats")
 
 		timeRange, err := buildTimeWindow(c)
 
@@ -153,6 +155,7 @@ func TestBuildTimeWindow(t *testing.T) {
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/api/stats?start_time=invalid", nil)
 		c := e.NewContext(req, nil)
+		c.SetPath("/api/stats")
 
 		_, err := buildTimeWindow(c)
 
@@ -163,6 +166,7 @@ func TestBuildTimeWindow(t *testing.T) {
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodGet, "/api/stats?start_time=2024-01-02T00:00:00Z&end_time=2024-01-01T00:00:00Z", nil)
 		c := e.NewContext(req, nil)
+		c.SetPath("/api/stats")
 
 		_, err := buildTimeWindow(c)
 

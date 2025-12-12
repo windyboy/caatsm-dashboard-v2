@@ -28,7 +28,9 @@ export function useTableSort(options: UseTableSortOptions) {
 
       switch (sortField) {
         case "time":
+          // eslint-disable-next-line svelte/prefer-svelte-reactivity
           aVal = a.time ? new Date(a.time).getTime() : 0;
+          // eslint-disable-next-line svelte/prefer-svelte-reactivity
           bVal = b.time ? new Date(b.time).getTime() : 0;
           break;
         case "type":
@@ -80,4 +82,3 @@ export function useTableSort(options: UseTableSortOptions) {
     handleSort,
   };
 }
-
