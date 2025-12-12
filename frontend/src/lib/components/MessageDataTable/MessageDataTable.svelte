@@ -2,16 +2,18 @@
   import type { Telegram } from "$lib/types";
   import Card from "../ui/Card.svelte";
   import Badge from "../ui/Badge.svelte";
-  import { useTableSort, type SortField, type SortOrder } from "$lib/composables/useTableSort";
+  import {
+    useTableSort,
+    type SortField,
+    type SortOrder,
+  } from "$lib/composables/useTableSort.svelte";
   import TableHeader from "./TableHeader.svelte";
   import TableRow from "./TableRow.svelte";
   import TablePagination from "./TablePagination.svelte";
 
-  export type { SortField, SortOrder };
-
   /**
    * Props for the MessageDataTable component.
-   * 
+   *
    * @interface MessageDataTableProps
    * @property {Telegram[]} [messages] - Array of telegram messages to display in the table
    * @property {number} [pageSize=10] - Number of messages to display per page
@@ -100,12 +102,7 @@
       {:else}
         <div class="table-wrapper" role="region" aria-label="Message data table">
           <table class="data-table">
-            <TableHeader
-              {columns}
-              {sortField}
-              {sortOrder}
-              onSort={handleSort}
-            />
+            <TableHeader {columns} {sortField} {sortOrder} onSort={handleSort} />
             <tbody>
               {#each paginatedMessages as message, index (`${message.message_id || index}-${index}`)}
                 <TableRow {message} {index} />
@@ -159,4 +156,3 @@
     }
   }
 </style>
-

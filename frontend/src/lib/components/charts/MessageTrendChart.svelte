@@ -1,10 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import {
-    Chart,
-    registerables,
-    type ChartConfiguration,
-  } from "chart.js";
+  import { Chart, registerables, type ChartConfiguration } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { defaultChartOptions, chartColors } from "$lib/utils/chart-helpers";
   import { _ } from "svelte-i18n";
@@ -19,7 +15,9 @@
     title?: string;
   }
 
-  let { data = [], title = $_("charts.messageTrend") }: MessageTrendChartProps = $props();
+  let { data = [], title }: MessageTrendChartProps = $props();
+
+  const chartTitle = $derived(title ?? $_("charts.messageTrend"));
 
   let canvasElement: HTMLCanvasElement | null = $state(null);
   let chartInstance: Chart<"line"> | null = $state(null);
@@ -44,7 +42,7 @@
     if (!timeStr.includes("T") && !timeStr.includes("Z") && timeStr.match(/^\d{1,2}:\d{2}/)) {
       return timeStr;
     }
-    
+
     try {
       const date = new Date(timeStr);
       if (isNaN(date.getTime())) {
@@ -141,7 +139,7 @@
   <Card>
     <div class="chart-container">
       <div class="chart-header">
-        <p class="eyebrow">{title}</p>
+        <p class="eyebrow">{chartTitle}</p>
         <p class="muted">{$_("dashboard.messages")} over time (last 24 hours)</p>
       </div>
       <div class="chart-wrapper">

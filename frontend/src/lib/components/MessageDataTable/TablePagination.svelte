@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from "../ui/button/index.js";
+  import { Button } from "../ui/button";
 
   interface TablePaginationProps {
     currentPage: number;
@@ -62,4 +62,3 @@
     }
   }
 </style>
-

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Badge as ShadcnBadge, type BadgeVariant } from "./badge/index.js";
+  import { Badge as ShadcnBadge, type BadgeVariant } from "./badge";
   import type { Snippet } from "svelte";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/utils";
 
   /**
    * Badge component wrapper that extends shadcn Badge with application-specific variants.
@@ -65,12 +65,7 @@
   const customClasses = $derived(variantConfig.customClasses ?? "");
 </script>
 
-<ShadcnBadge
-  variant={shadcnVariant}
-  class={cn(customClasses, className)}
-  {title}
-  {...restProps}
->
+<ShadcnBadge variant={shadcnVariant} class={cn(customClasses, className)} {title} {...restProps}>
   {#if children}
     {@render children()}
   {/if}

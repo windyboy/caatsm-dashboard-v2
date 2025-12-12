@@ -5,10 +5,9 @@
 
   interface TableRowProps {
     message: Telegram;
-    index: number;
   }
 
-  let { message, index }: TableRowProps = $props();
+  let { message }: TableRowProps = $props();
 </script>
 
 <tr class="table-row" tabindex="0">
@@ -26,11 +25,7 @@
   <td class="table-cell">{message.flight_number || "—"}</td>
   <td class="table-cell">
     <Badge
-      variant={message.priority === 1
-        ? "error"
-        : message.priority === 2
-          ? "warn"
-          : "ghost"}
+      variant={message.priority === 1 ? "error" : message.priority === 2 ? "warn" : "ghost"}
       title={formatPriority(message.priority)}
     >
       {formatPriorityShort(message.priority)}
@@ -71,4 +66,3 @@
     }
   }
 </style>
-

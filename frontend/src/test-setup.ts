@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, vi } from "vitest";
+import { afterEach, beforeAll } from "vitest";
 import { cleanup } from "@testing-library/svelte";
 import { init, register } from "svelte-i18n";
 

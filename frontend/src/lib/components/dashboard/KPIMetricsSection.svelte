@@ -8,7 +8,8 @@
     systemStatus: string;
   }
 
-  let { totalMessages, messagesPerSec, activeRoutes, systemStatus }: KPIMetricsSectionProps = $props();
+  let { totalMessages, messagesPerSec, activeRoutes, systemStatus }: KPIMetricsSectionProps =
+    $props();
 </script>
 
 <section class="grid grid--four">
@@ -17,11 +18,7 @@
     value={totalMessages.toLocaleString()}
     hint="Last 24 hours"
   />
-  <EnhancedMetricCard
-    title="Messages/sec"
-    value={messagesPerSec.toFixed(1)}
-    hint="Last 1 min"
-  />
+  <EnhancedMetricCard title="Messages/sec" value={messagesPerSec.toFixed(1)} hint="Last 1 min" />
   <EnhancedMetricCard
     title="Active Routes"
     value={activeRoutes.toLocaleString()}
@@ -57,4 +54,3 @@
     }
   }
 </style>
-

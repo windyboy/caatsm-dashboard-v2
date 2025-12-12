@@ -15,13 +15,15 @@
 
 <div class="space-y-6 animate-in fade-in duration-200">
   <!-- Results Header -->
-  <div class="flex items-center justify-between pb-5 border-b-2 border-slate-200 md:flex-col md:items-start md:gap-4">
+  <div
+    class="flex items-center justify-between pb-5 border-b-2 border-slate-200 md:flex-col md:items-start md:gap-4"
+  >
     <div>
-      <h2 class="text-3xl font-bold text-slate-900 mb-2 md:text-2xl">
-        Search Results
-      </h2>
+      <h2 class="text-3xl font-bold text-slate-900 mb-2 md:text-2xl">Search Results</h2>
       <p class="text-slate-600">
-        Found <span class="font-semibold text-slate-900">{total}</span> result{total !== 1 ? 's' : ''}
+        Found <span class="font-semibold text-slate-900">{total}</span> result{total !== 1
+          ? "s"
+          : ""}
         {#if total > results.length}
           <span class="text-slate-500"> (showing {results.length})</span>
         {/if}
@@ -34,7 +36,12 @@
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-sm hover:shadow transition-all md:w-full md:justify-center"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
         Clear filters
       </button>
@@ -89,4 +96,3 @@
     animation: fade-in 0.3s ease-out;
   }
 </style>
-

@@ -45,3 +45,8 @@ deno.lock
 !.env.local.example
 
 .cache
+
+# In Memoria
+in-memoria.db
+.in-memoria/cache/
+.in-memoria/.env

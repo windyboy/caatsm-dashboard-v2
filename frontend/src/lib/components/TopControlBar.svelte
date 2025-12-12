@@ -2,8 +2,8 @@
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
   import Select, { type SelectOption } from "./ui/Select.svelte";
   import Badge from "./ui/Badge.svelte";
-  import { Button } from "./ui/button/index.js";
-  import { cn } from "$lib/utils.js";
+  import { Button } from "./ui/button";
+  import { cn } from "$lib/utils";
 
   interface TopControlBarProps {
     timeWindow?: string;
@@ -11,7 +11,11 @@
     onRefresh?: () => void;
   }
 
-  let { timeWindow = $bindable("last_24h"), onTimeWindowChange, onRefresh }: TopControlBarProps = $props();
+  let {
+    timeWindow = $bindable("last_24h"),
+    onTimeWindowChange,
+    onRefresh,
+  }: TopControlBarProps = $props();
 
   // Initialize store using $effect for reactive initialization
   // The store is a singleton, so it's safe to initialize directly
@@ -25,21 +29,28 @@
   ];
 
   const connectionStatus = $derived(wsStore?.status ?? "disconnected");
-  
+
   // Use simple derived for direct mapping
   const statusVariant = $derived(
-    connectionStatus === "connected" ? "ok" :
-    connectionStatus === "connecting" ? "warn" :
-    (connectionStatus === "disconnected" || connectionStatus === "error") ? "error" :
-    "idle"
+    connectionStatus === "connected"
+      ? "ok"
+      : connectionStatus === "connecting"
+        ? "warn"
+        : connectionStatus === "disconnected" || connectionStatus === "error"
+          ? "error"
+          : "idle"
   );
 
   const statusLabel = $derived(
-    connectionStatus === "connected" ? "Connected" :
-    connectionStatus === "connecting" ? "Connecting..." :
-    connectionStatus === "disconnected" ? "Disconnected" :
-    connectionStatus === "error" ? "Error" :
-    "Unknown"
+    connectionStatus === "connected"
+      ? "Connected"
+      : connectionStatus === "connecting"
+        ? "Connecting..."
+        : connectionStatus === "disconnected"
+          ? "Disconnected"
+          : connectionStatus === "error"
+            ? "Error"
+            : "Unknown"
   );
 
   function handleTimeWindowChange(value: string) {
@@ -64,7 +75,11 @@
   </div>
 
   <div class="top-control-bar__center">
-    <Select options={timeWindowOptions} bind:value={timeWindow} onValueChange={handleTimeWindowChange} />
+    <Select
+      options={timeWindowOptions}
+      bind:value={timeWindow}
+      onValueChange={handleTimeWindowChange}
+    />
   </div>
 
   <div class="top-control-bar__right">

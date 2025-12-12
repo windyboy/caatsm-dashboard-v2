@@ -1,26 +1,23 @@
 <script lang="ts">
   // CRITICAL: First line import, ensures init() executes before Header renders
-  import '$lib/i18n';
-  
-  import { locale } from 'svelte-i18n';
-  import type { Snippet } from 'svelte';
+  import "$lib/i18n";
+
+  import { locale } from "svelte-i18n";
+  import type { Snippet } from "svelte";
   import "../app.css";
   import Header from "$lib/components/Header.svelte";
-  import type { LayoutData } from './$types';
+  import type { LayoutData } from "./$types";
 
   // Svelte 5 runes mode: use $props() instead of export let
   // SvelteKit automatically passes layout data from +layout.server.ts as 'data' prop
   // and 'children' snippet for rendering child pages
   let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-  // Update locale if server provided a different one
-  // This happens AFTER initial render, so hydration is safe
-  // Using $effect instead of $: reactive statement (Svelte 5 best practice)
-  $effect(() => {
-    if (data?.locale) {
-      $locale = data.locale;
-    }
-  });
+  // Set locale synchronously to ensure it's available before Header renders
+  // This prevents hydration errors when translation functions are called
+  if (data?.locale) {
+    $locale = data.locale;
+  }
 </script>
 
 <a href="#main-content" class="skip-link">Skip to main content</a>

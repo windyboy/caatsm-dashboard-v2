@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
+import { browser } from "$app/environment";
 
-const TOKEN_KEY = 'caatsm_auth_token';
-const CSRF_KEY = 'caatsm_csrf_token';
+const TOKEN_KEY = "caatsm_auth_token";
+const CSRF_KEY = "caatsm_csrf_token";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3002";
 
 export interface AuthTokens {
@@ -34,9 +34,9 @@ export class AuthManager {
    */
   async login(username: string, password: string): Promise<void> {
     const response = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ username, password }),
     });
@@ -57,7 +57,7 @@ export class AuthManager {
         localStorage.setItem(CSRF_KEY, this.tokens.csrfToken);
       } catch (error) {
         // Handle localStorage errors (e.g., privacy mode, quota exceeded)
-        console.warn('Failed to store tokens in localStorage:', error);
+        console.warn("Failed to store tokens in localStorage:", error);
         // Tokens are still in memory, so authentication will work for this session
       }
     }
@@ -74,7 +74,7 @@ export class AuthManager {
         localStorage.removeItem(CSRF_KEY);
       } catch (error) {
         // Handle localStorage errors gracefully
-        console.warn('Failed to remove tokens from localStorage:', error);
+        console.warn("Failed to remove tokens from localStorage:", error);
       }
     }
   }
@@ -113,7 +113,7 @@ export class AuthManager {
       }
     } catch (error) {
       // Handle localStorage errors (e.g., privacy mode, disabled storage)
-      console.warn('Failed to load tokens from localStorage:', error);
+      console.warn("Failed to load tokens from localStorage:", error);
       // Continue without tokens - user will need to log in again
     }
   }
@@ -123,20 +123,20 @@ export class AuthManager {
    */
   async refreshToken(): Promise<void> {
     if (!this.tokens?.accessToken) {
-      throw new Error('No token to refresh');
+      throw new Error("No token to refresh");
     }
 
     const response = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${this.tokens.accessToken}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.tokens.accessToken}`,
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       this.logout();
-      throw new Error('Token refresh failed');
+      throw new Error("Token refresh failed");
     }
 
     const data = await response.json();
@@ -147,7 +147,7 @@ export class AuthManager {
         localStorage.setItem(TOKEN_KEY, this.tokens.accessToken);
       } catch (error) {
         // Handle localStorage errors gracefully
-        console.warn('Failed to store refreshed token in localStorage:', error);
+        console.warn("Failed to store refreshed token in localStorage:", error);
         // Token is still in memory, so authentication will work for this session
       }
     }

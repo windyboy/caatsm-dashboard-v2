@@ -9,12 +9,7 @@
   import MessagesSection from "$lib/components/dashboard/MessagesSection.svelte";
   import { fetchHealth, fetchRecentMessages, fetchStats, fetchTrendData } from "$lib/api";
   import { getWebSocketStore } from "$lib/stores/websocket.svelte";
-  import type {
-    HealthSnapshot,
-    TrafficSummary,
-    Telegram,
-    SearchResponse,
-  } from "$lib/types";
+  import type { HealthSnapshot, TrafficSummary, Telegram, SearchResponse } from "$lib/types";
   import type { TrendDataPoint } from "$lib/components/charts/MessageTrendChart.svelte";
 
   // Simple state management - no complex derived values
@@ -74,26 +69,29 @@
       fetchHealth().catch(() => null),
       fetchRecentMessages(50).catch(() => ({ telegrams: [], total: 0 }) as SearchResponse),
       fetchTrendData(timeWindow).catch(() => null),
-    ]).then(([statsResponse, healthResponse, messagesResponse, trendResponse]) => {
-      if (statsResponse) {
-        stats = {
-          ...statsResponse,
-          byType: statsResponse.byType ?? {},
-        };
-      }
-      if (healthResponse) health = healthResponse;
-      if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
-      if (trendResponse?.data) {
-        trendData = trendResponse.data.map((d) => ({
-          time: d.time,
-          count: d.count,
-        }));
-      }
-    }).catch((err) => {
-      console.error("Failed to refresh data:", err);
-    }).finally(() => {
-      loading = false;
-    });
+    ])
+      .then(([statsResponse, healthResponse, messagesResponse, trendResponse]) => {
+        if (statsResponse) {
+          stats = {
+            ...statsResponse,
+            byType: statsResponse.byType ?? {},
+          };
+        }
+        if (healthResponse) health = healthResponse;
+        if (messagesResponse?.telegrams) messages = messagesResponse.telegrams;
+        if (trendResponse?.data) {
+          trendData = trendResponse.data.map((d) => ({
+            time: d.time,
+            count: d.count,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to refresh data:", err);
+      })
+      .finally(() => {
+        loading = false;
+      });
   }
 
   // Reactive sync of WebSocket data to local state using $effect
@@ -109,28 +107,30 @@
     // WebSocket always sends "last_24h" data, so we should only sync when that's selected
     // or if we don't have any stats yet (initial connection)
     if (wsStats && (timeWindow === "last_24h" || !stats)) {
-        const newByType = wsStats.byType ?? {};
-        
-        // Check if we need to update by comparing values first
-        const needsUpdate = !stats ||
-          stats.total !== wsStats.total ||
-          stats.activeRoutes !== (wsStats.activeRoutes ?? 0) ||
-          stats.messagesPerSec !== (wsStats.messagesPerSec ?? 0) ||
-          stats.timeWindow !== wsStats.timeWindow;
-        
-        // Check if byType changed (deep comparison to avoid reference issues)
-        let byTypeChanged = false;
-        if (stats) {
-          const oldByType = stats.byType ?? {};
-          const oldKeys = Object.keys(oldByType);
-          const newKeys = Object.keys(newByType);
-          byTypeChanged = oldKeys.length !== newKeys.length ||
-            oldKeys.some(key => (oldByType[key] ?? 0) !== (newByType[key] ?? 0));
-        } else {
-          // If stats is null, check if newByType has any data
-          byTypeChanged = Object.keys(newByType).length > 0;
-        }
-        
+      const newByType = wsStats.byType ?? {};
+
+      // Check if we need to update by comparing values first
+      const needsUpdate =
+        !stats ||
+        stats.total !== wsStats.total ||
+        stats.activeRoutes !== (wsStats.activeRoutes ?? 0) ||
+        stats.messagesPerSec !== (wsStats.messagesPerSec ?? 0) ||
+        stats.timeWindow !== wsStats.timeWindow;
+
+      // Check if byType changed (deep comparison to avoid reference issues)
+      let byTypeChanged = false;
+      if (stats) {
+        const oldByType = stats.byType ?? {};
+        const oldKeys = Object.keys(oldByType);
+        const newKeys = Object.keys(newByType);
+        byTypeChanged =
+          oldKeys.length !== newKeys.length ||
+          oldKeys.some((key) => (oldByType[key] ?? 0) !== (newByType[key] ?? 0));
+      } else {
+        // If stats is null, check if newByType has any data
+        byTypeChanged = Object.keys(newByType).length > 0;
+      }
+
       if (needsUpdate || byTypeChanged) {
         stats = {
           total: wsStats.total,
@@ -148,8 +148,10 @@
     }
 
     // Sync messages - use slice to create new array reference only when needed
-    if (wsMessages.length !== messages.length || 
-        wsMessages[0]?.message_id !== messages[0]?.message_id) {
+    if (
+      wsMessages.length !== messages.length ||
+      wsMessages[0]?.message_id !== messages[0]?.message_id
+    ) {
       messages = wsMessages.slice(0, 100);
     }
   });
@@ -227,12 +229,7 @@
         <LoadingSkeleton variant="message" />
       </section>
     {:else}
-      <KPIMetricsSection
-        {totalMessages}
-        {messagesPerSec}
-        {activeRoutes}
-        {systemStatus}
-      />
+      <KPIMetricsSection {totalMessages} {messagesPerSec} {activeRoutes} {systemStatus} />
 
       <VisualizationSection {byType} {trendData} />
 

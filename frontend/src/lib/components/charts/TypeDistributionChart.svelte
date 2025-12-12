@@ -1,10 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import {
-    Chart,
-    registerables,
-    type ChartConfiguration,
-  } from "chart.js";
+  import { Chart, registerables, type ChartConfiguration } from "chart.js";
   import Card from "../ui/Card.svelte";
   import { generateColors, defaultChartOptions } from "$lib/utils/chart-helpers";
 
@@ -61,14 +57,14 @@
 
     // Create a hash of the data to detect actual changes
     const dataHash = JSON.stringify(data);
-    
+
     // Skip if data hasn't actually changed
     if (dataHash === lastDataHash && chartInstance) {
       return;
     }
-    
+
     lastDataHash = dataHash;
-    
+
     // If no data, destroy existing chart if it exists
     if (chartData.labels.length === 0) {
       if (chartInstance) {

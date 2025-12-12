@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as NavigationMenu from "$lib/components/ui/navigation-menu/index.js";
-  import { cn } from "$lib/utils.js";
+  import * as NavigationMenu from "$lib/components/ui/navigation-menu";
+  import { cn } from "$lib/utils";
   import { page } from "$app/stores";
   import { _ } from "svelte-i18n";
   import type { HTMLAttributes } from "svelte/elements";

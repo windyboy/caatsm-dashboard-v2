@@ -6,10 +6,10 @@
 
   /**
    * Props for the HealthStatusGrid component.
-   * 
+   *
    * @interface HealthStatusGridProps
    * @property {HealthSnapshot | null} [health] - Health snapshot data containing component statuses
-   * 
+   *
    * @example
    * ```svelte
    * <HealthStatusGrid health={healthData} />

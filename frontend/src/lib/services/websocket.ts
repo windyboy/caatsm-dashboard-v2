@@ -77,7 +77,7 @@ export class WebSocketService {
     // 添加认证token到查询参数
     const accessToken = authManager.getAccessToken();
     if (accessToken) {
-      const separator = url.includes('?') ? '&' : '?';
+      const separator = url.includes("?") ? "&" : "?";
       url += `${separator}token=${encodeURIComponent(accessToken)}`;
     }
     // Note: In development mode, backend allows connections without token

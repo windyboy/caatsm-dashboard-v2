@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    Select as SelectRoot,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-  } from "./select/index.js";
+  import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger } from "./select";
 
   /**
    * Select option type
@@ -18,7 +13,7 @@
    * Select component wrapper that simplifies shadcn Select usage with an options-based API.
    * Automatically handles option rendering and value change callbacks.
    * Use this component for simple select dropdowns. For complex selects with groups,
-   * use the base Select components directly from "./select/index.js".
+   * use the base Select components directly from "./select".
    *
    * @example
    * ```svelte

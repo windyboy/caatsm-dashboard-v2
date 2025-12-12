@@ -5,7 +5,7 @@
 
   /**
    * Props for the SearchForm component.
-   * 
+   *
    * @interface SearchFormProps
    * @property {string} [query] - Search query text (bindable)
    * @property {string} [startTime] - Start time for time range filter in ISO format (bindable)
@@ -14,7 +14,7 @@
    * @property {(event: SubmitEvent) => void} [onSubmit] - Callback function called when the form is submitted
    * @property {() => void} [onReset] - Callback function called when the form is reset
    * @property {(error: string) => void} [onValidationError] - Callback function called when validation fails
-   * 
+   *
    * @example
    * ```svelte
    * <SearchForm
@@ -103,8 +103,18 @@
       <div class="flex-1 min-w-0">
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              class="w-5 h-5 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
           </div>
           <Input
@@ -122,20 +132,44 @@
         <Button
           type="button"
           variant="ghost"
-          onclick={() => showFilters = !showFilters}
+          onclick={() => (showFilters = !showFilters)}
           class="whitespace-nowrap border border-slate-300 hover:bg-slate-50"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            />
           </svg>
           {showFilters ? "Hide" : "Show"} Filters
         </Button>
         <div class="flex gap-2">
-          <Button type="submit" disabled={loading} class="min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg">
+          <Button
+            type="submit"
+            disabled={loading}
+            class="min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+          >
             {#if loading}
-              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
               </svg>
             {/if}
             {loading ? "Searching..." : "Search"}
@@ -182,11 +216,22 @@
         {#if startTime || endTime}
           <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div class="flex items-start gap-2">
-              <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               <p class="text-sm text-blue-900">
-                <strong>Note:</strong> Time range is limited to 90 days maximum. Start time must be before end time.
+                <strong>Note:</strong> Time range is limited to 90 days maximum. Start time must be before
+                end time.
               </p>
             </div>
           </div>
@@ -216,7 +261,8 @@
   }
 
   .animate-in {
-    animation: fade-in 0.2s ease-out, slide-in-from-top-2 0.2s ease-out;
+    animation:
+      fade-in 0.2s ease-out,
+      slide-in-from-top-2 0.2s ease-out;
   }
 </style>
-

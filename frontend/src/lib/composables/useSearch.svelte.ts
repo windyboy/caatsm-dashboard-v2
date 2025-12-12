@@ -98,4 +98,3 @@ export function useSearch(options: UseSearchOptions) {
     handleReset,
   };
 }
-

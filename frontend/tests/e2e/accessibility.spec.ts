@@ -18,7 +18,7 @@ test.describe("Accessibility Tests", () => {
     await page.goto("/");
 
     // Wait for loading to complete
-    await page.waitForSelector('[class*="loading"]', { state: 'detached', timeout: 10000 });
+    await page.waitForSelector('[class*="loading"]', { state: "detached", timeout: 10000 });
 
     // Check if charts exist and have aria-label attributes
     const charts = page.locator("canvas");

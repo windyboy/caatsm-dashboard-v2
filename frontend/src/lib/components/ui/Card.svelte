@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Card as ShadcnCard, CardContent } from "./card/index.js";
+  import { Card as ShadcnCard, CardContent } from "./card";
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 

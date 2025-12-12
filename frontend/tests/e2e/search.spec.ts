@@ -23,15 +23,15 @@ test("Search: should show error for invalid time range", async ({ page }) => {
   const filtersAvailable = await page.evaluate(async () => {
     // Find and click the filter toggle button
     const buttons = Array.from(document.querySelectorAll('button[type="button"]'));
-    const filterBtn = buttons.find(btn => {
-      const text = (btn.textContent || '').trim();
-      return (text.includes('Show') || text.includes('Hide')) && text.includes('Filter');
+    const filterBtn = buttons.find((btn) => {
+      const text = (btn.textContent || "").trim();
+      return (text.includes("Show") || text.includes("Hide")) && text.includes("Filter");
     }) as HTMLButtonElement | undefined;
-    
+
     if (filterBtn) {
       filterBtn.click();
       // Wait for DOM to update
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // Check if inputs now exist
       return document.querySelector('input[name="start_time"]') !== null;
     }
@@ -49,7 +49,7 @@ test("Search: should show error for invalid time range", async ({ page }) => {
   // Wait for the time inputs to be available
   const startTime = page.locator('input[name="start_time"]');
   const endTime = page.locator('input[name="end_time"]');
-  
+
   await startTime.waitFor({ state: "attached", timeout: 5000 });
   await endTime.waitFor({ state: "attached", timeout: 5000 });
 
@@ -58,7 +58,7 @@ test("Search: should show error for invalid time range", async ({ page }) => {
   await endTime.fill("2024-01-01T00:00");
 
   // Submit the form
-  const submitButton = page.getByRole('button', { name: /Search/i });
+  const submitButton = page.getByRole("button", { name: /Search/i });
   await submitButton.click();
 
   // Wait for error to appear

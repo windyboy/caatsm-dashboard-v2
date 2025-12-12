@@ -21,7 +21,18 @@
    * />
    * ```
    */
-  interface InputProps extends Omit<HTMLInputAttributes, "value" | "type" | "name" | "disabled" | "class" | "id" | "placeholder" | "aria-label" | "aria-describedby"> {
+  interface InputProps extends Omit<
+    HTMLInputAttributes,
+    | "value"
+    | "type"
+    | "name"
+    | "disabled"
+    | "class"
+    | "id"
+    | "placeholder"
+    | "aria-label"
+    | "aria-describedby"
+  > {
     /** Optional label text displayed above the input */
     label?: string;
     /** Input value (bindable) */
@@ -60,7 +71,21 @@
 
   // Type for restProps - all remaining HTMLInputAttributes that weren't destructured
   // Exclude files since we're not using file type
-  type RestProps = Omit<HTMLInputAttributes, "value" | "type" | "name" | "disabled" | "class" | "id" | "placeholder" | "aria-label" | "aria-describedby" | "label" | "ariaLabel" | "files"> & {
+  type RestProps = Omit<
+    HTMLInputAttributes,
+    | "value"
+    | "type"
+    | "name"
+    | "disabled"
+    | "class"
+    | "id"
+    | "placeholder"
+    | "aria-label"
+    | "aria-describedby"
+    | "label"
+    | "ariaLabel"
+    | "files"
+  > & {
     files?: never;
   };
 
@@ -82,7 +107,7 @@
   {/if}
   <ShadcnInput
     id={inputId}
-    type={inputType as Exclude<typeof inputType, "file">}
+    type={inputType as Exclude}
     {name}
     {placeholder}
     bind:value
@@ -90,6 +115,6 @@
     aria-label={ariaLabel || (label && !inputId ? label : undefined)}
     aria-describedby={ariaDescribedBy}
     class={className}
-    {...(restProps as RestProps)}
+    {...restProps as RestProps}
   />
 </div>
